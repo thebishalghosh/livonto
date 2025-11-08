@@ -6,9 +6,19 @@ require __DIR__ . '/app/config.php';
 $requestUri = $_SERVER['REQUEST_URI'];
 $baseUrl = app_url('');
 
-// Remove base URL from request URI
-$path = str_replace($baseUrl, '', $requestUri);
-$path = parse_url($path, PHP_URL_PATH);
+// Check if URL is passed as query parameter (from .htaccess rewrite)
+if (isset($_GET['url']) && !empty($_GET['url'])) {
+    $path = $_GET['url'];
+} else {
+    // Remove base URL from request URI
+    $path = str_replace($baseUrl, '', $requestUri);
+    $path = parse_url($path, PHP_URL_PATH);
+}
+
+$path = trim($path, '/');
+
+// Fix double slashes
+$path = preg_replace('#/+#', '/', $path);
 $path = trim($path, '/');
 
 // Remove query string for routing
@@ -30,7 +40,43 @@ $routes = [
     'logout' => 'public/logout.php',
     'register' => 'public/register.php',
     'password-reset' => 'public/password_reset.php',
+    'refer' => 'public/refer.php',
 ];
+
+// Admin routes
+$adminRoutes = [
+    'admin' => 'admin/index.php',
+    'admin/dashboard' => 'admin/index.php',
+    'admin/login' => 'admin/login.php',
+    'admin/listings' => 'admin/listing_manage.php',
+    'admin/listings/add' => 'admin/listing_add.php',
+    'admin/users' => 'admin/users_manage.php',
+    'admin/amenities' => 'admin/amenities_manage.php',
+    'admin/house-rules' => 'admin/house_rules_manage.php',
+    'admin/referrals' => 'admin/referrals_manage.php',
+];
+
+// Check if it's an admin route
+if (strpos($path, 'admin/') === 0 || $path === 'admin') {
+    // Handle admin routes
+    if (isset($adminRoutes[$path])) {
+        $file = __DIR__ . '/' . $adminRoutes[$path];
+        if (file_exists($file)) {
+            require $file;
+            exit;
+        }
+    }
+    // Try to find admin file directly
+    $adminPath = str_replace('admin/', '', $path);
+    if ($adminPath === 'admin') {
+        $adminPath = 'index';
+    }
+    $adminFile = __DIR__ . '/admin/' . $adminPath . '.php';
+    if (file_exists($adminFile)) {
+        require $adminFile;
+        exit;
+    }
+}
 
 // Check if route exists
 if (isset($routes[$path])) {

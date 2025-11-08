@@ -2,13 +2,13 @@
 // admin/login.php
 session_start();
 
+require __DIR__ . '/../app/config.php';
+
 // Redirect if already logged in as admin
 if (!empty($_SESSION['user_id']) && $_SESSION['user_role'] === 'admin') {
-    header('Location: ' . (dirname($_SERVER['PHP_SELF']) . '/index.php'));
+    header('Location: ' . app_url('admin'));
     exit;
 }
-
-require __DIR__ . '/../app/config.php';
 $baseUrl = app_url('');
 ?>
 <!DOCTYPE html>
@@ -41,7 +41,7 @@ $baseUrl = app_url('');
             </div>
 
             <!-- Login Form -->
-            <form id="adminLoginForm" method="POST" action="<?= htmlspecialchars($baseUrl . '/app/login_action.php') ?>" novalidate>
+            <form id="adminLoginForm" method="POST" action="<?= htmlspecialchars($baseUrl) ?>/app/login_action.php" novalidate>
                 <div id="loginAlert" class="mb-3"></div>
 
                 <div class="form-group mb-3">
@@ -83,7 +83,7 @@ $baseUrl = app_url('');
 
                 <div class="form-group mb-4">
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="remember" name="remember">
+                        <input class="form-check-input" type="checkbox" id="remember" name="remember" value="1">
                         <label class="form-check-label" for="remember">
                             Remember me
                         </label>
@@ -91,7 +91,7 @@ $baseUrl = app_url('');
                 </div>
 
                 <input type="hidden" name="admin_login" value="1">
-                <input type="hidden" name="redirect" value="<?= htmlspecialchars($baseUrl . '/admin/index.php') ?>">
+                <input type="hidden" name="redirect" value="<?= htmlspecialchars(app_url('admin')) ?>">
 
                 <button type="submit" class="btn btn-primary btn-lg w-100 mb-3" id="loginSubmit">
                     <span id="loginSpinner" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
@@ -180,12 +180,26 @@ $baseUrl = app_url('');
                             }
                         });
 
+                        // Check if response is OK
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            try {
+                                const errorData = JSON.parse(errorText);
+                                showAlert('danger', errorData.message || 'An error occurred. Please try again.');
+                            } catch (e) {
+                                showAlert('danger', 'Server error. Please try again.');
+                            }
+                            if (submitBtn) submitBtn.disabled = false;
+                            if (spinner) spinner.classList.add('d-none');
+                            return;
+                        }
+
                         const data = await response.json();
 
                         if (data.status === 'ok' || data.status === 'success') {
                             showAlert('success', data.message || 'Login successful! Redirecting...');
                             setTimeout(() => {
-                                window.location.href = data.redirect || '<?= htmlspecialchars($baseUrl . '/admin/index.php') ?>';
+                                window.location.href = data.redirect || '<?= htmlspecialchars(app_url('admin')) ?>';
                             }, 1000);
                         } else {
                             // Show errors
@@ -204,8 +218,7 @@ $baseUrl = app_url('');
                             if (spinner) spinner.classList.add('d-none');
                         }
                     } catch (error) {
-                        console.error('Login error:', error);
-                        showAlert('danger', 'An error occurred. Please try again later.');
+                        showAlert('danger', 'Network error. Please check your connection and try again.');
                         if (submitBtn) submitBtn.disabled = false;
                         if (spinner) spinner.classList.add('d-none');
                     }

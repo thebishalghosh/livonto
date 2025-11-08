@@ -1,7 +1,12 @@
 <?php
 // app/includes/admin_sidebar.php
 $baseUrl = app_url('');
-$currentPage = basename($_SERVER['PHP_SELF']);
+
+// Get current page from URL to determine active state
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+$path = parse_url($requestUri, PHP_URL_PATH);
+$path = trim(str_replace($baseUrl, '', $path), '/');
+$currentRoute = $path ?: 'admin';
 
 // Define navigation items
 $navItems = [
@@ -9,29 +14,43 @@ $navItems = [
         'id' => 'dashboard',
         'title' => 'Dashboard',
         'icon' => 'bi-speedometer2',
-        'url' => $baseUrl . '/admin/index.php',
-        'page' => 'index.php'
+        'url' => app_url('admin'),
+        'route' => 'admin'
     ],
     [
         'id' => 'listings',
         'title' => 'Listings',
         'icon' => 'bi-building',
-        'url' => $baseUrl . '/admin/listing_manage.php',
-        'page' => 'listing_manage.php'
+        'url' => app_url('admin/listings'),
+        'route' => 'admin/listings'
     ],
     [
         'id' => 'users',
         'title' => 'Users',
         'icon' => 'bi-people',
-        'url' => $baseUrl . '/admin/users_manage.php',
-        'page' => 'users_manage.php'
+        'url' => app_url('admin/users'),
+        'route' => 'admin/users'
+    ],
+    [
+        'id' => 'amenities',
+        'title' => 'Amenities',
+        'icon' => 'bi-star',
+        'url' => app_url('admin/amenities'),
+        'route' => 'admin/amenities'
+    ],
+    [
+        'id' => 'house-rules',
+        'title' => 'House Rules',
+        'icon' => 'bi-shield-check',
+        'url' => app_url('admin/house-rules'),
+        'route' => 'admin/house-rules'
     ],
     [
         'id' => 'referrals',
         'title' => 'Referrals',
         'icon' => 'bi-gift',
-        'url' => $baseUrl . '/admin/referrals_manage.php',
-        'page' => 'referrals_manage.php'
+        'url' => app_url('admin/referrals'),
+        'route' => 'admin/referrals'
     ],
     [
         'id' => 'divider1',
@@ -90,7 +109,7 @@ $navItems = [
                         <li class="admin-nav-divider"></li>
                     <?php else: ?>
                         <?php
-                        $isActive = ($currentPage === $item['page']);
+                        $isActive = ($currentRoute === ($item['route'] ?? ''));
                         $classes = ['admin-nav-item'];
                         if ($isActive) $classes[] = 'active';
                         ?>

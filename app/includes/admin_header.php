@@ -1,15 +1,15 @@
 <?php
 // app/includes/admin_header.php
-// if (session_status() === PHP_SESSION_NONE) session_start();
-
-// // Check if user is logged in and is admin
-// if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
-//     header('Location: ' . app_url('/admin/login.php'));
-//     exit;
-// }
+if (session_status() === PHP_SESSION_NONE) session_start();
 
 require __DIR__ . '/../config.php';
 $baseUrl = app_url('');
+
+// Check if user is logged in and is admin
+if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    header('Location: ' . app_url('admin/login'));
+    exit;
+}
 $pageTitle = $pageTitle ?? 'Admin Dashboard';
 $currentUser = [
     'id' => $_SESSION['user_id'] ?? null,
@@ -26,8 +26,9 @@ $currentUser = [
     <title><?= htmlspecialchars($pageTitle) ?> - Livonto Admin</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
-    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl) ?>/public/assets/images/favicon.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl) ?>/public/assets/images/favicon.ico">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars($baseUrl) ?>/public/assets/images/favicon.ico">
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -52,7 +53,7 @@ $currentUser = [
                 <button class="admin-sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
                     <i class="bi bi-list"></i>
                 </button>
-                <a href="<?= htmlspecialchars($baseUrl . '/admin/index.php') ?>" class="admin-navbar-brand">
+                <a href="<?= htmlspecialchars(app_url('admin')) ?>" class="admin-navbar-brand">
                     <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/logo-removebg.png') ?>" 
                          alt="Livonto" 
                          class="admin-brand-logo">
@@ -97,7 +98,7 @@ $currentUser = [
                             <i class="bi bi-gear me-2"></i>Settings
                         </a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger" href="<?= htmlspecialchars($baseUrl . '/public/logout.php') ?>">
+                        <li><a class="dropdown-item text-danger" href="<?= htmlspecialchars(app_url('logout')) ?>">
                             <i class="bi bi-box-arrow-right me-2"></i>Logout
                         </a></li>
                     </ul>

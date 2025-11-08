@@ -2,39 +2,166 @@
 // admin/index.php
 $pageTitle = "Dashboard";
 require __DIR__ . '/../app/includes/admin_header.php';
+require __DIR__ . '/../app/functions.php';
 
-// TODO: Replace with actual database queries
-// For now, using placeholder data
-$stats = [
-    'total_users' => 1250,
-    'total_hosts' => 85,
-    'total_listings' => 320,
-    'active_listings' => 245,
-    'pending_listings' => 12,
-    'total_bookings' => 1840,
-    'pending_bookings' => 8,
-    'total_revenue' => 2450000,
-    'monthly_revenue' => 185000,
-    'total_referrals' => 450
-];
-
-$recentUsers = [
-    ['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com', 'role' => 'user', 'created' => '2 hours ago'],
-    ['id' => 2, 'name' => 'Jane Smith', 'email' => 'jane@example.com', 'role' => 'host', 'created' => '5 hours ago'],
-    ['id' => 3, 'name' => 'Mike Johnson', 'email' => 'mike@example.com', 'role' => 'user', 'created' => '1 day ago'],
-];
-
-$pendingListings = [
-    ['id' => 1, 'title' => 'Cozy PG near IIT', 'host' => 'Rajesh Kumar', 'city' => 'Mumbai', 'price' => 6500, 'created' => '3 hours ago'],
-    ['id' => 2, 'title' => 'Modern PG with AC', 'host' => 'Priya Sharma', 'city' => 'Delhi', 'price' => 8500, 'created' => '1 day ago'],
-    ['id' => 3, 'title' => 'Budget Friendly PG', 'host' => 'Amit Patel', 'city' => 'Pune', 'price' => 5500, 'created' => '2 days ago'],
-];
-
-$recentBookings = [
-    ['id' => 1, 'listing' => 'Cozy PG near IIT', 'user' => 'Rahul Mehta', 'amount' => 6500, 'status' => 'confirmed', 'date' => '2 hours ago'],
-    ['id' => 2, 'listing' => 'Modern PG with AC', 'user' => 'Sneha Reddy', 'amount' => 8500, 'status' => 'pending', 'date' => '5 hours ago'],
-    ['id' => 3, 'listing' => 'Budget Friendly PG', 'user' => 'Vikram Singh', 'amount' => 5500, 'status' => 'confirmed', 'date' => '1 day ago'],
-];
+try {
+    $db = db();
+    
+    // Fetch Statistics
+    $stats = [
+        'total_users' => (int)$db->fetchValue("SELECT COUNT(*) FROM users WHERE role != 'admin'") ?: 0,
+        'total_hosts' => (int)$db->fetchValue("SELECT COUNT(DISTINCT owner_id) FROM listings WHERE owner_id IS NOT NULL") ?: 0,
+        'total_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings") ?: 0,
+        'active_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings WHERE status = 'active'") ?: 0,
+        'pending_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings WHERE status = 'draft'") ?: 0,
+        'total_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings") ?: 0,
+        'pending_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE status = 'pending'") ?: 0,
+        'total_revenue' => (float)$db->fetchValue("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'success'") ?: 0,
+        'monthly_revenue' => (float)$db->fetchValue("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'success' AND MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())") ?: 0,
+        'total_referrals' => (int)$db->fetchValue("SELECT COUNT(*) FROM referrals") ?: 0
+    ];
+    
+    // Calculate user growth percentage (users created this month vs last month)
+    $usersThisMonth = (int)$db->fetchValue("SELECT COUNT(*) FROM users WHERE role != 'admin' AND MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())") ?: 0;
+    $usersLastMonth = (int)$db->fetchValue("SELECT COUNT(*) FROM users WHERE role != 'admin' AND MONTH(created_at) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH)) AND YEAR(created_at) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))") ?: 0;
+    $userGrowthPercent = $usersLastMonth > 0 ? round((($usersThisMonth - $usersLastMonth) / $usersLastMonth) * 100, 1) : ($usersThisMonth > 0 ? 100 : 0);
+    
+    // Fetch Recent Users (last 5)
+    $recentUsersData = $db->fetchAll(
+        "SELECT id, name, email, role, created_at 
+         FROM users 
+         WHERE role != 'admin'
+         ORDER BY created_at DESC 
+         LIMIT 5"
+    );
+    $recentUsers = [];
+    foreach ($recentUsersData as $user) {
+        $recentUsers[] = [
+            'id' => $user['id'],
+            'name' => $user['name'],
+            'email' => $user['email'],
+            'role' => $user['role'],
+            'created' => timeAgo($user['created_at'])
+        ];
+    }
+    
+    // Fetch Pending Listings (status = 'draft', last 5)
+    $pendingListingsData = $db->fetchAll(
+        "SELECT l.id, l.title, l.created_at, u.name as host_name, ll.city,
+                (SELECT MIN(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as min_price
+         FROM listings l
+         LEFT JOIN users u ON l.owner_id = u.id
+         LEFT JOIN listing_locations ll ON l.id = ll.listing_id
+         WHERE l.status = 'draft'
+         ORDER BY l.created_at DESC 
+         LIMIT 5"
+    );
+    $pendingListings = [];
+    foreach ($pendingListingsData as $listing) {
+        $pendingListings[] = [
+            'id' => $listing['id'],
+            'title' => $listing['title'],
+            'host' => $listing['host_name'] ?: 'Unknown',
+            'city' => $listing['city'] ?: 'N/A',
+            'price' => $listing['min_price'] ?: 0,
+            'created' => timeAgo($listing['created_at'])
+        ];
+    }
+    
+    // Fetch Recent Bookings (last 5)
+    $recentBookingsData = $db->fetchAll(
+        "SELECT b.id, b.status, b.total_amount, b.created_at,
+                l.title as listing_title,
+                u.name as user_name
+         FROM bookings b
+         LEFT JOIN listings l ON b.listing_id = l.id
+         LEFT JOIN users u ON b.user_id = u.id
+         ORDER BY b.created_at DESC 
+         LIMIT 5"
+    );
+    $recentBookings = [];
+    foreach ($recentBookingsData as $booking) {
+        $recentBookings[] = [
+            'id' => $booking['id'],
+            'listing' => $booking['listing_title'] ?: 'Unknown Listing',
+            'user' => $booking['user_name'] ?: 'Unknown User',
+            'amount' => $booking['total_amount'] ?: 0,
+            'status' => $booking['status'],
+            'date' => timeAgo($booking['created_at'])
+        ];
+    }
+    
+    // Fetch Average Rating
+    $avgRating = (float)$db->fetchValue("SELECT COALESCE(AVG(rating), 0) FROM reviews") ?: 0;
+    $stats['avg_rating'] = round($avgRating, 1);
+    
+    // Fetch Chart Data
+    // Revenue Chart Data (last 30 days)
+    $revenueData = $db->fetchAll(
+        "SELECT DATE(created_at) as date, SUM(amount) as total
+         FROM payments 
+         WHERE status = 'success' 
+         AND created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+         GROUP BY DATE(created_at)
+         ORDER BY date ASC"
+    );
+    
+    // Bookings by Status
+    $bookingsByStatus = $db->fetchAll(
+        "SELECT status, COUNT(*) as count 
+         FROM bookings 
+         GROUP BY status"
+    );
+    
+    // User Growth (last 6 months)
+    $userGrowthData = $db->fetchAll(
+        "SELECT DATE_FORMAT(u.created_at, '%Y-%m') as month,
+                COUNT(*) as user_count,
+                COUNT(DISTINCT l.owner_id) as host_count
+         FROM users u
+         LEFT JOIN listings l ON u.id = l.owner_id AND l.owner_id IS NOT NULL
+         WHERE u.role != 'admin'
+         AND u.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+         GROUP BY DATE_FORMAT(u.created_at, '%Y-%m')
+         ORDER BY month ASC"
+    );
+    
+    // Listings by City
+    $listingsByCity = $db->fetchAll(
+        "SELECT ll.city, COUNT(*) as count
+         FROM listing_locations ll
+         INNER JOIN listings l ON ll.listing_id = l.id
+         WHERE ll.city IS NOT NULL AND ll.city != ''
+         GROUP BY ll.city
+         ORDER BY count DESC
+         LIMIT 6"
+    );
+    
+} catch (Exception $e) {
+    error_log("Error loading dashboard data: " . $e->getMessage());
+    // Fallback to empty data
+    $stats = [
+        'total_users' => 0,
+        'total_hosts' => 0,
+        'total_listings' => 0,
+        'active_listings' => 0,
+        'pending_listings' => 0,
+        'total_bookings' => 0,
+        'pending_bookings' => 0,
+        'total_revenue' => 0,
+        'monthly_revenue' => 0,
+        'total_referrals' => 0,
+        'avg_rating' => 0
+    ];
+    $userGrowthPercent = 0;
+    $recentUsers = [];
+    $pendingListings = [];
+    $recentBookings = [];
+    $revenueData = [];
+    $bookingsByStatus = [];
+    $userGrowthData = [];
+    $listingsByCity = [];
+}
 ?>
 
 <!-- Page Header -->
@@ -63,8 +190,9 @@ $recentBookings = [
             <div class="admin-stat-card-content">
                 <div class="admin-stat-card-label">Total Users</div>
                 <div class="admin-stat-card-value"><?= number_format($stats['total_users']) ?></div>
-                <div class="admin-stat-card-change text-success">
-                    <i class="bi bi-arrow-up"></i> +12% from last month
+                <div class="admin-stat-card-change <?= $userGrowthPercent >= 0 ? 'text-success' : 'text-danger' ?>">
+                    <i class="bi bi-arrow-<?= $userGrowthPercent >= 0 ? 'up' : 'down' ?>"></i> 
+                    <?= $userGrowthPercent >= 0 ? '+' : '' ?><?= number_format($userGrowthPercent, 1) ?>% from last month
                 </div>
             </div>
         </div>
@@ -129,7 +257,7 @@ $recentBookings = [
                 <h5 class="admin-card-title">
                     <i class="bi bi-clock-history me-2"></i>Pending Approvals
                 </h5>
-                <a href="<?= htmlspecialchars($baseUrl . '/admin/listing_manage.php?status=pending') ?>" class="btn btn-sm btn-outline-primary">
+                <a href="<?= htmlspecialchars(app_url('admin/listings?status=pending')) ?>" class="btn btn-sm btn-outline-primary">
                     View All
                 </a>
             </div>
@@ -154,10 +282,10 @@ $recentBookings = [
                                 <div class="admin-list-item-actions">
                                     <small class="text-muted d-block mb-2"><?= htmlspecialchars($listing['created']) ?></small>
                                     <div class="btn-group btn-group-sm">
-                                        <a href="<?= htmlspecialchars($baseUrl . '/admin/listing_manage.php?action=approve&id=' . $listing['id']) ?>" class="btn btn-success">
+                                        <a href="<?= htmlspecialchars(app_url('admin/listings?action=approve&id=' . $listing['id'])) ?>" class="btn btn-success">
                                             <i class="bi bi-check"></i> Approve
                                         </a>
-                                        <a href="<?= htmlspecialchars($baseUrl . '/admin/listing_manage.php?action=reject&id=' . $listing['id']) ?>" class="btn btn-danger">
+                                        <a href="<?= htmlspecialchars(app_url('admin/listings?action=reject&id=' . $listing['id'])) ?>" class="btn btn-danger">
                                             <i class="bi bi-x"></i> Reject
                                         </a>
                                     </div>
@@ -295,7 +423,7 @@ $recentBookings = [
                 <h5 class="admin-card-title">
                     <i class="bi bi-person-plus me-2"></i>Recent Users
                 </h5>
-                <a href="<?= htmlspecialchars($baseUrl . '/admin/users_manage.php') ?>" class="btn btn-sm btn-outline-primary">View All</a>
+                <a href="<?= htmlspecialchars(app_url('admin/users')) ?>" class="btn btn-sm btn-outline-primary">View All</a>
             </div>
             <div class="admin-card-body">
                 <div class="admin-list">
@@ -374,7 +502,7 @@ $recentBookings = [
                                 <i class="bi bi-star"></i>
                             </div>
                             <div class="admin-quick-stat-content">
-                                <div class="admin-quick-stat-value">4.8</div>
+                                <div class="admin-quick-stat-value"><?= number_format($stats['avg_rating'], 1) ?></div>
                                 <div class="admin-quick-stat-label">Avg Rating</div>
                             </div>
                         </div>
@@ -400,22 +528,20 @@ $recentBookings = [
 
     // Revenue Chart (Line Chart)
     function drawRevenueChart() {
-        var data = google.visualization.arrayToDataTable([
-            ['Date', 'Revenue'],
-            ['Jan 1', 45000],
-            ['Jan 8', 52000],
-            ['Jan 15', 48000],
-            ['Jan 22', 61000],
-            ['Jan 29', 55000],
-            ['Feb 5', 67000],
-            ['Feb 12', 72000],
-            ['Feb 19', 68000],
-            ['Feb 26', 75000],
-            ['Mar 5', 82000],
-            ['Mar 12', 78000],
-            ['Mar 19', 85000],
-            ['Mar 26', 92000]
-        ]);
+        var revenueData = <?= json_encode($revenueData) ?>;
+        var chartData = [['Date', 'Revenue']];
+        
+        if (revenueData.length > 0) {
+            revenueData.forEach(function(item) {
+                var date = new Date(item.date);
+                chartData.push([date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), parseFloat(item.total)]);
+            });
+        } else {
+            // Show placeholder if no data
+            chartData.push(['No Data', 0]);
+        }
+        
+        var data = google.visualization.arrayToDataTable(chartData);
 
         var options = {
             title: '',
@@ -468,13 +594,19 @@ $recentBookings = [
 
     // Bookings by Status (Pie Chart)
     function drawBookingsPieChart() {
-        var data = google.visualization.arrayToDataTable([
-            ['Status', 'Count'],
-            ['Confirmed', 1240],
-            ['Pending', 85],
-            ['Cancelled', 45],
-            ['Completed', 470]
-        ]);
+        var bookingsData = <?= json_encode($bookingsByStatus) ?>;
+        var chartData = [['Status', 'Count']];
+        
+        if (bookingsData.length > 0) {
+            bookingsData.forEach(function(item) {
+                chartData.push([item.status.charAt(0).toUpperCase() + item.status.slice(1), parseInt(item.count)]);
+            });
+        } else {
+            // Show placeholder if no data
+            chartData.push(['No Data', 1]);
+        }
+        
+        var data = google.visualization.arrayToDataTable(chartData);
 
         var options = {
             title: '',
@@ -512,15 +644,20 @@ $recentBookings = [
 
     // User Growth (Area Chart)
     function drawUserGrowthChart() {
-        var data = google.visualization.arrayToDataTable([
-            ['Month', 'Users', 'Hosts'],
-            ['Jan', 850, 45],
-            ['Feb', 920, 52],
-            ['Mar', 1050, 58],
-            ['Apr', 1120, 65],
-            ['May', 1180, 72],
-            ['Jun', 1250, 85]
-        ]);
+        var growthData = <?= json_encode($userGrowthData) ?>;
+        var chartData = [['Month', 'Users', 'Hosts']];
+        
+        if (growthData.length > 0) {
+            growthData.forEach(function(item) {
+                var date = new Date(item.month + '-01');
+                chartData.push([date.toLocaleDateString('en-US', { month: 'short' }), parseInt(item.user_count), parseInt(item.host_count || 0)]);
+            });
+        } else {
+            // Show placeholder if no data
+            chartData.push(['No Data', 0, 0]);
+        }
+        
+        var data = google.visualization.arrayToDataTable(chartData);
 
         var options = {
             title: '',
@@ -562,15 +699,19 @@ $recentBookings = [
 
     // Listings by City (Column Chart)
     function drawListingsCityChart() {
-        var data = google.visualization.arrayToDataTable([
-            ['City', 'Listings'],
-            ['Mumbai', 85],
-            ['Delhi', 72],
-            ['Bangalore', 68],
-            ['Pune', 45],
-            ['Kolkata', 38],
-            ['Hyderabad', 32]
-        ]);
+        var cityData = <?= json_encode($listingsByCity) ?>;
+        var chartData = [['City', 'Listings']];
+        
+        if (cityData.length > 0) {
+            cityData.forEach(function(item) {
+                chartData.push([item.city || 'Unknown', parseInt(item.count)]);
+            });
+        } else {
+            // Show placeholder if no data
+            chartData.push(['No Data', 0]);
+        }
+        
+        var data = google.visualization.arrayToDataTable(chartData);
 
         var options = {
             title: '',

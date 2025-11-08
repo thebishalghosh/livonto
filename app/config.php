@@ -29,6 +29,29 @@ $projectRoot = dirname(__DIR__);
 $envFile = $projectRoot . DIRECTORY_SEPARATOR . '.env';
 app_load_env($envFile);
 
+// Configure secure session settings (before any session_start())
+if (session_status() === PHP_SESSION_NONE) {
+    // Set secure session parameters
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.cookie_samesite', 'Lax');
+    
+    // Use secure cookies in HTTPS
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', '1');
+    }
+    
+    // Prevent session fixation
+    ini_set('session.use_strict_mode', '1');
+    
+    // Set session garbage collection lifetime to 30 days (for remember me)
+    ini_set('session.gc_maxlifetime', 30 * 24 * 60 * 60);
+}
+
+// Load database connection (lazy load - only when needed)
+// Database connection is initialized via Database::getInstance() when first accessed
+require_once __DIR__ . '/database.php';
+
 // Determine base URL
 $baseUrl = getenv('LIVONTO_BASE_URL');
 if (!$baseUrl) {
@@ -42,7 +65,14 @@ if (!function_exists('app_url')) {
 	function app_url($path = '/')
 	{
 		global $baseUrl;
-		$path = $path ?: '/';
+		
+		// Ensure baseUrl doesn't have trailing slash
+		$base = rtrim($baseUrl, '/');
+		
+		// Handle empty path
+		if (empty($path) || $path === '/') {
+			return $base . '/';
+		}
 		
 		// Remove leading slash if present
 		$path = ltrim($path, '/');
@@ -53,10 +83,10 @@ if (!function_exists('app_url')) {
 		
 		// Handle special cases
 		if (empty($path) || $path === 'index') {
-			return $baseUrl . '/';
+			return $base . '/';
 		}
 		
-		return $baseUrl . '/' . $path;
+		return $base . '/' . $path;
 	}
 }
 

@@ -61,8 +61,26 @@ $pageTitle = $pageTitle ?? 'PG Finder';
         
 
         <?php if(!empty($_SESSION['user_id'])): ?>
-          <li class="nav-item"><a class="nav-link" href="<?= htmlspecialchars(app_url('profile')) ?>"><?= htmlspecialchars($_SESSION['user_name'] ?? 'Profile')?></a></li>
-          <li class="nav-item"><a class="nav-link text-danger" href="<?= htmlspecialchars(app_url('logout')) ?>">Logout</a></li>
+          <!-- User Dropdown -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-person-circle fs-5 me-2"></i>
+              <span class="d-none d-md-inline"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User')?></span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+              <li>
+                <a class="dropdown-item" href="<?= htmlspecialchars(app_url('profile')) ?>">
+                  <i class="bi bi-person me-2"></i>Profile
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item text-danger" href="<?= htmlspecialchars(app_url('logout')) ?>">
+                  <i class="bi bi-box-arrow-right me-2"></i>Logout
+                </a>
+              </li>
+            </ul>
+          </li>
         <?php else: ?>
           <!-- Login opens modal -->
           <li class="nav-item">

@@ -10,7 +10,7 @@ try {
     // Fetch Statistics
     $stats = [
         'total_users' => (int)$db->fetchValue("SELECT COUNT(*) FROM users WHERE role != 'admin'") ?: 0,
-        'total_hosts' => (int)$db->fetchValue("SELECT COUNT(DISTINCT owner_id) FROM listings WHERE owner_id IS NOT NULL") ?: 0,
+        'total_hosts' => (int)$db->fetchValue("SELECT COUNT(DISTINCT owner_name) FROM listings WHERE owner_name IS NOT NULL AND owner_name != ''") ?: 0,
         'total_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings") ?: 0,
         'active_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings WHERE status = 'active'") ?: 0,
         'pending_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings WHERE status = 'draft'") ?: 0,
@@ -47,10 +47,9 @@ try {
     
     // Fetch Pending Listings (status = 'draft', last 5)
     $pendingListingsData = $db->fetchAll(
-        "SELECT l.id, l.title, l.created_at, u.name as host_name, ll.city,
+        "SELECT l.id, l.title, l.owner_name, l.created_at, ll.city,
                 (SELECT MIN(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as min_price
          FROM listings l
-         LEFT JOIN users u ON l.owner_id = u.id
          LEFT JOIN listing_locations ll ON l.id = ll.listing_id
          WHERE l.status = 'draft'
          ORDER BY l.created_at DESC 
@@ -61,7 +60,7 @@ try {
         $pendingListings[] = [
             'id' => $listing['id'],
             'title' => $listing['title'],
-            'host' => $listing['host_name'] ?: 'Unknown',
+            'host' => $listing['owner_name'] ?: 'Unknown',
             'city' => $listing['city'] ?: 'N/A',
             'price' => $listing['min_price'] ?: 0,
             'created' => timeAgo($listing['created_at'])
@@ -114,12 +113,12 @@ try {
     );
     
     // User Growth (last 6 months)
+    // Note: Host count is now based on owner_name, not linked to users, so we show 0 for host_count in growth chart
     $userGrowthData = $db->fetchAll(
         "SELECT DATE_FORMAT(u.created_at, '%Y-%m') as month,
                 COUNT(*) as user_count,
-                COUNT(DISTINCT l.owner_id) as host_count
+                0 as host_count
          FROM users u
-         LEFT JOIN listings l ON u.id = l.owner_id AND l.owner_id IS NOT NULL
          WHERE u.role != 'admin'
          AND u.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
          GROUP BY DATE_FORMAT(u.created_at, '%Y-%m')

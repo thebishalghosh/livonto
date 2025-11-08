@@ -1,7 +1,124 @@
 <?php
 $pageTitle = "Find your PG";
+require __DIR__ . '/../app/config.php';
+require __DIR__ . '/../app/functions.php';
 require __DIR__ . '/../app/includes/header.php';
 $baseUrl = app_url('');
+
+// Check if there's a search query
+$searchQuery = trim($_GET['q'] ?? $_GET['search'] ?? '');
+$searchCity = trim($_GET['city'] ?? '');
+
+// Fetch dynamic data
+try {
+    $db = db();
+    
+    // If there's a search query, get search results, otherwise get latest listings
+    if (!empty($searchQuery) || !empty($searchCity)) {
+        $query = $searchQuery ?: $searchCity;
+        $city = $searchCity ?: $searchQuery;
+        
+        // Build WHERE clause for search
+        $where = ['l.status = ?'];
+        $params = ['active'];
+        
+        if (!empty($city)) {
+            $where[] = '(LOWER(TRIM(loc.city)) = LOWER(TRIM(?)) OR LOWER(loc.city) LIKE LOWER(?) OR loc.city LIKE ?)';
+            $cityTrimmed = trim($city);
+            $cityParam = "%{$cityTrimmed}%";
+            $params[] = $cityTrimmed;
+            $params[] = $cityParam;
+            $params[] = $cityParam;
+        }
+        
+        if (!empty($query)) {
+            $where[] = '(l.title LIKE ? OR l.description LIKE ?)';
+            $queryParam = "%{$query}%";
+            $params[] = $queryParam;
+            $params[] = $queryParam;
+        }
+        
+        $whereClause = 'WHERE ' . implode(' AND ', $where);
+        
+        // Get search results
+        $latestListings = $db->fetchAll(
+            "SELECT l.id, l.title, l.description, l.cover_image, l.available_for, l.gender_allowed,
+                    loc.city, loc.pin_code,
+                    (SELECT MIN(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as min_rent,
+                    (SELECT MAX(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as max_rent,
+                    (SELECT AVG(rating) FROM reviews WHERE listing_id = l.id) as avg_rating,
+                    (SELECT COUNT(*) FROM reviews WHERE listing_id = l.id) as reviews_count
+             FROM listings l
+             LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+             {$whereClause}
+             ORDER BY l.created_at DESC
+             LIMIT 50",
+            $params
+        );
+    } else {
+        // Get latest active listings (limit 9)
+        $latestListings = $db->fetchAll(
+            "SELECT l.id, l.title, l.description, l.cover_image, l.available_for, l.gender_allowed,
+                    loc.city, loc.pin_code,
+                    (SELECT MIN(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as min_rent,
+                    (SELECT MAX(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as max_rent,
+                    (SELECT AVG(rating) FROM reviews WHERE listing_id = l.id) as avg_rating,
+                    (SELECT COUNT(*) FROM reviews WHERE listing_id = l.id) as reviews_count
+             FROM listings l
+             LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+             WHERE l.status = 'active'
+             ORDER BY l.created_at DESC
+             LIMIT 9"
+        );
+    }
+    
+    // Get popular cities (cities with most listings)
+    $popularCities = $db->fetchAll(
+        "SELECT loc.city, COUNT(*) as listing_count
+         FROM listing_locations loc
+         INNER JOIN listings l ON loc.listing_id = l.id
+         WHERE l.status = 'active' 
+         AND loc.city IS NOT NULL 
+         AND loc.city != ''
+         GROUP BY loc.city
+         ORDER BY listing_count DESC
+         LIMIT 10"
+    );
+    
+    // Get statistics
+    $stats = [
+        'total_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings WHERE status = 'active'") ?: 0,
+        'total_cities' => (int)$db->fetchValue("SELECT COUNT(DISTINCT city) FROM listing_locations WHERE city IS NOT NULL AND city != ''") ?: 0,
+        'total_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE status = 'confirmed'") ?: 0
+    ];
+    
+    // Get testimonials from reviews (if available)
+    $testimonials = $db->fetchAll(
+        "SELECT r.comment, r.rating, u.name as user_name, l.title as listing_title, loc.city
+         FROM reviews r
+         INNER JOIN users u ON r.user_id = u.id
+         INNER JOIN listings l ON r.listing_id = l.id
+         LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+         WHERE r.comment IS NOT NULL AND r.comment != ''
+         ORDER BY r.created_at DESC
+         LIMIT 3"
+    );
+    
+} catch (Exception $e) {
+    error_log("Error loading homepage data: " . $e->getMessage());
+    // Fallback to empty data
+    $latestListings = [];
+    $popularCities = [
+        ['city' => 'Bengaluru', 'listing_count' => 0],
+        ['city' => 'Mumbai', 'listing_count' => 0],
+        ['city' => 'Pune', 'listing_count' => 0],
+        ['city' => 'Kolkata', 'listing_count' => 0],
+        ['city' => 'Delhi', 'listing_count' => 0],
+        ['city' => 'Hyderabad', 'listing_count' => 0]
+    ];
+    $stats = ['total_listings' => 0, 'total_cities' => 0, 'total_bookings' => 0];
+    $testimonials = [];
+}
 ?>
 <div class="row g-4 align-items-center">
   <div class="col-md-7">
@@ -9,11 +126,9 @@ $baseUrl = app_url('');
     <p class="text-muted">Find trusted PGs, compare amenities, and book with confidence.</p>
 
     <form id="searchForm" class="row g-2 search-bar">
-      <div class="col-md-6">
-        <input id="q" class="form-control search-input" placeholder="Search (e.g. near IIT, locality)">
-      </div>
-      <div class="col-md-4">
-        <input id="city" class="form-control" placeholder="City">
+      <div class="col-md-10 position-relative">
+        <input id="searchInput" class="form-control search-input" placeholder="Search city or location (e.g. Mumbai, near IIT, Kolkata)" autocomplete="off">
+        <div id="searchSuggestions" class="search-suggestions" style="display: none;"></div>
       </div>
       <div class="col-md-2 d-grid">
         <button class="btn btn-primary">Search</button>
@@ -22,7 +137,34 @@ $baseUrl = app_url('');
   </div>
 
   <div class="col-md-5 text-center">
-    <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/livonto-image.jpg') ?>" alt="Livonto" class="img-fluid" style="max-height:260px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+    <div id="mapPlaceholder" style="display: block;">
+      <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/livonto-image.jpg') ?>" alt="Livonto" class="img-fluid" style="max-height:260px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+    </div>
+  </div>
+</div>
+
+<!-- Map Section (hidden by default, shown when location is searched) -->
+<div id="mapSection" class="mt-4" style="display: none;">
+  <div class="card pg">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0" style="color: var(--primary-700);">
+        <i class="bi bi-map me-2"></i>Listings on Map
+      </h5>
+      <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('mapSection').style.display='none';">
+        <i class="bi bi-x"></i> Close
+      </button>
+    </div>
+    <div class="card-body p-0 position-relative">
+      <div id="mapLoading" class="position-absolute top-50 start-50 translate-middle" style="z-index: 1000; display: none; background: rgba(255,255,255,0.9); padding: 20px; border-radius: 8px;">
+        <div class="text-center">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2 mb-0 small text-muted">Loading map...</p>
+        </div>
+      </div>
+      <div id="listingsMap" style="height: 500px; width: 100%; border-radius: 0 0 12px 12px;"></div>
+    </div>
   </div>
 </div>
 
@@ -68,76 +210,150 @@ $baseUrl = app_url('');
 </div>
 
 <hr>
-<h3 class="mb-3">Latest listings</h3>
+<h3 class="mb-3" id="listingsTitle">
+    <?php if (!empty($searchQuery) || !empty($searchCity)): ?>
+        Search Results
+        <?php if (!empty($searchQuery) || !empty($searchCity)): ?>
+            <small class="text-muted">for "<?= htmlspecialchars($searchQuery ?: $searchCity) ?>"</small>
+        <?php endif; ?>
+    <?php else: ?>
+        Latest listings
+    <?php endif; ?>
+</h3>
 <div id="featured" class="row gy-3">
-  <!-- Placeholder featured cards (replace with server data) -->
-  <div class="col-md-4">
-    <div class="card pg shadow-sm">
-      <img src="/assets/images/placeholder.png" class="card-img-top" style="height:180px;object-fit:cover" alt="">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <h5 class="listing-title mb-1">Dipak Paul PG</h5>
-            <div class="listing-meta">Kolkata • Unisex</div>
-          </div>
-          <div class="text-end">
-            <div class="price">₹6,500</div>
-            <div class="text-muted small">/month</div>
-          </div>
-        </div>
-        <p class="mt-2 small text-muted">Comfortable rooms, WiFi, food available.</p>
+  <?php if (empty($latestListings)): ?>
+    <div class="col-12">
+      <div class="alert alert-info">
+        <p class="mb-0">No listings available at the moment. Check back soon!</p>
       </div>
     </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card pg shadow-sm">
-      <img src="/assets/images/placeholder.png" class="card-img-top" style="height:180px;object-fit:cover" alt="">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <h5 class="listing-title mb-1">Green Nest PG</h5>
-            <div class="listing-meta">Bengaluru • Female</div>
+  <?php else: ?>
+    <?php foreach ($latestListings as $listing): ?>
+      <?php 
+      // Build image URL
+      // Use a data URI for placeholder if no image
+      $imageUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+      if (!empty($listing['cover_image'])) {
+          $imagePath = $listing['cover_image'];
+          if (strpos($imagePath, 'http') !== 0 && strpos($imagePath, '//') !== 0) {
+              $imageUrl = $baseUrl . '/' . ltrim($imagePath, '/');
+          } else {
+              $imageUrl = $imagePath;
+          }
+      }
+      
+      // Build listing URL
+      $listingUrl = app_url('listings/' . $listing['id']);
+      
+      // Format price
+      $priceText = '';
+      if ($listing['min_rent']) {
+          if ($listing['min_rent'] == $listing['max_rent']) {
+              $priceText = '₹' . number_format($listing['min_rent']);
+          } else {
+              $priceText = '₹' . number_format($listing['min_rent']) . ' - ₹' . number_format($listing['max_rent']);
+          }
+      }
+      
+      // Format description (truncate if too long)
+      $description = !empty($listing['description']) ? $listing['description'] : 'Comfortable PG accommodation.';
+      $description = mb_substr($description, 0, 100);
+      if (mb_strlen($listing['description'] ?? '') > 100) {
+          $description .= '...';
+      }
+      
+      // Format location
+      $location = '';
+      if (!empty($listing['city'])) {
+          $location = $listing['city'];
+          if (!empty($listing['pin_code'])) {
+              $location .= ' • ' . $listing['pin_code'];
+          }
+      }
+      if (empty($location)) {
+          $location = 'Location not specified';
+      }
+      
+      // Format gender/available for
+      $genderInfo = '';
+      if (!empty($listing['available_for']) && $listing['available_for'] !== 'both') {
+          $genderInfo = ucfirst($listing['available_for']);
+      } elseif (!empty($listing['gender_allowed'])) {
+          $genderInfo = ucfirst($listing['gender_allowed']);
+      }
+      if ($genderInfo) {
+          $location .= ' • ' . $genderInfo;
+      }
+      ?>
+      <div class="col-md-4">
+        <a href="<?= htmlspecialchars($listingUrl) ?>" class="text-decoration-none">
+          <div class="card pg shadow-sm h-100">
+            <img src="<?= htmlspecialchars($imageUrl) ?>" 
+                 class="card-img-top" 
+                 style="height:180px;object-fit:cover" 
+                 alt="<?= htmlspecialchars($listing['title']) ?>"
+                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                  <h5 class="listing-title mb-1"><?= htmlspecialchars($listing['title']) ?></h5>
+                  <div class="listing-meta"><?= htmlspecialchars($location) ?></div>
+                </div>
+                <?php if ($priceText): ?>
+                  <div class="text-end">
+                    <div class="price"><?= htmlspecialchars($priceText) ?></div>
+                    <div class="text-muted small">/month</div>
+                  </div>
+                <?php endif; ?>
+              </div>
+              <p class="mt-2 small text-muted"><?= htmlspecialchars($description) ?></p>
+              <?php if ($listing['avg_rating'] && $listing['reviews_count'] > 0): ?>
+                <div class="mt-2">
+                  <span class="text-warning">
+                    <?php for ($i = 1; $i <= 5; $i++): ?>
+                      <i class="bi bi-star<?= $i <= round($listing['avg_rating']) ? '-fill' : '' ?>"></i>
+                    <?php endfor; ?>
+                  </span>
+                  <small class="text-muted ms-2"><?= number_format($listing['avg_rating'], 1) ?> (<?= $listing['reviews_count'] ?>)</small>
+                </div>
+              <?php endif; ?>
+            </div>
           </div>
-          <div class="text-end">
-            <div class="price">₹8,000</div>
-            <div class="text-muted small">/month</div>
-          </div>
-        </div>
-        <p class="mt-2 small text-muted">Near tech parks, 24x7 security, homely food.</p>
+        </a>
       </div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card pg shadow-sm">
-      <img src="/assets/images/placeholder.png" class="card-img-top" style="height:180px;object-fit:cover" alt="">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <h5 class="listing-title mb-1">City Comfort PG</h5>
-            <div class="listing-meta">Mumbai • Male</div>
-          </div>
-          <div class="text-end">
-            <div class="price">₹9,500</div>
-            <div class="text-muted small">/month</div>
-          </div>
-        </div>
-        <p class="mt-2 small text-muted">AC rooms, housekeeping, metro at 5 mins.</p>
-      </div>
-    </div>
-  </div>
-  <!-- duplicate as needed -->
+    <?php endforeach; ?>
+  <?php endif; ?>
 </div>
+
+<?php if (!empty($latestListings) && count($latestListings) >= 9): ?>
+  <div class="text-center mt-4">
+    <a href="<?= htmlspecialchars(app_url('listings')) ?>" class="btn btn-outline-primary">View All Listings</a>
+  </div>
+<?php endif; ?>
 
 <!-- Popular areas quick links -->
 <div class="mt-5">
   <div class="kicker mb-2">Popular Areas</div>
   <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Bengaluru')) ?>">Bengaluru</a>
-    <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Mumbai')) ?>">Mumbai</a>
-    <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Pune')) ?>">Pune</a>
-    <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Kolkata')) ?>">Kolkata</a>
-    <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Delhi')) ?>">Delhi</a>
-    <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Hyderabad')) ?>">Hyderabad</a>
+    <?php if (!empty($popularCities)): ?>
+      <?php foreach ($popularCities as $cityData): ?>
+        <a class="btn btn-sm btn-outline-secondary" 
+           href="<?= htmlspecialchars(app_url('listings?city=' . urlencode($cityData['city']))) ?>">
+          <?= htmlspecialchars($cityData['city']) ?>
+          <?php if ($cityData['listing_count'] > 0): ?>
+            <span class="badge bg-secondary ms-1"><?= $cityData['listing_count'] ?></span>
+          <?php endif; ?>
+        </a>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <!-- Fallback cities if no data -->
+      <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Bengaluru')) ?>">Bengaluru</a>
+      <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Mumbai')) ?>">Mumbai</a>
+      <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Pune')) ?>">Pune</a>
+      <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Kolkata')) ?>">Kolkata</a>
+      <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Delhi')) ?>">Delhi</a>
+      <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars(app_url('listings?city=Hyderabad')) ?>">Hyderabad</a>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -186,9 +402,7 @@ $baseUrl = app_url('');
   <!-- Trust badges -->
   <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
     <div class="small text-muted">Trusted by students & professionals from</div>
-    <img src="/assets/images/placeholder.png" alt="brand" style="height:24px; width:auto; opacity:.7">
-    <img src="/assets/images/placeholder.png" alt="brand" style="height:24px; width:auto; opacity:.7">
-    <img src="/assets/images/placeholder.png" alt="brand" style="height:24px; width:auto; opacity:.7">
+    <!-- Brand logos can be added here when available -->
   </div>
   
   <!-- App download strip -->
@@ -207,6 +421,39 @@ $baseUrl = app_url('');
 </div>
 
 <!-- Testimonials -->
+<?php if (!empty($testimonials)): ?>
+<div class="mt-5">
+  <div class="kicker mb-2">Stories</div>
+  <h3 class="mb-3">What our users say</h3>
+  <div class="row g-3">
+    <?php foreach ($testimonials as $testimonial): ?>
+      <div class="col-md-4">
+        <div class="card pg h-100">
+          <div class="card-body">
+            <?php if ($testimonial['rating']): ?>
+              <div class="mb-2">
+                <span class="text-warning">
+                  <?php for ($i = 1; $i <= 5; $i++): ?>
+                    <i class="bi bi-star<?= $i <= $testimonial['rating'] ? '-fill' : '' ?>"></i>
+                  <?php endfor; ?>
+                </span>
+              </div>
+            <?php endif; ?>
+            <p class="mb-2">"<?= htmlspecialchars($testimonial['comment']) ?>"</p>
+            <div class="small text-muted">
+              <?= htmlspecialchars($testimonial['user_name']) ?>
+              <?php if (!empty($testimonial['city'])): ?>
+                , <?= htmlspecialchars($testimonial['city']) ?>
+              <?php endif; ?>
+            </div>
+          </div>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php else: ?>
+<!-- Fallback testimonials if no reviews -->
 <div class="mt-5">
   <div class="kicker mb-2">Stories</div>
   <h3 class="mb-3">What our users say</h3>
@@ -214,7 +461,7 @@ $baseUrl = app_url('');
     <div class="col-md-4">
       <div class="card pg h-100">
         <div class="card-body">
-          <p class="mb-2">“Booking my PG was super quick and transparent. Photos matched the place.”</p>
+          <p class="mb-2">"Booking my PG was super quick and transparent. Photos matched the place."</p>
           <div class="small text-muted">Ananya, Pune</div>
         </div>
       </div>
@@ -222,7 +469,7 @@ $baseUrl = app_url('');
     <div class="col-md-4">
       <div class="card pg h-100">
         <div class="card-body">
-          <p class="mb-2">“Loved the filters and verified badge. Helped me avoid brokers.”</p>
+          <p class="mb-2">"Loved the filters and verified badge. Helped me avoid brokers."</p>
           <div class="small text-muted">Rahul, Bengaluru</div>
         </div>
       </div>
@@ -230,13 +477,14 @@ $baseUrl = app_url('');
     <div class="col-md-4">
       <div class="card pg h-100">
         <div class="card-body">
-          <p class="mb-2">“Host response time was fast and move‑in was smooth.”</p>
+          <p class="mb-2">"Host response time was fast and move‑in was smooth."</p>
           <div class="small text-muted">Sneha, Mumbai</div>
         </div>
       </div>
     </div>
   </div>
 </div>
+<?php endif; ?>
 
 <!-- FAQ -->
 <div class="mt-5">

@@ -25,6 +25,17 @@ $pageTitle = $pageTitle ?? 'PG Finder';
 
   <!-- Your styles -->
   <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/public/assets/css/styles.css') ?>">
+  
+  <!-- Leaflet CSS (for maps) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+        crossorigin=""/>
+  
+  <!-- Map custom styles -->
+  <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/public/assets/css/map.css') ?>">
+  
+  <!-- Autocomplete styles -->
+  <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/public/assets/css/autocomplete.css') ?>">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">

@@ -4,18 +4,192 @@ document.addEventListener('DOMContentLoaded', function() {
   if (searchForm) {
     searchForm.addEventListener('submit', async function(e){
       e.preventDefault();
-      const q = (document.getElementById('q')||{value:''}).value;
-      const city = (document.getElementById('city')||{value:''}).value;
-      // basic client-side navigation to listings page with query params
-      const params = new URLSearchParams();
-      if (q) params.append('q', q);
-      if (city) params.append('city', city);
-      // Use clean URL - remove /public/ and .php
-      const basePath = window.location.pathname.replace(/\/public\/.*$/, '');
-      window.location.href = basePath + '/listings?' + params.toString();
+      const searchInput = document.getElementById('searchInput');
+      const searchValue = (searchInput || {value:''}).value.trim();
+      
+      if (!searchValue) {
+        return; // Don't do anything if search is empty
+      }
+      
+      // First, geocode the search term to get its coordinates
+      // This ensures the map centers on the searched location
+      let searchLat = null;
+      let searchLng = null;
+      
+      try {
+        // Try to get coordinates for the search term
+        let cityCoords = getDefaultCityCoords(searchValue);
+        if (!cityCoords) {
+          cityCoords = await geocodeCity(searchValue);
+        }
+        
+        if (cityCoords) {
+          searchLat = cityCoords.lat;
+          searchLng = cityCoords.lng;
+        }
+      } catch (error) {
+        // Geocoding failed, will use search term as text query
+      }
+      
+      // Try to get user location if available (for distance calculation)
+      let userLat = null;
+      let userLng = null;
+      
+      try {
+        const location = await getUserLocation();
+        userLat = location.lat;
+        userLng = location.lng;
+      } catch (error) {
+        // User location not available, use search coordinates only
+      }
+      
+      // Use geocoded search coordinates if available, otherwise use user location
+      const mapLat = searchLat || userLat;
+      const mapLng = searchLng || userLng;
+      
+      // Load listings on map - pass geocoded coordinates to find nearby listings
+      await loadListingsOnMap(searchValue, searchValue, mapLat, mapLng);
+      
+      // Load search results in listings section
+      await loadSearchResults(searchValue, searchValue);
+      
+      // Scroll to map
+      const mapSection = document.getElementById('mapSection');
+      if (mapSection) {
+        mapSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
   }
 });
+
+/**
+ * Load search results and display in listings section
+ */
+async function loadSearchResults(city = '', query = '') {
+  const featuredSection = document.getElementById('featured');
+  const sectionTitle = document.getElementById('listingsTitle');
+  
+  if (!featuredSection) {
+    return;
+  }
+  
+  // Show loading state
+  featuredSection.innerHTML = '<div class="col-12"><div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div></div>';
+  
+  try {
+    const params = new URLSearchParams();
+    if (city) {
+      params.append('city', city);
+    }
+    if (query) {
+      params.append('q', query);
+    }
+    
+    const response = await fetch(`${baseUrl}/app/listings_search_api.php?${params.toString()}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data && (data.status === 'ok' || data.status === 'success')) {
+      const listings = (data.data && data.data.listings) ? data.data.listings : (data.listings || []);
+      
+      // Update section title
+      if (sectionTitle) {
+        const searchTerm = city || query;
+        sectionTitle.innerHTML = `
+          Search Results
+          <small class="text-muted">for "${escapeHtml(searchTerm)}"</small>
+        `;
+      }
+      
+      // Display listings
+      if (listings.length === 0) {
+        featuredSection.innerHTML = `
+          <div class="col-12">
+            <div class="alert alert-info">
+              <p class="mb-0">No listings found for "${escapeHtml(city || query)}". Try a different search term.</p>
+            </div>
+          </div>
+        `;
+      } else {
+        featuredSection.innerHTML = listings.map(listing => {
+          const imageUrl = listing.cover_image 
+            ? (listing.cover_image.startsWith('http') ? listing.cover_image : `${baseUrl}/${listing.cover_image}`)
+            : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+          
+          const priceText = listing.min_rent 
+            ? (listing.min_rent === listing.max_rent 
+                ? `₹${parseInt(listing.min_rent).toLocaleString()}` 
+                : `₹${parseInt(listing.min_rent).toLocaleString()} - ₹${parseInt(listing.max_rent).toLocaleString()}`)
+            : 'Price on request';
+          
+          const location = listing.city 
+            ? (listing.pin_code ? `${listing.city} • ${listing.pin_code}` : listing.city)
+            : 'Location not specified';
+          
+          const description = listing.description 
+            ? (listing.description.length > 100 ? listing.description.substring(0, 100) + '...' : listing.description)
+            : 'Comfortable PG accommodation.';
+          
+          const ratingHtml = listing.avg_rating 
+            ? `<div class="d-flex align-items-center gap-1">
+                 <i class="bi bi-star-fill text-warning"></i>
+                 <span>${parseFloat(listing.avg_rating).toFixed(1)}</span>
+                 ${listing.reviews_count > 0 ? `<span class="text-muted">(${listing.reviews_count})</span>` : ''}
+               </div>`
+            : '';
+          
+          return `
+            <div class="col-md-4">
+              <a href="${baseUrl}/listings/${listing.id}" class="text-decoration-none">
+                <div class="card pg shadow-sm h-100">
+                  <img src="${escapeHtml(imageUrl)}" 
+                       class="card-img-top" 
+                       style="height:180px;object-fit:cover" 
+                       alt="${escapeHtml(listing.title)}"
+                       onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div class="flex-grow-1">
+                        <h5 class="listing-title mb-1">${escapeHtml(listing.title)}</h5>
+                        <div class="listing-meta">${escapeHtml(location)}</div>
+                      </div>
+                      ${ratingHtml}
+                    </div>
+                    <p class="listing-description text-muted small mt-2 mb-2">${escapeHtml(description)}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <span class="listing-price text-primary fw-bold">${priceText}</span>
+                      <span class="badge bg-light text-dark">${escapeHtml(listing.available_for || 'both')}</span>
+                    </div>
+                  </div>
+                </div>
+              </a>
+            </div>
+          `;
+        }).join('');
+      }
+    } else {
+      featuredSection.innerHTML = `
+        <div class="col-12">
+          <div class="alert alert-warning">
+            <p class="mb-0">Error loading search results. Please try again.</p>
+          </div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    featuredSection.innerHTML = `
+      <div class="col-12">
+        <div class="alert alert-danger">
+          <p class="mb-0">Error loading search results. Please try again.</p>
+        </div>
+      </div>
+    `;
+  }
+}
 
 // small escape util
 function escapeHtml(s){ return String(s||'').replace(/[&<>"'`=\/]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;'}[c])); }

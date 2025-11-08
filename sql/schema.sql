@@ -13,6 +13,7 @@ CREATE TABLE users (
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NULL,  -- null for Google login
   phone VARCHAR(20) NULL,
+  gender ENUM('male', 'female', 'other') NULL,  -- added gender field
   role ENUM('user', 'admin') DEFAULT 'user',
 
   -- Google login
@@ -36,13 +37,12 @@ CREATE TABLE users (
   FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
 -- =====================================================
 -- LISTINGS (Basic Property Details)
 -- =====================================================
 CREATE TABLE listings (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  owner_id INT NULL,
+  owner_name VARCHAR(150) NOT NULL,
   title VARCHAR(255) NOT NULL,
   description TEXT,
   available_for ENUM('boys', 'girls', 'both') DEFAULT 'both',
@@ -54,9 +54,7 @@ CREATE TABLE listings (
   status ENUM('draft','active','inactive') DEFAULT 'draft',
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -156,6 +154,26 @@ CREATE TABLE visits (
 
 
 -- =====================================================
+-- USER KYC (Know Your Customer)
+-- =====================================================
+CREATE TABLE user_kyc (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  document_type ENUM('aadhar', 'pan', 'passport', 'driving_license', 'voter_id', 'other') NOT NULL,
+  document_number VARCHAR(100) NOT NULL,
+  document_front VARCHAR(1024) NULL,
+  document_back VARCHAR(1024) NULL,
+  status ENUM('pending', 'verified', 'rejected') DEFAULT 'pending',
+  verified_by INT NULL,
+  verified_at TIMESTAMP NULL,
+  rejection_reason TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
 -- BOOKINGS
 -- =====================================================
 CREATE TABLE bookings (
@@ -167,13 +185,19 @@ CREATE TABLE bookings (
   checkout_date DATE,
   total_amount DECIMAL(10,2) DEFAULT 0.00,
   status ENUM('pending','confirmed','cancelled','completed') DEFAULT 'pending',
-  id_proof VARCHAR(1024) NULL,
+  kyc_id INT NULL,
+  agreed_to_tnc BOOLEAN DEFAULT FALSE,
+  tnc_accepted_at TIMESTAMP NULL,
+  guardian_kyc_id INT NULL,
+  guardian_noc VARCHAR(1024) NULL,
   special_requests TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
-  FOREIGN KEY (room_config_id) REFERENCES room_configurations(id) ON DELETE SET NULL
+  FOREIGN KEY (room_config_id) REFERENCES room_configurations(id) ON DELETE SET NULL,
+  FOREIGN KEY (kyc_id) REFERENCES user_kyc(id) ON DELETE SET NULL,
+  FOREIGN KEY (guardian_kyc_id) REFERENCES user_kyc(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

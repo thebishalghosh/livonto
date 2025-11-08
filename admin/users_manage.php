@@ -97,7 +97,7 @@ try {
     $users = $db->fetchAll(
         "SELECT u.id, u.name, u.email, u.phone, u.role, u.referral_code, u.google_id, 
                 u.created_at, u.updated_at,
-                (SELECT COUNT(*) FROM listings WHERE owner_id = u.id) as listings_count,
+                (SELECT COUNT(*) FROM listings WHERE owner_name = u.name) as listings_count,
                 (SELECT COUNT(*) FROM bookings WHERE user_id = u.id) as bookings_count,
                 (SELECT name FROM users WHERE id = u.referred_by) as referred_by_name
          FROM users u
@@ -112,7 +112,7 @@ try {
         'total' => $db->fetchValue("SELECT COUNT(*) FROM users"),
         'users' => $db->fetchValue("SELECT COUNT(*) FROM users WHERE role = 'user'"),
         'admins' => $db->fetchValue("SELECT COUNT(*) FROM users WHERE role = 'admin'"),
-        'with_listings' => $db->fetchValue("SELECT COUNT(DISTINCT owner_id) FROM listings WHERE owner_id IS NOT NULL"),
+        'with_listings' => $db->fetchValue("SELECT COUNT(DISTINCT owner_name) FROM listings WHERE owner_name IS NOT NULL AND owner_name != ''"),
         'today' => $db->fetchValue("SELECT COUNT(*) FROM users WHERE DATE(created_at) = CURDATE()"),
         'this_month' => $db->fetchValue("SELECT COUNT(*) FROM users WHERE MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())")
     ];

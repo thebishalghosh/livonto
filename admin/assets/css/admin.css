@@ -903,6 +903,12 @@ body.admin-body {
 /* Page Header */
 .admin-page-header {
     padding: 0;
+    margin-top: 0;
+}
+
+/* Override Bootstrap mb-4 if needed, but allow it to work */
+.admin-page-header.mb-4 {
+    margin-bottom: 1.5rem !important;
 }
 
 .admin-page-title {
@@ -910,11 +916,13 @@ body.admin-body {
     font-weight: 700;
     color: var(--admin-text);
     margin: 0;
+    line-height: 1.2;
 }
 
 .admin-page-subtitle {
     font-size: 0.9375rem;
     margin: 0.25rem 0 0 0;
+    line-height: 1.4;
 }
 
 /* Stat Cards */

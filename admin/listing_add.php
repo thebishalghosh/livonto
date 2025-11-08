@@ -4,18 +4,25 @@
  * Form to create new PG listings with all details
  */
 
-$pageTitle = "Add New Listing";
-require __DIR__ . '/../app/includes/admin_header.php';
+// Start session and load config/functions BEFORE handling POST
+if (session_status() === PHP_SESSION_NONE) session_start();
+require __DIR__ . '/../app/config.php';
 require __DIR__ . '/../app/functions.php';
 
-// Handle form submission
+// Ensure admin is logged in
+if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    header('Location: ' . app_url('admin/login'));
+    exit;
+}
+
+// Handle form submission - MUST be before header output
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     
     // Get form data
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $ownerId = !empty($_POST['owner_id']) ? intval($_POST['owner_id']) : null;
+    $ownerName = trim($_POST['owner_name'] ?? '');
     $availableFor = $_POST['available_for'] ?? 'both';
     $genderAllowed = $_POST['gender_allowed'] ?? 'unisex';
     $preferredTenants = $_POST['preferred_tenants'] ?? 'anyone';
@@ -79,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validation
     if (empty($title)) $errors[] = 'Title is required';
     if (empty($description)) $errors[] = 'Description is required';
+    if (empty($ownerName)) $errors[] = 'Owner name is required';
     if (empty($completeAddress)) $errors[] = 'Complete address is required';
     if (empty($city)) $errors[] = 'City is required';
     
@@ -130,10 +138,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // 1. Insert main listing
             $db->execute(
-                "INSERT INTO listings (owner_id, title, description, available_for, preferred_tenants, 
+                "INSERT INTO listings (owner_name, title, description, available_for, preferred_tenants, 
                  security_deposit_amount, notice_period, gender_allowed, cover_image, status)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$ownerId, $title, $description, $availableFor, $preferredTenants, 
+                [$ownerName, $title, $description, $availableFor, $preferredTenants, 
                  $securityDeposit, $noticePeriod, $genderAllowed, $coverImagePath, $status]
             );
             
@@ -234,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash_message'] = 'Listing created successfully!';
             $_SESSION['flash_type'] = 'success';
             header('Location: ' . app_url('admin/listings'));
-            exit;
+            exit; // Important: exit after redirect
             
         } catch (PDOException $e) {
             if ($db->inTransaction()) {
@@ -258,11 +266,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Now include header for regular page display
+$pageTitle = "Add New Listing";
+require __DIR__ . '/../app/includes/admin_header.php';
+
 try {
     $db = db();
-    
-    // Get all users for owner selection
-    $owners = $db->fetchAll("SELECT id, name, email FROM users ORDER BY name");
     
     // Get all amenities
     $amenities = $db->fetchAll("SELECT id, name FROM amenities ORDER BY name");
@@ -272,7 +281,6 @@ try {
     
 } catch (Exception $e) {
     error_log("Error loading data for add listing: " . $e->getMessage());
-    $owners = [];
     $amenities = [];
     $houseRules = [];
 }
@@ -322,15 +330,11 @@ $flashMessage = getFlashMessage();
                            placeholder="e.g., Cozy PG near IIT">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Owner</label>
-                    <select class="form-select" name="owner_id">
-                        <option value="">Select Owner (Optional)</option>
-                        <?php foreach ($owners as $owner): ?>
-                            <option value="<?= $owner['id'] ?>">
-                                <?= htmlspecialchars($owner['name']) ?> (<?= htmlspecialchars($owner['email']) ?>)
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label class="form-label">Owner Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="owner_name" required
+                           placeholder="Enter owner name" 
+                           value="<?= htmlspecialchars($_POST['owner_name'] ?? '') ?>">
+                    <small class="form-text text-muted">Enter the name of the property owner</small>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Description <span class="text-danger">*</span></label>
@@ -375,7 +379,7 @@ $flashMessage = getFlashMessage();
                     <label class="form-label">Cover Image</label>
                     <input type="file" class="form-control" name="cover_image" 
                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                           id="coverImageInput">
+                           id="coverImageInput" required>
                     <small class="text-muted">JPEG, PNG, GIF, or WebP (max 5MB)</small>
                     <div id="coverImagePreview" class="mt-2" style="display: none;">
                         <img id="previewImg" src="" alt="Preview" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">

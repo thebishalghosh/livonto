@@ -1,0 +1,107 @@
+/**
+ * Autocomplete/Suggestions Styling
+ */
+
+.search-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    margin-top: 4px;
+}
+
+.suggestion-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid var(--border);
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover,
+.suggestion-item.selected {
+    background: var(--accent);
+}
+
+.suggestion-item i {
+    color: var(--primary);
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.suggestion-name {
+    font-weight: 500;
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.suggestion-details {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.suggestion-loading,
+.suggestion-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 16px;
+    font-size: 14px;
+}
+
+.suggestion-loading i {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Dark mode styling */
+:root[data-theme="dark"] .search-suggestions {
+    background: var(--card-bg);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="dark"] .suggestion-item {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .suggestion-item:hover,
+:root[data-theme="dark"] .suggestion-item.selected {
+    background: rgba(75, 59, 99, 0.3);
+}
+
+/* Scrollbar styling */
+.search-suggestions::-webkit-scrollbar {
+    width: 6px;
+}
+
+.search-suggestions::-webkit-scrollbar-track {
+    background: var(--accent);
+    border-radius: 3px;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 3px;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-700);
+}
+

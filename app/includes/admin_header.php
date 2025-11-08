@@ -91,7 +91,7 @@ $currentUser = [
                         <i class="bi bi-chevron-down ms-2"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end admin-dropdown" aria-labelledby="userDropdown">
-                        <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl . '/public/profile.php') ?>">
+                        <li><a class="dropdown-item" href="<?= htmlspecialchars(app_url('admin/profile')) ?>">
                             <i class="bi bi-person me-2"></i>My Profile
                         </a></li>
                         <li><a class="dropdown-item" href="#">

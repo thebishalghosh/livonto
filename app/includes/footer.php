@@ -10,8 +10,13 @@
 
       <!-- Column 1: About -->
       <div class="col-md-3 col-sm-6">
-        <h5 class="fw-bold mb-3">PG Finder</h5>
-        <p class="small text-muted">
+        <a href="<?= htmlspecialchars(app_url('')) ?>" class="d-inline-block mb-3">
+          <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/logo-white-removebg.png') ?>" 
+               alt="Livonto" 
+               class="footer-logo" 
+               style="max-height: 50px; width: auto;">
+        </a>
+        <p class="small text-white">
           Find, compare and book PGs instantly.  
           Reliable listings, verified hosts, and smooth booking experience.
         </p>
@@ -20,7 +25,7 @@
       <!-- Column 2: Quick Links -->
       <div class="col-md-3 col-sm-6">
         <h6 class="fw-bold mb-3">Quick Links</h6>
-        <ul class="list-unstyled small">
+        <ul class="list-unstyled small text-white">
           <li class="mb-2"><a href="<?= htmlspecialchars(app_url('listings')) ?>" class="text-light text-decoration-none">Browse Listings</a></li>
           <li class="mb-2"><a href="<?= htmlspecialchars(app_url('profile')) ?>" class="text-light text-decoration-none">My Profile</a></li>
           <li class="mb-2"><a href="#" class="text-light text-decoration-none" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a></li>
@@ -73,7 +78,24 @@
 
 <!-- Bootstrap JS bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Leaflet JS (for maps) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+        crossorigin=""></script>
+
+<!-- Main JS -->
 <script src="<?= htmlspecialchars($baseUrl . '/public/assets/js/main.js') ?>"></script>
+
+<!-- Map JS (loaded conditionally) -->
+<script>
+  // Set baseUrl for map.js
+  const baseUrl = '<?= htmlspecialchars($baseUrl) ?>';
+</script>
+<script src="<?= htmlspecialchars($baseUrl . '/public/assets/js/map.js') ?>"></script>
+
+<!-- Autocomplete JS -->
+<script src="<?= htmlspecialchars($baseUrl . '/public/assets/js/autocomplete.js') ?>"></script>
 
 </body>
 </html>

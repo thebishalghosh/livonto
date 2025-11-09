@@ -72,6 +72,48 @@ try {
         );
     }
     
+    // Fetch all images for each listing
+    foreach ($latestListings as &$listing) {
+        $listingImages = $db->fetchAll(
+            "SELECT image_path, image_order, is_cover 
+             FROM listing_images 
+             WHERE listing_id = ? 
+             ORDER BY is_cover DESC, image_order ASC",
+            [$listing['id']]
+        );
+        
+        // Build image URLs
+        $images = [];
+        foreach ($listingImages as $img) {
+            $imagePath = trim($img['image_path']);
+            if (empty($imagePath)) continue;
+            
+            if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
+                $images[] = $imagePath;
+            } else {
+                $images[] = $baseUrl . '/' . ltrim($imagePath, '/');
+            }
+        }
+        
+        // Fallback to cover_image if no images in listing_images table
+        if (empty($images) && !empty($listing['cover_image'])) {
+            $imagePath = $listing['cover_image'];
+            if (strpos($imagePath, 'http') !== 0 && strpos($imagePath, '//') !== 0) {
+                $images[] = $baseUrl . '/' . ltrim($imagePath, '/');
+            } else {
+                $images[] = $imagePath;
+            }
+        }
+        
+        // Fallback to placeholder if still no images
+        if (empty($images)) {
+            $images[] = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
+        }
+        
+        $listing['images'] = $images;
+    }
+    unset($listing); // Break reference
+    
     // Get popular cities (cities with most listings)
     $popularCities = $db->fetchAll(
         "SELECT loc.city, COUNT(*) as listing_count
@@ -220,7 +262,7 @@ try {
         Latest listings
     <?php endif; ?>
 </h3>
-<div id="featured" class="row gy-3">
+<div id="featured" class="row g-4">
   <?php if (empty($latestListings)): ?>
     <div class="col-12">
       <div class="alert alert-info">
@@ -230,18 +272,6 @@ try {
   <?php else: ?>
     <?php foreach ($latestListings as $listing): ?>
       <?php 
-      // Build image URL
-      // Use a data URI for placeholder if no image
-      $imageUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-      if (!empty($listing['cover_image'])) {
-          $imagePath = $listing['cover_image'];
-          if (strpos($imagePath, 'http') !== 0 && strpos($imagePath, '//') !== 0) {
-              $imageUrl = $baseUrl . '/' . ltrim($imagePath, '/');
-          } else {
-              $imageUrl = $imagePath;
-          }
-      }
-      
       // Build listing URL
       $listingUrl = app_url('listings/' . $listing['id']);
       
@@ -286,40 +316,61 @@ try {
       }
       ?>
       <div class="col-md-4">
-        <a href="<?= htmlspecialchars($listingUrl) ?>" class="text-decoration-none">
-          <div class="card pg shadow-sm h-100">
-            <img src="<?= htmlspecialchars($imageUrl) ?>" 
-                 class="card-img-top" 
-                 style="height:180px;object-fit:cover" 
-                 alt="<?= htmlspecialchars($listing['title']) ?>"
-                 onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
-            <div class="card-body">
-              <div class="d-flex justify-content-between align-items-start">
-                <div class="flex-grow-1">
-                  <h5 class="listing-title mb-1"><?= htmlspecialchars($listing['title']) ?></h5>
-                  <div class="listing-meta"><?= htmlspecialchars($location) ?></div>
-                </div>
-                <?php if ($priceText): ?>
-                  <div class="text-end">
-                    <div class="price"><?= htmlspecialchars($priceText) ?></div>
-                    <div class="text-muted small">/month</div>
+        <div class="card pg shadow-sm h-100">
+          <!-- Image Carousel -->
+          <a href="<?= htmlspecialchars($listingUrl) ?>" class="text-decoration-none">
+            <div class="listing-carousel position-relative" data-listing-id="<?= $listing['id'] ?>">
+              <div class="carousel-container">
+                <?php foreach ($listing['images'] as $index => $imgUrl): ?>
+                  <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>" 
+                       style="display: <?= $index === 0 ? 'block' : 'none' ?>; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                    <img src="<?= htmlspecialchars($imgUrl) ?>" 
+                         class="w-100 h-100" 
+                         style="object-fit: cover;"
+                         alt="<?= htmlspecialchars($listing['title']) ?> - Image <?= $index + 1 ?>"
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
                   </div>
-                <?php endif; ?>
+                <?php endforeach; ?>
               </div>
-              <p class="mt-2 small text-muted"><?= htmlspecialchars($description) ?></p>
-              <?php if ($listing['avg_rating'] && $listing['reviews_count'] > 0): ?>
-                <div class="mt-2">
-                  <span class="text-warning">
-                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                      <i class="bi bi-star<?= $i <= round($listing['avg_rating']) ? '-fill' : '' ?>"></i>
-                    <?php endfor; ?>
-                  </span>
-                  <small class="text-muted ms-2"><?= number_format($listing['avg_rating'], 1) ?> (<?= $listing['reviews_count'] ?>)</small>
+              
+              <!-- Navigation Arrows -->
+              <?php if (count($listing['images']) > 1): ?>
+                <button class="carousel-btn carousel-prev" 
+                        onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, -1)"
+                        aria-label="Previous image">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <button class="carousel-btn carousel-next" 
+                        onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, 1)"
+                        aria-label="Next image">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+                
+                <!-- Image Count Badge -->
+                <div class="carousel-badge">
+                  <?= count($listing['images']) ?> Photo<?= count($listing['images']) !== 1 ? 's' : '' ?>
                 </div>
               <?php endif; ?>
             </div>
+          </a>
+          <div class="card-body d-flex flex-column listing-card-body">
+            <h5 class="listing-title mb-2"><?= htmlspecialchars($listing['title']) ?></h5>
+            <p class="small text-muted mb-3 flex-grow-1"><?= htmlspecialchars($description) ?></p>
+            <div class="d-flex gap-2 mt-auto">
+              <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
+                 class="btn btn-outline-primary btn-sm flex-fill text-center"
+                 onclick="event.stopPropagation();"
+                 style="border-color: var(--primary); color: var(--primary);">
+                Book a Visit
+              </a>
+              <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
+                 class="btn btn-primary btn-sm flex-fill text-white text-center"
+                 onclick="event.stopPropagation();">
+                Book Now
+              </a>
+            </div>
           </div>
-        </a>
+        </div>
       </div>
     <?php endforeach; ?>
   <?php endif; ?>

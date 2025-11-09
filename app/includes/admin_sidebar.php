@@ -53,6 +53,20 @@ $navItems = [
         'route' => 'admin/referrals'
     ],
     [
+        'id' => 'enquiries',
+        'title' => 'Enquiries',
+        'icon' => 'bi-envelope',
+        'url' => app_url('admin/enquiries'),
+        'route' => 'admin/enquiries'
+    ],
+    [
+        'id' => 'visit-bookings',
+        'title' => 'Visit Bookings',
+        'icon' => 'bi-calendar-check',
+        'url' => app_url('admin/visit-bookings'),
+        'route' => 'admin/visit-bookings'
+    ],
+    [
         'id' => 'divider1',
         'type' => 'divider'
     ],

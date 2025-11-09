@@ -138,19 +138,10 @@ CREATE TABLE room_configurations (
 
 
 -- =====================================================
--- VISITS
+-- VISIT BOOKINGS (replaces old 'visits' table)
 -- =====================================================
-CREATE TABLE visits (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  listing_id INT NOT NULL,
-  visit_date DATE NOT NULL,
-  status ENUM('requested','confirmed','completed','cancelled') DEFAULT 'requested',
-  remarks TEXT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Note: The old 'visits' table has been replaced by 'visit_bookings'
+-- which has more features (preferred_time, message, admin_notes, etc.)
 
 
 -- =====================================================
@@ -276,3 +267,60 @@ CREATE TABLE site_settings (
 
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+-- =====================================================
+-- LISTING IMAGES TABLE
+-- =====================================================
+-- This table stores multiple images for each listing
+CREATE TABLE IF NOT EXISTS listing_images (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  listing_id INT NOT NULL,
+  image_path VARCHAR(1024) NOT NULL,
+  image_order INT DEFAULT 0,
+  is_cover TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+  INDEX idx_listing_id (listing_id),
+  INDEX idx_image_order (image_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contacts table for storing contact form submissions
+CREATE TABLE IF NOT EXISTS contacts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  status ENUM('new', 'read', 'replied') DEFAULT 'new',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_status (status),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- VISIT BOOKINGS
+-- =====================================================
+-- Stores visit/site visit requests for PG listings
+-- All user information (name, email, phone, etc.) comes from users table via user_id
+CREATE TABLE IF NOT EXISTS visit_bookings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    listing_id INT NOT NULL,
+    user_id INT NOT NULL,
+    preferred_date DATE NOT NULL,
+    preferred_time TIME NOT NULL,
+    message TEXT NULL,
+    status ENUM('pending', 'confirmed', 'cancelled', 'completed') DEFAULT 'pending',
+    admin_notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_listing_id (listing_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_preferred_date (preferred_date),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

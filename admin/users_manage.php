@@ -231,14 +231,15 @@ $flashMessage = getFlashMessage();
             <div class="col-md-4">
                 <label class="form-label">Search</label>
                 <input type="text" 
-                       class="form-control" 
+                       class="form-control form-control-sm" 
                        name="search" 
                        placeholder="Name, email, or phone..." 
-                       value="<?= htmlspecialchars($search) ?>">
+                       value="<?= htmlspecialchars($search) ?>"
+                       style="height: 38px;">
             </div>
             <div class="col-md-2">
                 <label class="form-label">Role</label>
-                <select class="form-select" name="role">
+                <select class="form-select form-select-sm" name="role" style="height: 38px;">
                     <option value="">All Roles</option>
                     <option value="user" <?= $role === 'user' ? 'selected' : '' ?>>User</option>
                     <option value="admin" <?= $role === 'admin' ? 'selected' : '' ?>>Admin</option>
@@ -246,7 +247,7 @@ $flashMessage = getFlashMessage();
             </div>
             <div class="col-md-2">
                 <label class="form-label">Sort By</label>
-                <select class="form-select" name="sort">
+                <select class="form-select form-select-sm" name="sort" style="height: 38px;">
                     <option value="created_at" <?= $sort === 'created_at' ? 'selected' : '' ?>>Date</option>
                     <option value="name" <?= $sort === 'name' ? 'selected' : '' ?>>Name</option>
                     <option value="email" <?= $sort === 'email' ? 'selected' : '' ?>>Email</option>
@@ -255,13 +256,13 @@ $flashMessage = getFlashMessage();
             </div>
             <div class="col-md-2">
                 <label class="form-label">Order</label>
-                <select class="form-select" name="order">
+                <select class="form-select form-select-sm" name="order" style="height: 38px;">
                     <option value="DESC" <?= $order === 'DESC' ? 'selected' : '' ?>>Newest First</option>
                     <option value="ASC" <?= $order === 'ASC' ? 'selected' : '' ?>>Oldest First</option>
                 </select>
             </div>
             <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary w-100">
+                <button type="submit" class="btn btn-primary btn-sm w-100" style="height: 38px;">
                     <i class="bi bi-search me-1"></i>Filter
                 </button>
             </div>

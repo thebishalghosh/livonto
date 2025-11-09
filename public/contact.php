@@ -1,84 +1,216 @@
 <?php
-$pageTitle = "Contact";
+// Handle form submission BEFORE any output
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    require __DIR__ . '/../app/config.php';
+    require __DIR__ . '/../app/functions.php';
+    
+    // Get form data
+    $name = trim($_POST['name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $subject = trim($_POST['subject'] ?? '');
+    $message = trim($_POST['message'] ?? '');
+    
+    // Validation
+    $errors = [];
+    if (empty($name)) {
+        $errors[] = 'Name is required';
+    }
+    if (empty($email)) {
+        $errors[] = 'Email is required';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Invalid email format';
+    }
+    if (empty($subject)) {
+        $errors[] = 'Subject is required';
+    }
+    if (empty($message)) {
+        $errors[] = 'Message is required';
+    }
+    
+    // If there are errors, store them and form data
+    if (!empty($errors)) {
+        $_SESSION['contact_error'] = implode('<br>', $errors);
+        $_SESSION['contact_form_data'] = [
+            'name' => $name,
+            'email' => $email,
+            'subject' => $subject,
+            'message' => $message
+        ];
+        header('Location: ' . app_url('contact'));
+        exit;
+    }
+    
+    // Store in database
+    try {
+        $db = db();
+        
+        // Try to create table if it doesn't exist
+        try {
+            $db->execute(
+                "INSERT INTO contacts (name, email, subject, message, status, created_at) 
+                 VALUES (?, ?, ?, ?, 'new', CURRENT_TIMESTAMP)",
+                [$name, $email, $subject, $message]
+            );
+        } catch (PDOException $e) {
+            // Table might not exist, create it
+            $pdo = $db->getConnection();
+            $pdo->exec("CREATE TABLE IF NOT EXISTS contacts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(150) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                subject VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                status ENUM('new', 'read', 'replied') DEFAULT 'new',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_status (status),
+                INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+            
+            // Retry insert
+            $db->execute(
+                "INSERT INTO contacts (name, email, subject, message, status, created_at) 
+                 VALUES (?, ?, ?, ?, 'new', CURRENT_TIMESTAMP)",
+                [$name, $email, $subject, $message]
+            );
+        }
+        
+        // Success
+        $_SESSION['contact_success'] = 'Thank you! Your message has been sent. We\'ll get back to you soon.';
+        unset($_SESSION['contact_form_data']);
+        
+    } catch (Exception $e) {
+        error_log("Error processing contact form: " . $e->getMessage());
+        $_SESSION['contact_error'] = 'Sorry, there was an error sending your message. Please try again or contact us directly.';
+        $_SESSION['contact_form_data'] = [
+            'name' => $name,
+            'email' => $email,
+            'subject' => $subject,
+            'message' => $message
+        ];
+    }
+    
+    // Redirect to prevent form resubmission
+    header('Location: ' . app_url('contact'));
+    exit;
+}
+
+// Now include header and display page
+$pageTitle = "Contact Us";
 require __DIR__ . '/../app/includes/header.php';
+$baseUrl = app_url('');
+
+// Get flash messages from session
+$formError = $_SESSION['contact_error'] ?? '';
+$formSuccess = $_SESSION['contact_success'] ?? '';
+$formData = $_SESSION['contact_form_data'] ?? [];
+
+// Clear flash messages after reading
+unset($_SESSION['contact_error']);
+unset($_SESSION['contact_success']);
+unset($_SESSION['contact_form_data']);
+
+// Pre-fill form with previous data if available
+$name = $formData['name'] ?? '';
+$email = $formData['email'] ?? '';
+$subject = $formData['subject'] ?? '';
+$message = $formData['message'] ?? '';
 ?>
 
+<div class="contact-page">
 <div class="row g-4">
-  <!-- Main -->
+  <!-- Header -->
   <div class="col-12">
-    <h1 class="display-6 mb-2">Contact Us</h1>
-    <p class="text-muted">Interested in listing your PG or have a question? Reach out and we’ll get back to you soon.</p>
+    <h1 class="display-5 fw-bold mb-3 text-primary">Get in Touch</h1>
+    <p class="lead text-muted">Have questions? We're here to help. Reach out and we'll respond as soon as possible.</p>
+  </div>
 
-    <!-- Enquiry & info -->
+  <!-- Success/Error Messages -->
+  <?php if ($formSuccess): ?>
+    <div class="col-12">
+      <div class="alert alert-themed-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i><?= htmlspecialchars($formSuccess) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+  
+  <?php if ($formError): ?>
+    <div class="col-12">
+      <div class="alert alert-themed-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i><?= $formError ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <!-- Left Column: Contact Information -->
+  <div class="col-lg-4">
+    <!-- Contact Info Card -->
     <div class="card pg mb-4">
       <div class="card-body">
-        <div class="row g-3 align-items-start">
-          <div class="col-md-8">
-            <div class="kicker mb-1">For PG Booking Enquiry</div>
-            <div class="fw-semibold mb-1">
-              <a class="text-decoration-none" href="tel:+916293010501">6293010501</a>
-              <span class="mx-2">|</span>
-              <a class="text-decoration-none" href="tel:+917047133182">7047133182</a>
-              <span class="mx-2">|</span>
-              <a class="text-decoration-none" href="tel:+919831068248">9831068248</a>
-            </div>
-            <div class="small text-muted">Timings: 10:00 AM to 8:00 PM</div>
+        <h5 class="fw-bold mb-4">
+          <i class="bi bi-info-circle text-primary me-2"></i>Contact Information
+        </h5>
+        
+        <div class="mb-4">
+          <div class="kicker mb-2">PG Booking Enquiry</div>
+          <div class="d-flex flex-column gap-2">
+            <a href="tel:+916293010501" class="text-decoration-none d-flex align-items-center text-primary">
+              <i class="bi bi-telephone-fill text-primary me-2"></i>
+              <span class="text-primary">6293010501</span>
+            </a>
+            <a href="tel:+917047133182" class="text-decoration-none d-flex align-items-center text-primary">
+              <i class="bi bi-telephone-fill text-primary me-2"></i>
+              <span class="text-primary">7047133182</span>
+            </a>
+            <a href="tel:+919831068248" class="text-decoration-none d-flex align-items-center text-primary">
+              <i class="bi bi-telephone-fill text-primary me-2"></i>
+              <span class="text-primary">9831068248</span>
+            </a>
           </div>
-          <div class="col-md-4">
-            <div class="kicker mb-1">Email</div>
-            <div class="fw-semibold"><a class="text-decoration-none" href="mailto:support@pgfinder.com">support@pgfinder.com</a></div>
+          <div class="small text-muted mt-2">
+            <i class="bi bi-clock me-1"></i>Timings: 10:00 AM to 8:00 PM
+          </div>
+        </div>
+        
+        <hr>
+        
+        <div class="mb-4">
+          <div class="kicker mb-2">Email</div>
+          <a href="mailto:support@livonto.com" class="text-decoration-none d-flex align-items-center text-primary">
+            <i class="bi bi-envelope-fill text-primary me-2"></i>
+            <span class="text-primary">support@livonto.com</span>
+          </a>
+        </div>
+        
+        <hr>
+        
+        <div>
+          <div class="kicker mb-2">WhatsApp</div>
+          <p class="small text-muted mb-3">Message us directly on WhatsApp</p>
+          <div class="d-flex flex-column gap-2">
+            <a href="https://wa.me/916293010501" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+              <i class="bi bi-whatsapp me-2"></i>Chat on WhatsApp
+            </a>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Message form -->
-    <div class="card pg mb-4">
+    
+    <!-- Office Location Card -->
+    <div class="card pg">
       <div class="card-body">
-        <h6 class="mb-3">Send us a message</h6>
-        <form method="post" action="<?= htmlspecialchars(app_url('/app/mailer.php')) ?>">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label" for="name">Full name</label>
-              <input class="form-control" id="name" name="name" required>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label" for="email">Email</label>
-              <input type="email" class="form-control" id="email" name="email" required>
-            </div>
-            <div class="col-12">
-              <label class="form-label" for="subject">Subject</label>
-              <input class="form-control" id="subject" name="subject" required>
-            </div>
-            <div class="col-12">
-              <label class="form-label" for="message">Message</label>
-              <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
-            </div>
-            <div class="col-12">
-              <button class="btn btn-primary" type="submit">Send message</button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Alternate contact methods -->
-    <div class="card pg mb-4">
-      <div class="card-body">
-        <h6 class="mb-2">Prefer WhatsApp?</h6>
-        <p class="small text-muted mb-3">Message us with your city, budget and move-in date. We’ll respond during office hours.</p>
-        <a class="btn btn-outline-secondary me-2" href="https://wa.me/916293010501" target="_blank" rel="noopener">WhatsApp 6293010501</a>
-        <a class="btn btn-outline-secondary me-2" href="https://wa.me/917047133182" target="_blank" rel="noopener">WhatsApp 7047133182</a>
-        <a class="btn btn-outline-secondary" href="https://wa.me/919831068248" target="_blank" rel="noopener">WhatsApp 9831068248</a>
-      </div>
-    </div>
-
-    <!-- Map / Address -->
-    <div class="card pg mb-3">
-      <div class="card-body">
-        <h6 class="mb-2">Kolkata Office</h6>
-        <p class="small text-muted mb-2">St. Xavier’s College area, Kolkata</p>
-        <div class="ratio ratio-4x3 rounded overflow-hidden">
+        <h5 class="fw-bold mb-3">
+          <i class="bi bi-geo-alt-fill text-primary me-2"></i>Our Office
+        </h5>
+        <p class="mb-2 fw-semibold">Kolkata Office</p>
+        <p class="small text-muted mb-3">St. Xavier's College area, Kolkata</p>
+        <div class="ratio ratio-16x9 rounded overflow-hidden">
           <iframe
             src="https://www.google.com/maps?q=St.+Xavier%E2%80%99s+College,+Kolkata&output=embed"
             allowfullscreen
@@ -88,49 +220,187 @@ require __DIR__ . '/../app/includes/header.php';
         </div>
       </div>
     </div>
-
-    <!-- Quick links -->
-    <div class="card pg mb-3">
+  </div>
+  
+  <!-- Right Column: Contact Form & Additional Info -->
+  <div class="col-lg-8">
+    <!-- Contact Form Card -->
+    <div class="card pg mb-4">
       <div class="card-body">
-        <h6 class="mb-2">Quick links</h6>
-        <ul class="list-unstyled small mb-0">
-          <li class="mb-2"><a href="<?= htmlspecialchars(app_url('listings')) ?>">Browse listings</a></li>
-          <li class="mb-2"><a href="<?= htmlspecialchars(app_url('about')) ?>">About Livonto</a></li>
-          <li class="mb-2"><a href="tel:+916293010501">Call: 6293010501</a></li>
-        </ul>
+        <h5 class="fw-bold mb-4">
+          <i class="bi bi-send-fill text-primary me-2"></i>Send us a Message
+        </h5>
+        
+        <form method="POST" action="" id="contactForm" novalidate>
+          <input type="hidden" name="contact_submit" value="1">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="contactName" class="form-label fw-semibold">
+                Full Name <span class="text-danger">*</span>
+              </label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="contactName" 
+                name="name" 
+                value="<?= htmlspecialchars($name) ?>"
+                placeholder="Enter your full name"
+                required>
+              <div class="invalid-feedback">Please provide your name.</div>
+            </div>
+            
+            <div class="col-md-6">
+              <label for="contactEmail" class="form-label fw-semibold">
+                Email Address <span class="text-danger">*</span>
+              </label>
+              <input 
+                type="email" 
+                class="form-control" 
+                id="contactEmail" 
+                name="email" 
+                value="<?= htmlspecialchars($email) ?>"
+                placeholder="your.email@example.com"
+                required>
+              <div class="invalid-feedback">Please provide a valid email address.</div>
+            </div>
+            
+            <div class="col-12">
+              <label for="contactSubject" class="form-label fw-semibold">
+                Subject <span class="text-danger">*</span>
+              </label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="contactSubject" 
+                name="subject" 
+                value="<?= htmlspecialchars($subject) ?>"
+                placeholder="What is this regarding?"
+                required>
+              <div class="invalid-feedback">Please provide a subject.</div>
+            </div>
+            
+            <div class="col-12">
+              <label for="contactMessage" class="form-label fw-semibold">
+                Message <span class="text-danger">*</span>
+              </label>
+              <textarea 
+                class="form-control" 
+                id="contactMessage" 
+                name="message" 
+                rows="6" 
+                placeholder="Tell us how we can help you..."
+                required><?= htmlspecialchars($message) ?></textarea>
+              <div class="invalid-feedback">Please provide your message.</div>
+            </div>
+            
+            <div class="col-12">
+              <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-send me-2"></i>Send Message
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
-
-    <!-- FAQ mini -->
-    <div class="card pg mb-3">
+    
+    <!-- Quick Links Card -->
+    <div class="card pg mb-4">
       <div class="card-body">
-        <h6 class="mb-2">FAQ</h6>
-        <div class="accordion" id="contactFaq">
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="cq1h">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cq1" aria-expanded="false" aria-controls="cq1">
+        <h6 class="fw-bold mb-3">
+          <i class="bi bi-link-45deg text-primary me-2"></i>Quick Links
+        </h6>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <a href="<?= htmlspecialchars(app_url('listings')) ?>" class="btn btn-outline-primary btn-sm w-100 mb-2">
+              <i class="bi bi-house-door me-2"></i>Browse Listings
+            </a>
+          </div>
+          <div class="col-md-6">
+            <a href="<?= htmlspecialchars(app_url('about')) ?>" class="btn btn-outline-primary btn-sm w-100 mb-2">
+              <i class="bi bi-info-circle me-2"></i>About Livonto
+            </a>
+          </div>
+          <div class="col-md-6">
+            <a href="<?= htmlspecialchars(app_url('refer')) ?>" class="btn btn-outline-primary btn-sm w-100 mb-2">
+              <i class="bi bi-gift me-2"></i>Refer & Earn
+            </a>
+          </div>
+          <div class="col-md-6">
+            <a href="tel:+916293010501" class="btn btn-outline-primary btn-sm w-100 mb-2">
+              <i class="bi bi-telephone me-2"></i>Call Us Now
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- FAQ Accordion -->
+    <div class="card pg">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3">
+          <i class="bi bi-question-circle text-primary me-2"></i>Frequently Asked Questions
+        </h6>
+        <div class="accordion accordion-flush" id="contactFaq">
+          <div class="accordion-item border-0">
+            <h2 class="accordion-header" id="faq1">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1Collapse" aria-expanded="false">
                 How soon will I get a response?
               </button>
             </h2>
-            <div id="cq1" class="accordion-collapse collapse" aria-labelledby="cq1h" data-bs-parent="#contactFaq">
-              <div class="accordion-body small">We typically respond within business hours (10:00 AM to 8:00 PM).</div>
+            <div id="faq1Collapse" class="accordion-collapse collapse" data-bs-parent="#contactFaq">
+              <div class="accordion-body text-muted">
+                We typically respond within business hours (10:00 AM to 8:00 PM IST). For urgent matters, please call us directly.
+              </div>
             </div>
           </div>
-          <div class="accordion-item">
-            <h2 class="accordion-header" id="cq2h">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cq2" aria-expanded="false" aria-controls="cq2">
+          
+          <div class="accordion-item border-0">
+            <h2 class="accordion-header" id="faq2">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2Collapse" aria-expanded="false">
                 Can I list my PG with you?
               </button>
             </h2>
-            <div id="cq2" class="accordion-collapse collapse" aria-labelledby="cq2h" data-bs-parent="#contactFaq">
-              <div class="accordion-body small">Yes. Please call or send us a message using the numbers above and we’ll guide you.</div>
+            <div id="faq2Collapse" class="accordion-collapse collapse" data-bs-parent="#contactFaq">
+              <div class="accordion-body text-muted">
+                Yes! We welcome PG owners to list their properties. Please call us or send a message using the form above, and we'll guide you through the listing process.
+              </div>
+            </div>
+          </div>
+          
+          <div class="accordion-item border-0">
+            <h2 class="accordion-header" id="faq3">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3Collapse" aria-expanded="false">
+                What information should I include in my message?
+              </button>
+            </h2>
+            <div id="faq3Collapse" class="accordion-collapse collapse" data-bs-parent="#contactFaq">
+              <div class="accordion-body text-muted">
+                Please include your name, contact details, and a clear description of your inquiry. For PG listing inquiries, mention your property location, number of rooms, and preferred contact method.
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-
   </div>
+</div>
+
+<script>
+// Form validation
+(function() {
+  'use strict';
+  const form = document.getElementById('contactForm');
+  if (!form) return;
+  
+  form.addEventListener('submit', function(event) {
+    if (!form.checkValidity()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    form.classList.add('was-validated');
+  }, false);
+})();
+</script>
 </div>
 
 <?php require __DIR__ . '/../app/includes/footer.php'; ?>

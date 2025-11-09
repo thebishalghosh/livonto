@@ -219,3 +219,25 @@ function jsonSuccess($message, $data = null, $statusCode = 200) {
     jsonResponse($response, $statusCode);
 }
 
+/**
+ * Get listing by ID
+ * @param int $listingId
+ * @param bool $requireActive - If false, returns listing regardless of status
+ * @return array|null
+ */
+function getListingById($listingId, $requireActive = true) {
+    try {
+        $whereClause = $requireActive ? "WHERE l.id = ? AND l.status = 'active'" : "WHERE l.id = ?";
+        return db()->fetchOne(
+            "SELECT l.id, l.title, l.description, l.status, loc.city, loc.pin_code
+             FROM listings l
+             LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+             {$whereClause}",
+            [$listingId]
+        );
+    } catch (Exception $e) {
+        error_log("Error fetching listing: " . $e->getMessage());
+        return null;
+    }
+}
+

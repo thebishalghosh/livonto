@@ -41,6 +41,9 @@ $name = trim($_POST['name'] ?? '');
 $email = trim($_POST['email'] ?? '');
 $phone = trim($_POST['phone'] ?? '');
 
+// Remove any non-digit characters from phone for validation
+$phoneDigits = preg_replace('/[^0-9]/', '', $phone);
+
 // Validation
 if (empty($name)) {
     $errors[] = 'Name is required';
@@ -52,7 +55,7 @@ if (empty($email)) {
     $errors[] = 'Invalid email format';
 }
 
-if (!empty($phone) && !preg_match('/^[0-9]{10}$/', $phone)) {
+if (!empty($phone) && strlen($phoneDigits) !== 10) {
     $errors[] = 'Phone number must be 10 digits';
 }
 
@@ -77,11 +80,14 @@ try {
     }
     
     // Update admin profile
+    // Use phoneDigits if phone was provided, otherwise null
+    $phoneValue = !empty($phone) ? $phoneDigits : null;
+    
     $db->execute(
         "UPDATE users 
          SET name = ?, email = ?, phone = ?, updated_at = CURRENT_TIMESTAMP 
          WHERE id = ? AND role = 'admin'",
-        [$name, $email, $phone ?: null, $userId]
+        [$name, $email, $phoneValue, $userId]
     );
     
     // Update session data
@@ -92,6 +98,12 @@ try {
     
 } catch (Exception $e) {
     error_log("Error updating admin profile: " . $e->getMessage());
-    jsonError('Failed to update profile. Please try again.', [], 500);
+    error_log("Stack trace: " . $e->getTraceAsString());
+    // Return more detailed error in development, generic message in production
+    $errorMessage = 'Failed to update profile. Please try again.';
+    if (defined('DEBUG') && DEBUG) {
+        $errorMessage .= ' Error: ' . $e->getMessage();
+    }
+    jsonError($errorMessage, [], 500);
 }
 

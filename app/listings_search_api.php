@@ -71,13 +71,47 @@ try {
     $listings = $db->fetchAll($sql, $params);
     
     // Format listings for response
+    $baseUrl = app_url('');
     $formattedListings = [];
     foreach ($listings as $listing) {
+        // Fetch all images for this listing
+        $listingImages = $db->fetchAll(
+            "SELECT image_path, image_order, is_cover 
+             FROM listing_images 
+             WHERE listing_id = ? 
+             ORDER BY is_cover DESC, image_order ASC",
+            [$listing['id']]
+        );
+        
+        // Build image URLs
+        $images = [];
+        foreach ($listingImages as $img) {
+            $imagePath = trim($img['image_path']);
+            if (empty($imagePath)) continue;
+            
+            if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
+                $images[] = $imagePath;
+            } else {
+                $images[] = rtrim($baseUrl, '/') . '/' . ltrim($imagePath, '/');
+            }
+        }
+        
+        // Fallback to cover_image if no images in listing_images table
+        if (empty($images) && !empty($listing['cover_image'])) {
+            $imagePath = $listing['cover_image'];
+            if (strpos($imagePath, 'http') !== 0 && strpos($imagePath, '//') !== 0) {
+                $images[] = rtrim($baseUrl, '/') . '/' . ltrim($imagePath, '/');
+            } else {
+                $images[] = $imagePath;
+            }
+        }
+        
         $formattedListings[] = [
             'id' => $listing['id'],
             'title' => $listing['title'] ?? 'Untitled',
             'description' => $listing['description'] ?? '',
             'cover_image' => $listing['cover_image'] ?? null,
+            'images' => $images, // Add images array
             'available_for' => $listing['available_for'] ?? 'both',
             'gender_allowed' => $listing['gender_allowed'] ?? 'unisex',
             'city' => $listing['city'] ?? '',

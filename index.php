@@ -21,7 +21,7 @@ $path = trim($path, '/');
 $path = preg_replace('#/+#', '/', $path);
 $path = trim($path, '/');
 
-// Remove query string for routing
+// Remove query string for routing (but keep it in $_GET via QSA)
 $path = explode('?', $path)[0];
 
 // Default route
@@ -41,6 +41,8 @@ $routes = [
     'register' => 'public/register.php',
     'password-reset' => 'public/password_reset.php',
     'refer' => 'public/refer.php',
+    'visit-book' => 'public/visit_book.php',
+    'visit-book-api' => 'app/visit_book_api.php',
 ];
 
 // Admin routes
@@ -50,12 +52,15 @@ $adminRoutes = [
     'admin/login' => 'admin/login.php',
     'admin/listings' => 'admin/listing_manage.php',
     'admin/listings/add' => 'admin/listing_add.php',
+    'admin/listings/edit' => 'admin/listing_edit.php',
     'admin/listings/view' => 'admin/listing_view.php',
     'admin/listings/delete' => 'admin/listing_delete.php',
     'admin/users' => 'admin/users_manage.php',
     'admin/amenities' => 'admin/amenities_manage.php',
     'admin/house-rules' => 'admin/house_rules_manage.php',
     'admin/referrals' => 'admin/referrals_manage.php',
+    'admin/enquiries' => 'admin/enquiries_manage.php',
+    'admin/visit-bookings' => 'admin/visit_bookings_manage.php',
 ];
 
 // Check if it's an admin route

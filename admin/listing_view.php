@@ -80,7 +80,7 @@ try {
     $stats = [
         'bookings_count' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE listing_id = ?", [$listingId]) ?: 0,
         'confirmed_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE listing_id = ? AND status = 'confirmed'", [$listingId]) ?: 0,
-        'visits_count' => (int)$db->fetchValue("SELECT COUNT(*) FROM visits WHERE listing_id = ?", [$listingId]) ?: 0,
+        'visits_count' => (int)$db->fetchValue("SELECT COUNT(*) FROM visit_bookings WHERE listing_id = ?", [$listingId]) ?: 0,
         'reviews_count' => (int)$db->fetchValue("SELECT COUNT(*) FROM reviews WHERE listing_id = ?", [$listingId]) ?: 0,
         'avg_rating' => (float)$db->fetchValue("SELECT AVG(rating) FROM reviews WHERE listing_id = ?", [$listingId]) ?: 0,
     ];
@@ -116,15 +116,95 @@ try {
         }
     }
     
-    // Build image URL
+    // Get all listing images
+    $listingImages = $db->fetchAll(
+        "SELECT id, image_path, image_order, is_cover 
+         FROM listing_images 
+         WHERE listing_id = ? 
+         ORDER BY is_cover DESC, image_order ASC",
+        [$listingId]
+    );
+    
+    // Build image URLs
+    $baseUrl = app_url('');
     $coverImageUrl = null;
-    if (!empty($listing['cover_image'])) {
-        $imagePath = $listing['cover_image'];
-        if (strpos($imagePath, 'http') !== 0 && strpos($imagePath, '//') !== 0) {
-            $baseUrl = app_url('');
-            $coverImageUrl = $baseUrl . '/' . ltrim($imagePath, '/');
+    $allImageUrls = [];
+    
+    // Process images from listing_images table
+    foreach ($listingImages as $img) {
+        $imagePath = trim($img['image_path']);
+        if (empty($imagePath)) {
+            continue; // Skip empty image paths
+        }
+        
+        // Build full URL
+        if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
+            $fullUrl = $imagePath;
+            $localPath = null; // Can't verify external URLs
         } else {
-            $coverImageUrl = $imagePath;
+            // Remove leading slash if present, then add base URL
+            $imagePath = ltrim($imagePath, '/');
+            $fullUrl = rtrim($baseUrl, '/') . '/' . $imagePath;
+            // Check if file exists locally
+            $localPath = __DIR__ . '/../' . $imagePath;
+        }
+        
+        // Only add image if file exists (or is external URL)
+        // For local files, verify they actually exist before adding
+        $fileExists = true;
+        if ($localPath !== null) {
+            $fileExists = file_exists($localPath);
+            if (!$fileExists) {
+                // Log missing file and skip this image
+                error_log("Image file not found: {$localPath} for listing_id: {$listingId}, image_id: {$img['id']}");
+                continue; // Skip this image entirely - don't add to array
+            }
+        }
+        
+        // Only add if file exists (or is external URL)
+        if ($localPath === null || $fileExists) {
+            $allImageUrls[] = [
+                'url' => $fullUrl,
+                'path' => $imagePath,
+                'is_cover' => (bool)$img['is_cover'],
+                'order' => (int)$img['image_order'],
+                'id' => (int)$img['id'],
+                'exists' => true // We only add if it exists
+            ];
+            
+            // Set cover image (first cover image found)
+            if ($img['is_cover'] && !$coverImageUrl) {
+                $coverImageUrl = $fullUrl;
+            }
+        }
+    }
+    
+    // Fallback to cover_image from listings table if no images in listing_images table
+    if (empty($allImageUrls) && !empty($listing['cover_image'])) {
+        $imagePath = trim($listing['cover_image']);
+        if (!empty($imagePath)) {
+            if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
+                $coverImageUrl = $imagePath;
+            } else {
+                $imagePath = ltrim($imagePath, '/');
+                $coverImageUrl = rtrim($baseUrl, '/') . '/' . $imagePath;
+            }
+            $allImageUrls[] = [
+                'url' => $coverImageUrl,
+                'path' => $imagePath,
+                'is_cover' => true,
+                'order' => 0,
+                'id' => 0 // Fallback ID
+            ];
+        }
+    }
+    
+    // If still no cover image, use first image
+    if (!$coverImageUrl && !empty($allImageUrls)) {
+        $coverImageUrl = $allImageUrls[0]['url'];
+        $allImageUrls[0]['is_cover'] = true;
+        if (!isset($allImageUrls[0]['id'])) {
+            $allImageUrls[0]['id'] = 0;
         }
     }
     
@@ -229,25 +309,102 @@ $baseUrl = app_url('');
                 <div class="admin-card-header">
                     <h5 class="admin-card-title">
                         <i class="bi bi-image me-2"></i>Photos
+                        <?php if (!empty($allImageUrls)): ?>
+                            <span class="badge bg-secondary ms-2"><?= count($allImageUrls) ?> image<?= count($allImageUrls) !== 1 ? 's' : '' ?></span>
+                        <?php endif; ?>
                     </h5>
                 </div>
                 <div class="admin-card-body">
-                    <?php if ($coverImageUrl): ?>
-                        <div>
-                            <img src="<?= htmlspecialchars($coverImageUrl) ?>" 
-                                 alt="<?= htmlspecialchars($listing['title']) ?>" 
-                                 class="img-fluid w-100 rounded" 
-                                 style="max-height: 500px; object-fit: cover;"
-                                 onerror="this.style.display='none'">
+                    <?php if (!empty($allImageUrls)): ?>
+                        <!-- All Images Gallery -->
+                        <div class="row g-3">
+                            <?php 
+                            $coverShown = false;
+                            foreach ($allImageUrls as $index => $img): 
+                                // Show cover image larger only once, at the top
+                                if ($img['is_cover'] && !$coverShown): 
+                                    $coverShown = true;
+                                    $cacheBuster = '?v=' . $img['id'] . '&t=' . time();
+                                    $imgUrl = htmlspecialchars($img['url']) . (strpos($img['url'], '?') !== false ? '&' : '?') . 'v=' . $img['id'] . '&t=' . time();
+                            ?>
+                                <div class="col-md-6 col-sm-12">
+                                    <div class="position-relative">
+                                        <div class="position-relative" style="border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                            <img src="<?= $imgUrl ?>" 
+                                                 alt="Cover Image - <?= htmlspecialchars($img['path']) ?>" 
+                                                 class="img-fluid w-100" 
+                                                 style="height: 400px; object-fit: cover; cursor: pointer; transition: transform 0.2s; display: block;"
+                                                 onmouseover="this.style.transform='scale(1.02)'"
+                                                 onmouseout="this.style.transform='scale(1)'"
+                                                 onclick="openImageModal('<?= htmlspecialchars($img['url']) ?>')"
+                                                 onerror="this.style.display='none'; this.parentElement.style.display='none';">
+                                            <span class="badge bg-primary position-absolute" 
+                                                  style="top: 12px; left: 12px; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                                <i class="bi bi-star-fill me-1"></i>Cover
+                                            </span>
+                                        </div>
+                                        <div class="text-center mt-2">
+                                            <small class="text-muted"><?= htmlspecialchars(basename($img['path'])) ?></small>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php 
+                                elseif (!$img['is_cover']): 
+                                    // Show non-cover images as thumbnails
+                                    $imgUrl = htmlspecialchars($img['url']) . (strpos($img['url'], '?') !== false ? '&' : '?') . 'v=' . $img['id'] . '&t=' . time();
+                            ?>
+                                <div class="col-md-3 col-sm-4 col-6">
+                                    <div class="position-relative">
+                                        <div class="position-relative" style="border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                            <img src="<?= $imgUrl ?>" 
+                                                 alt="Image <?= $index + 1 ?> - <?= htmlspecialchars($img['path']) ?>" 
+                                                 class="img-fluid w-100" 
+                                                 style="height: 200px; object-fit: cover; cursor: pointer; transition: transform 0.2s; display: block;"
+                                                 onmouseover="this.style.transform='scale(1.05)'"
+                                                 onmouseout="this.style.transform='scale(1)'"
+                                                 onclick="openImageModal('<?= htmlspecialchars($img['url']) ?>')"
+                                                 onerror="this.style.display='none'; this.parentElement.parentElement.style.display='none';">
+                                        </div>
+                                        <div class="text-center mt-1">
+                                            <small class="text-muted d-block">Image <?= $index + 1 ?></small>
+                                            <small class="text-muted" style="font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;" title="<?= htmlspecialchars($img['path']) ?>">
+                                                <?= htmlspecialchars(basename($img['path'])) ?>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php 
+                                endif;
+                            endforeach; 
+                            ?>
                         </div>
                     <?php else: ?>
                         <div class="text-center py-5">
                             <i class="bi bi-image fs-1 text-muted d-block mb-3"></i>
-                            <p class="text-muted">No cover image uploaded</p>
+                            <p class="text-muted">No images uploaded</p>
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
+            
+            <!-- Image Modal -->
+            <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content bg-transparent border-0">
+                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" 
+                                data-bs-dismiss="modal" aria-label="Close" style="z-index: 1055;"></button>
+                        <img id="modalImage" src="" alt="Full size" class="img-fluid rounded">
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+            function openImageModal(imageUrl) {
+                const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+                document.getElementById('modalImage').src = imageUrl;
+                modal.show();
+            }
+            </script>
 
         <?php elseif ($activeTab === 'details'): ?>
             <!-- Details Tab -->

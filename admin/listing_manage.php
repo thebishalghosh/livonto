@@ -87,7 +87,7 @@ try {
                 (SELECT MIN(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as min_rent,
                 (SELECT MAX(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as max_rent,
                 (SELECT COUNT(*) FROM bookings WHERE listing_id = l.id) as bookings_count,
-                (SELECT COUNT(*) FROM visits WHERE listing_id = l.id) as visits_count,
+                (SELECT COUNT(*) FROM visit_bookings WHERE listing_id = l.id) as visits_count,
                 (SELECT AVG(rating) FROM reviews WHERE listing_id = l.id) as avg_rating,
                 (SELECT COUNT(*) FROM reviews WHERE listing_id = l.id) as reviews_count
          FROM listings l

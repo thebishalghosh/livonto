@@ -74,6 +74,14 @@ if (!function_exists('app_url')) {
 			return $base . '/';
 		}
 		
+		// Separate path and query string
+		$queryString = '';
+		if (strpos($path, '?') !== false) {
+			$parts = explode('?', $path, 2);
+			$path = $parts[0];
+			$queryString = '?' . $parts[1];
+		}
+		
 		// Remove leading slash if present
 		$path = ltrim($path, '/');
 		
@@ -83,10 +91,10 @@ if (!function_exists('app_url')) {
 		
 		// Handle special cases
 		if (empty($path) || $path === 'index') {
-			return $base . '/';
+			return $base . '/' . $queryString;
 		}
 		
-		return $base . '/' . $path;
+		return $base . '/' . $path . $queryString;
 	}
 }
 

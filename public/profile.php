@@ -44,7 +44,7 @@ try {
         'total_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ?", [$userId]) ?: 0,
         'confirmed_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ? AND status = 'confirmed'", [$userId]) ?: 0,
         'pending_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ? AND status = 'pending'", [$userId]) ?: 0,
-        'total_visits' => (int)$db->fetchValue("SELECT COUNT(*) FROM visits WHERE user_id = ?", [$userId]) ?: 0,
+        'total_visits' => (int)$db->fetchValue("SELECT COUNT(*) FROM visit_bookings WHERE user_id = ?", [$userId]) ?: 0,
         'total_referrals' => (int)$db->fetchValue("SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", [$userId]) ?: 0,
         'total_rewards' => (float)$db->fetchValue("SELECT COALESCE(SUM(reward_amount), 0) FROM referrals WHERE referrer_id = ? AND status = 'credited'", [$userId]) ?: 0,
     ];
@@ -65,14 +65,14 @@ try {
     
     // Get recent visits (last 5)
     $recentVisits = $db->fetchAll(
-        "SELECT v.id, v.visit_date, v.status, v.created_at,
+        "SELECT vb.id, vb.preferred_date as visit_date, vb.status, vb.created_at,
                 l.title as listing_title, l.cover_image,
                 loc.city as listing_city
-         FROM visits v
-         LEFT JOIN listings l ON v.listing_id = l.id
+         FROM visit_bookings vb
+         LEFT JOIN listings l ON vb.listing_id = l.id
          LEFT JOIN listing_locations loc ON l.id = loc.listing_id
-         WHERE v.user_id = ?
-         ORDER BY v.created_at DESC
+         WHERE vb.user_id = ?
+         ORDER BY vb.created_at DESC
          LIMIT 5",
         [$userId]
     );

@@ -4,20 +4,20 @@
  * List, search, filter, and manage referral records
  */
 
-$pageTitle = "Referrals Management";
-require __DIR__ . '/../app/includes/admin_header.php';
+// Start session and load config/functions BEFORE any output
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require __DIR__ . '/../app/config.php';
 require __DIR__ . '/../app/functions.php';
 
-// Get filter parameters
-$search = trim($_GET['search'] ?? '');
-$status = $_GET['status'] ?? '';
-$sort = $_GET['sort'] ?? 'created_at';
-$order = $_GET['order'] ?? 'DESC';
-$page = max(1, intval($_GET['page'] ?? 1));
-$perPage = 20;
-$offset = ($page - 1) * $perPage;
+// Check if user is logged in and is admin BEFORE processing actions
+if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    header('Location: ' . app_url('admin/login'));
+    exit;
+}
 
-// Handle actions
+// Handle POST actions BEFORE including header (to avoid headers already sent error)
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $referralId = intval($_GET['id'] ?? $_POST['id'] ?? 0);
 
@@ -55,6 +55,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $referralId) {
         }
     }
 }
+
+// Now include header and continue with page rendering
+$pageTitle = "Referrals Management";
+require __DIR__ . '/../app/includes/admin_header.php';
+
+// Get filter parameters
+$search = trim($_GET['search'] ?? '');
+$status = $_GET['status'] ?? '';
+$sort = $_GET['sort'] ?? 'created_at';
+$order = $_GET['order'] ?? 'DESC';
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 20;
+$offset = ($page - 1) * $perPage;
 
 try {
     $db = db();

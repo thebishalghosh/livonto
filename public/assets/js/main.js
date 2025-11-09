@@ -1,4 +1,43 @@
 // main.js - search + small helpers
+/**
+ * Navigate carousel for a listing
+ */
+function navigateCarousel(listingId, direction) {
+  const carousel = document.querySelector(`.listing-carousel[data-listing-id="${listingId}"]`);
+  if (!carousel) return;
+  
+  const slides = carousel.querySelectorAll('.carousel-slide');
+  if (slides.length <= 1) return;
+  
+  let currentIndex = -1;
+  slides.forEach((slide, index) => {
+    if (slide.classList.contains('active')) {
+      currentIndex = index;
+    }
+  });
+  
+  if (currentIndex === -1) return;
+  
+  // Hide current slide
+  slides[currentIndex].classList.remove('active');
+  slides[currentIndex].style.display = 'none';
+  
+  // Calculate new index
+  let newIndex = currentIndex + direction;
+  if (newIndex < 0) {
+    newIndex = slides.length - 1;
+  } else if (newIndex >= slides.length) {
+    newIndex = 0;
+  }
+  
+  // Show new slide
+  slides[newIndex].classList.add('active');
+  slides[newIndex].style.display = 'block';
+}
+
+// Make function globally available
+window.navigateCarousel = navigateCarousel;
+
 document.addEventListener('DOMContentLoaded', function() {
   const searchForm = document.getElementById('searchForm');
   if (searchForm) {
@@ -142,31 +181,69 @@ async function loadSearchResults(city = '', query = '') {
                </div>`
             : '';
           
+          // Build carousel HTML
+          const images = listing.images || [imageUrl];
+          const carouselId = `carousel-${listing.id}`;
+          let carouselHtml = '';
+          
+          if (images.length > 0) {
+            carouselHtml = `
+              <div class="listing-carousel position-relative" data-listing-id="${listing.id}">
+                <div class="carousel-container">
+                  ${images.map((img, idx) => `
+                    <div class="carousel-slide ${idx === 0 ? 'active' : ''}" 
+                         style="display: ${idx === 0 ? 'block' : 'none'}; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                      <img src="${escapeHtml(img)}" 
+                           class="w-100 h-100" 
+                           style="object-fit: cover;"
+                           alt="${escapeHtml(listing.title)} - Image ${idx + 1}"
+                           onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                    </div>
+                  `).join('')}
+                </div>
+                ${images.length > 1 ? `
+                  <button class="carousel-btn carousel-prev" 
+                          onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(${listing.id}, -1)"
+                          aria-label="Previous image">
+                    <i class="bi bi-chevron-left"></i>
+                  </button>
+                  <button class="carousel-btn carousel-next" 
+                          onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(${listing.id}, 1)"
+                          aria-label="Next image">
+                    <i class="bi bi-chevron-right"></i>
+                  </button>
+                  <div class="carousel-badge">
+                    ${images.length} Photo${images.length !== 1 ? 's' : ''}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }
+          
           return `
             <div class="col-md-4">
-              <a href="${baseUrl}/listings/${listing.id}" class="text-decoration-none">
-                <div class="card pg shadow-sm h-100">
-                  <img src="${escapeHtml(imageUrl)}" 
-                       class="card-img-top" 
-                       style="height:180px;object-fit:cover" 
-                       alt="${escapeHtml(listing.title)}"
-                       onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                      <div class="flex-grow-1">
-                        <h5 class="listing-title mb-1">${escapeHtml(listing.title)}</h5>
-                        <div class="listing-meta">${escapeHtml(location)}</div>
-                      </div>
-                      ${ratingHtml}
-                    </div>
-                    <p class="listing-description text-muted small mt-2 mb-2">${escapeHtml(description)}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                      <span class="listing-price text-primary fw-bold">${priceText}</span>
-                      <span class="badge bg-light text-dark">${escapeHtml(listing.available_for || 'both')}</span>
-                    </div>
+              <div class="card pg shadow-sm h-100">
+                <a href="${baseUrl}/listings/${listing.id}" class="text-decoration-none">
+                  ${carouselHtml}
+                </a>
+                <div class="card-body d-flex flex-column listing-card-body">
+                  <h5 class="listing-title mb-2">${escapeHtml(listing.title)}</h5>
+                  <p class="small text-muted mb-3 flex-grow-1">${escapeHtml(description)}</p>
+                  <div class="d-flex gap-2 mt-auto">
+                    <a href="${baseUrl}/visit-book?id=${listing.id}" 
+                       class="btn btn-outline-primary btn-sm flex-fill text-center"
+                       onclick="event.stopPropagation();"
+                       style="border-color: var(--primary); color: var(--primary);">
+                      Book a Visit
+                    </a>
+                    <a href="${baseUrl}/listings/${listing.id}?action=book" 
+                       class="btn btn-primary btn-sm flex-fill text-white text-center"
+                       onclick="event.stopPropagation();">
+                      Book Now
+                    </a>
                   </div>
                 </div>
-              </a>
+              </div>
             </div>
           `;
         }).join('');

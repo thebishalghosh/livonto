@@ -142,11 +142,11 @@ try {
             $fullUrl = $imagePath;
             $localPath = null; // Can't verify external URLs
         } else {
-            // Remove leading slash if present, then add base URL
-            $imagePath = ltrim($imagePath, '/');
-            $fullUrl = rtrim($baseUrl, '/') . '/' . $imagePath;
-            // Check if file exists locally
-            $localPath = __DIR__ . '/../' . $imagePath;
+            // Use app_url() for consistent path handling
+            $fullUrl = app_url($imagePath);
+            // Check if file exists locally (need original path for file check)
+            $imagePathForFile = ltrim($imagePath, '/');
+            $localPath = __DIR__ . '/../' . $imagePathForFile;
         }
         
         // Only add image if file exists (or is external URL)
@@ -186,8 +186,9 @@ try {
             if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
                 $coverImageUrl = $imagePath;
             } else {
-                $imagePath = ltrim($imagePath, '/');
-                $coverImageUrl = rtrim($baseUrl, '/') . '/' . $imagePath;
+                // Use app_url() for consistent path handling
+                $coverImageUrl = app_url($imagePath);
+                $imagePath = ltrim($imagePath, '/'); // Keep for array below
             }
             $allImageUrls[] = [
                 'url' => $coverImageUrl,

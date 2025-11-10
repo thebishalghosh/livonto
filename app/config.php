@@ -135,7 +135,9 @@ if (!function_exists('app_url')) {
 		
 		// For storage paths (storage/uploads/...), don't process them - use as is
 		if (strpos($path, 'storage/') === 0) {
-			return $base . '/' . $path . $queryString;
+			// Ensure we have a leading slash
+			$storagePath = '/' . ltrim($path, '/');
+			return (empty($base) ? '' : $base) . $storagePath . $queryString;
 		}
 		
 		// Remove .php extension and /public/ prefix for clean URLs

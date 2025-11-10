@@ -392,8 +392,9 @@ try {
         if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
             $fullUrl = $imagePath;
         } else {
-            $imagePath = ltrim($imagePath, '/');
-            $fullUrl = rtrim($baseUrl, '/') . '/' . $imagePath;
+            // Use app_url() for consistent path handling
+            $fullUrl = app_url($imagePath);
+            $imagePath = ltrim($imagePath, '/'); // Keep for localPath check below
         }
         
         $localPath = __DIR__ . '/../' . $imagePath;

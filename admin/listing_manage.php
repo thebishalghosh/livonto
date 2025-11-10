@@ -341,9 +341,9 @@ $flashMessage = getFlashMessage();
                                             <?php 
                                             // Build full image URL
                                             $imagePath = $listing['cover_image'];
-                                            if (strpos($imagePath, 'http') !== 0) {
-                                                // If it's a relative path, prepend base URL
-                                                $imagePath = app_url('') . '/' . ltrim($imagePath, '/');
+                                            if (strpos($imagePath, 'http') !== 0 && strpos($imagePath, '//') !== 0) {
+                                                // Use app_url() for consistent path handling
+                                                $imagePath = app_url($imagePath);
                                             }
                                             ?>
                                             <img src="<?= htmlspecialchars($imagePath) ?>" 

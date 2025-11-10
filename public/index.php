@@ -91,7 +91,8 @@ try {
             if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
                 $images[] = $imagePath;
             } else {
-                $images[] = $baseUrl . '/' . ltrim($imagePath, '/');
+                // Use app_url() for consistent path handling
+                $images[] = app_url($imagePath);
             }
         }
         
@@ -99,7 +100,8 @@ try {
         if (empty($images) && !empty($listing['cover_image'])) {
             $imagePath = $listing['cover_image'];
             if (strpos($imagePath, 'http') !== 0 && strpos($imagePath, '//') !== 0) {
-                $images[] = $baseUrl . '/' . ltrim($imagePath, '/');
+                // Use app_url() for consistent path handling
+                $images[] = app_url($imagePath);
             } else {
                 $images[] = $imagePath;
             }

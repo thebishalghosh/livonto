@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     require __DIR__ . '/../app/config.php';
-    require __DIR__ . '/../app/functions.php';
+    // functions.php is already included in admin_header.php
     
     $action = $_GET['action'] ?? '';
     $enquiryId = intval($_GET['id'] ?? 0);
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Now include header and display page
 $pageTitle = "Enquiries Management";
 require __DIR__ . '/../app/includes/admin_header.php';
-require __DIR__ . '/../app/functions.php';
+// functions.php is already included in admin_header.php
 
 // Get filter parameters
 $search = trim($_GET['search'] ?? '');
@@ -220,19 +220,22 @@ $flashMessage = getFlashMessage();
     </div>
 </div>
 
-<!-- Filters -->
+<!-- Filters and Search -->
 <div class="admin-card mb-4">
     <div class="admin-card-body">
-        <form method="GET" action="" class="row g-3 align-items-end">
+        <form method="GET" action="<?= htmlspecialchars(app_url('admin/enquiries')) ?>" class="row g-3">
             <div class="col-md-4">
-                <label for="search" class="form-label">Search</label>
-                <input type="text" class="form-control form-control-sm" id="search" name="search" 
-                       value="<?= htmlspecialchars($search) ?>" 
-                       placeholder="Search by name, email, subject...">
+                <label class="form-label">Search</label>
+                <input type="text" 
+                       class="form-control form-control-sm" 
+                       name="search" 
+                       placeholder="Search by name, email, subject..." 
+                       value="<?= htmlspecialchars($search) ?>"
+                       style="height: 38px;">
             </div>
-            <div class="col-md-3">
-                <label for="status" class="form-label">Status</label>
-                <select class="form-select form-select-sm" id="status" name="status">
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select class="form-control form-control-sm filter-select" name="status" style="height: 38px;">
                     <option value="">All Status</option>
                     <option value="new" <?= $status === 'new' ? 'selected' : '' ?>>New</option>
                     <option value="read" <?= $status === 'read' ? 'selected' : '' ?>>Read</option>
@@ -240,8 +243,8 @@ $flashMessage = getFlashMessage();
                 </select>
             </div>
             <div class="col-md-2">
-                <label for="sort" class="form-label">Sort By</label>
-                <select class="form-select form-select-sm" id="sort" name="sort">
+                <label class="form-label">Sort By</label>
+                <select class="form-control form-control-sm filter-select" name="sort" style="height: 38px;">
                     <option value="created_at" <?= $sort === 'created_at' ? 'selected' : '' ?>>Date</option>
                     <option value="name" <?= $sort === 'name' ? 'selected' : '' ?>>Name</option>
                     <option value="email" <?= $sort === 'email' ? 'selected' : '' ?>>Email</option>
@@ -249,14 +252,16 @@ $flashMessage = getFlashMessage();
                 </select>
             </div>
             <div class="col-md-2">
-                <label for="order" class="form-label">Order</label>
-                <select class="form-select form-select-sm" id="order" name="order">
+                <label class="form-label">Order</label>
+                <select class="form-control form-control-sm filter-select" name="order" style="height: 38px;">
                     <option value="DESC" <?= $order === 'DESC' ? 'selected' : '' ?>>Newest First</option>
                     <option value="ASC" <?= $order === 'ASC' ? 'selected' : '' ?>>Oldest First</option>
                 </select>
             </div>
-            <div class="col-md-1">
-                <button type="submit" class="btn btn-primary btn-sm w-100">Filter</button>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary btn-sm w-100" style="height: 38px;">
+                    <i class="bi bi-search me-1"></i>Filter
+                </button>
             </div>
         </form>
     </div>

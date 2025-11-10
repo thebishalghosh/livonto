@@ -37,6 +37,7 @@ $address = trim($_POST['address'] ?? '');
 $city = trim($_POST['city'] ?? '');
 $state = trim($_POST['state'] ?? '');
 $pincode = trim($_POST['pincode'] ?? '');
+$removeProfileImage = isset($_POST['remove_profile_image']) && $_POST['remove_profile_image'] === '1';
 
 // Validation
 if (empty($name)) {
@@ -60,34 +61,133 @@ try {
     // Get database connection
     $db = db();
     
+    // Handle profile image upload
+    $profileImagePath = null;
+    $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    $maxSize = 2 * 1024 * 1024; // 2MB
+    $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+    
+    // Get current profile image to delete old one if needed
+    $currentProfileImage = $db->fetchValue("SELECT profile_image FROM users WHERE id = ?", [$userId]);
+    
+    // Handle image removal
+    if ($removeProfileImage) {
+        if ($currentProfileImage && strpos($currentProfileImage, 'http') !== 0) {
+            // Only delete if it's a local file (not a Google profile image)
+            $oldImagePath = __DIR__ . '/../' . $currentProfileImage;
+            if (file_exists($oldImagePath)) {
+                @unlink($oldImagePath);
+            }
+        }
+        $profileImagePath = null;
+    }
+    // Handle new image upload
+    elseif (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] === UPLOAD_ERR_OK) {
+        $file = $_FILES['profile_image'];
+        
+        // Validate file type
+        if (!in_array($file['type'], $allowedTypes)) {
+            $errors['profile_image'] = 'Image must be a JPEG, PNG, GIF, or WebP file';
+        }
+        
+        // Validate file size
+        if ($file['size'] > $maxSize) {
+            $errors['profile_image'] = 'Image size must be less than 2MB';
+        }
+        
+        // Validate file extension
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExts)) {
+            $errors['profile_image'] = 'Invalid file extension';
+        }
+        
+        // If no errors, proceed with upload
+        if (empty($errors['profile_image'])) {
+            $uploadDir = __DIR__ . '/../storage/uploads/profiles/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            // Generate unique filename
+            $uniqueId = uniqid('', true);
+            $filename = 'profile_' . $userId . '_' . time() . '_' . $uniqueId . '.' . $ext;
+            $uploadPath = $uploadDir . $filename;
+            
+            // Delete old image if exists (and it's a local file)
+            if ($currentProfileImage && strpos($currentProfileImage, 'http') !== 0) {
+                $oldImagePath = __DIR__ . '/../' . $currentProfileImage;
+                if (file_exists($oldImagePath)) {
+                    @unlink($oldImagePath);
+                }
+            }
+            
+            // Move uploaded file
+            if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+                $profileImagePath = 'storage/uploads/profiles/' . $filename;
+            } else {
+                $errors['profile_image'] = 'Failed to upload image. Please try again.';
+            }
+        }
+    }
+    
+    // If there are image-related errors, return them
+    if (!empty($errors)) {
+        jsonError('Please fix the errors below', $errors, 400);
+    }
+    
+    // Build update query
+    $updateFields = [
+        'name = ?',
+        'phone = ?',
+        'gender = ?',
+        'address = ?',
+        'city = ?',
+        'state = ?',
+        'pincode = ?',
+        'updated_at = NOW()'
+    ];
+    $updateParams = [
+        $name,
+        $phone ?: null,
+        $gender ?: null,
+        $address ?: null,
+        $city ?: null,
+        $state ?: null,
+        $pincode ?: null
+    ];
+    
+    // Add profile image to update if provided
+    if ($profileImagePath !== null || $removeProfileImage) {
+        $updateFields[] = 'profile_image = ?';
+        $updateParams[] = $profileImagePath;
+    }
+    
+    $updateParams[] = $userId; // Add userId at the end for WHERE clause
+    
     // Update user profile
     $db->execute(
         "UPDATE users 
-         SET name = ?, phone = ?, gender = ?, address = ?, city = ?, state = ?, pincode = ?, updated_at = NOW()
+         SET " . implode(', ', $updateFields) . "
          WHERE id = ?",
-        [
-            $name,
-            $phone ?: null,
-            $gender ?: null,
-            $address ?: null,
-            $city ?: null,
-            $state ?: null,
-            $pincode ?: null,
-            $userId
-        ]
+        $updateParams
     );
     
     // Update session data
     $_SESSION['user_name'] = $name;
+    // Update profile image in session if changed
+    if ($profileImagePath !== null || $removeProfileImage) {
+        $_SESSION['user_profile_image'] = $profileImagePath;
+    }
     
     // Log successful update
-    error_log("User updated profile: User ID {$userId}");
+    error_log("User updated profile: User ID {$userId}" . ($profileImagePath ? " (with new profile image)" : ""));
     
     // Return success response
     jsonSuccess('Profile updated successfully!', [
         'user' => [
             'id' => $userId,
-            'name' => $name
+            'name' => $name,
+            'profile_image' => $profileImagePath
         ]
     ]);
     

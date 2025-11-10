@@ -182,9 +182,22 @@ function getFlashMessage() {
  * @param int $statusCode
  */
 function jsonResponse($data, $statusCode = 200) {
-    http_response_code($statusCode);
-    header('Content-Type: application/json');
-    echo json_encode($data);
+    // Clean any output buffers
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    if (!headers_sent()) {
+        http_response_code($statusCode);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    
+    $json = @json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false || $json === null) {
+        echo '{"status":"error","message":"JSON encoding failed"}';
+    } else {
+        echo $json;
+    }
     exit;
 }
 
@@ -217,6 +230,36 @@ function jsonSuccess($message, $data = null, $statusCode = 200) {
         $response['data'] = $data;
     }
     jsonResponse($response, $statusCode);
+}
+
+/**
+ * Get site setting value
+ * @param string $key
+ * @param string $default
+ * @return string
+ */
+function getSetting($key, $default = '') {
+    static $settingsCache = null;
+    
+    // Load settings once per request
+    if ($settingsCache === null) {
+        try {
+            $db = db();
+            $settingsRows = $db->fetchAll("SELECT setting_key, setting_value FROM site_settings");
+            $settingsCache = [];
+            foreach ($settingsRows as $row) {
+                $value = $row['setting_value'];
+                // Try to decode JSON, otherwise use as string
+                $decoded = json_decode($value, true);
+                $settingsCache[$row['setting_key']] = ($decoded !== null && json_last_error() === JSON_ERROR_NONE) ? $decoded : $value;
+            }
+        } catch (Exception $e) {
+            error_log("Error loading settings: " . $e->getMessage());
+            $settingsCache = [];
+        }
+    }
+    
+    return $settingsCache[$key] ?? $default;
 }
 
 /**

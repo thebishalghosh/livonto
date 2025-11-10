@@ -73,16 +73,16 @@ $navItems = [
     [
         'id' => 'bookings',
         'title' => 'Bookings',
-        'icon' => 'bi-calendar-check',
-        'url' => '#',
-        'page' => 'bookings.php'
+        'icon' => 'bi-calendar-event',
+        'url' => app_url('admin/bookings'),
+        'route' => 'admin/bookings'
     ],
     [
         'id' => 'payments',
         'title' => 'Payments',
         'icon' => 'bi-credit-card',
-        'url' => '#',
-        'page' => 'payments.php'
+        'url' => app_url('admin/payments'),
+        'route' => 'admin/payments'
     ],
     [
         'id' => 'reviews',
@@ -99,8 +99,8 @@ $navItems = [
         'id' => 'settings',
         'title' => 'Settings',
         'icon' => 'bi-gear',
-        'url' => '#',
-        'page' => 'settings.php'
+        'url' => app_url('admin/settings'),
+        'route' => 'admin/settings'
     ],
     [
         'id' => 'website',

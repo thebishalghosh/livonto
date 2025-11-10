@@ -172,8 +172,7 @@ CREATE TABLE bookings (
   user_id INT NOT NULL,
   listing_id INT NOT NULL,
   room_config_id INT NULL,
-  checkin_date DATE,
-  checkout_date DATE,
+  booking_start_date DATE NOT NULL,
   total_amount DECIMAL(10,2) DEFAULT 0.00,
   status ENUM('pending','confirmed','cancelled','completed') DEFAULT 'pending',
   kyc_id INT NULL,
@@ -188,7 +187,8 @@ CREATE TABLE bookings (
   FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
   FOREIGN KEY (room_config_id) REFERENCES room_configurations(id) ON DELETE SET NULL,
   FOREIGN KEY (kyc_id) REFERENCES user_kyc(id) ON DELETE SET NULL,
-  FOREIGN KEY (guardian_kyc_id) REFERENCES user_kyc(id) ON DELETE SET NULL
+  FOREIGN KEY (guardian_kyc_id) REFERENCES user_kyc(id) ON DELETE SET NULL,
+  INDEX idx_booking_start_date (booking_start_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -204,6 +204,29 @@ CREATE TABLE payments (
   status ENUM('initiated','success','failed') DEFAULT 'initiated',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- =====================================================
+-- INVOICES
+-- =====================================================
+CREATE TABLE invoices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  invoice_number VARCHAR(50) UNIQUE NOT NULL,
+  booking_id INT NOT NULL,
+  payment_id INT NOT NULL,
+  user_id INT NOT NULL,
+  invoice_date DATE NOT NULL,
+  total_amount DECIMAL(10,2) NOT NULL,
+  status ENUM('draft','sent','paid','cancelled') DEFAULT 'sent',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+  FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_invoice_number (invoice_number),
+  INDEX idx_booking_id (booking_id),
+  INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -323,4 +346,30 @@ CREATE TABLE IF NOT EXISTS visit_bookings (
     INDEX idx_preferred_date (preferred_date),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Alter bookings table to use monthly booking system
+-- Remove checkin_date and checkout_date
+-- Add booking_start_date (start date of booking)
+-- The booking will be for 1 month from booking_start_date
+
+-- First, add the new column
+ALTER TABLE bookings 
+ADD COLUMN booking_start_date DATE NULL AFTER room_config_id;
+
+-- Update existing records to use checkin_date as booking_start_date if it exists
+UPDATE bookings 
+SET booking_start_date = checkin_date 
+WHERE booking_start_date IS NULL AND checkin_date IS NOT NULL;
+
+-- Now drop old columns
+ALTER TABLE bookings 
+DROP COLUMN checkin_date,
+DROP COLUMN checkout_date;
+
+-- Make booking_start_date NOT NULL now that we've populated it
+ALTER TABLE bookings 
+MODIFY COLUMN booking_start_date DATE NOT NULL;
+
+-- Add index for booking_start_date
+CREATE INDEX idx_booking_start_date ON bookings(booking_start_date);
 

@@ -402,9 +402,18 @@ require __DIR__ . '/../app/includes/header.php';
         
         <?php if ($listing): ?>
         <div class="listing-preview-card">
-            <div class="listing-icon">
-                <i class="bi bi-building"></i>
-            </div>
+            <?php if (!empty($listing['images']) && is_array($listing['images'])): ?>
+                <div class="listing-image-preview" style="width: 120px; height: 120px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-700) 100%);">
+                    <img src="<?= htmlspecialchars($listing['images'][0]) ?>" 
+                         alt="<?= htmlspecialchars($listing['title']) ?>"
+                         style="width: 100%; height: 100%; object-fit: cover;"
+                         onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:white;font-size:2rem;\'><i class=\'bi bi-building\'></i></div>';">
+                </div>
+            <?php else: ?>
+                <div class="listing-icon">
+                    <i class="bi bi-building"></i>
+                </div>
+            <?php endif; ?>
             <div class="listing-info flex-grow-1">
                 <h5><?= htmlspecialchars($listing['title']) ?></h5>
                 <p>
@@ -414,6 +423,36 @@ require __DIR__ . '/../app/includes/header.php';
                 </p>
             </div>
         </div>
+        
+        <?php if (!empty($listing['images']) && count($listing['images']) > 1): ?>
+        <div class="listing-images-gallery mb-4" style="background: var(--card-bg); border-radius: var(--card-radius); padding: 1.5rem; border: 1px solid var(--border); box-shadow: var(--shadow-1);">
+            <h6 class="mb-3" style="color: var(--primary-700); font-weight: 600;">
+                <i class="bi bi-images me-2"></i>Property Images
+            </h6>
+            <div class="row g-2">
+                <?php foreach (array_slice($listing['images'], 0, 6) as $index => $imageUrl): ?>
+                    <div class="col-4 col-md-3 col-lg-2">
+                        <div style="position: relative; padding-bottom: 100%; border-radius: 8px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;" 
+                             onmouseover="this.style.borderColor='var(--primary)';" 
+                             onmouseout="this.style.borderColor='transparent';"
+                             onclick="window.open('<?= htmlspecialchars($imageUrl) ?>', '_blank');">
+                            <img src="<?= htmlspecialchars($imageUrl) ?>" 
+                                 alt="Image <?= $index + 1 ?>"
+                                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;"
+                                 onerror="this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg, var(--primary) 0%, var(--primary-700) 100%)'; this.parentElement.innerHTML='<div style=\'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:white;font-size:1.5rem;\'><i class=\'bi bi-image\'></i></div>';">
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <?php if (count($listing['images']) > 6): ?>
+                <p class="text-muted mt-3 mb-0" style="font-size: 0.9rem;">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Showing 6 of <?= count($listing['images']) ?> images. 
+                    <a href="<?= app_url('listings/' . ($listing['id'] ?? $listingId ?? '')) ?>" class="text-decoration-none fw-semibold">View all images</a>
+                </p>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
         
         <div class="row g-4">
             <!-- Left Column - Form -->
@@ -589,14 +628,14 @@ require __DIR__ . '/../app/includes/header.php';
                                 <i class="bi bi-telephone-fill"></i>
                                 <div>
                                     <strong>Call Us</strong>
-                                    <p>6293010501 | 7047133182</p>
+                                    <p><?= htmlspecialchars(function_exists('getSetting') ? getSetting('booking_enquiry_phone', '6293010501 | 7047133182') : '6293010501 | 7047133182') ?></p>
                                 </div>
                             </div>
                             <div class="help-item">
                                 <i class="bi bi-envelope-fill"></i>
                                 <div>
                                     <strong>Email</strong>
-                                    <p>support@livonto.com</p>
+                                    <p><?= htmlspecialchars(function_exists('getSetting') ? getSetting('contact_email', 'support@livonto.com') : 'support@livonto.com') ?></p>
                                 </div>
                             </div>
                             <div class="help-item">
@@ -609,7 +648,7 @@ require __DIR__ . '/../app/includes/header.php';
                         </div>
                     </div>
                     
-                    <!-- Tips Card -->
+                    <!-- Tips Card
                     <div class="info-card tips-card">
                         <div class="info-card-header">
                             <i class="bi bi-lightbulb"></i>
@@ -629,7 +668,7 @@ require __DIR__ . '/../app/includes/header.php';
                                 Arrive 5-10 minutes early to ensure you don't miss your slot
                             </p>
                         </div>
-                    </div>
+                    </div> -->
                 </div>
             </div>
         </div>

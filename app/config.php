@@ -82,8 +82,18 @@ if (!function_exists('app_url')) {
 			$queryString = '?' . $parts[1];
 		}
 		
+		// If path is already a full URL (http:// or https://), return as is
+		if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) {
+			return $path . $queryString;
+		}
+		
 		// Remove leading slash if present
 		$path = ltrim($path, '/');
+		
+		// For storage paths (storage/uploads/...), don't process them - use as is
+		if (strpos($path, 'storage/') === 0) {
+			return $base . '/' . $path . $queryString;
+		}
 		
 		// Remove .php extension and /public/ prefix for clean URLs
 		$path = str_replace('public/', '', $path);
@@ -98,6 +108,18 @@ if (!function_exists('app_url')) {
 	}
 }
 
+// Google OAuth Configuration
+$googleClientId = getenv('GOOGLE_CLIENT_ID') ?: '';
+$googleClientSecret = getenv('GOOGLE_CLIENT_SECRET') ?: '';
+
+// Razorpay Configuration
+$razorpayKeyId = getenv('RAZORPAY_KEY_ID') ?: '';
+$razorpayKeySecret = getenv('RAZORPAY_KEY_SECRET') ?: '';
+
 return [
 	'base_url' => $baseUrl,
+	'google_client_id' => $googleClientId,
+	'google_client_secret' => $googleClientSecret,
+	'razorpay_key_id' => $razorpayKeyId,
+	'razorpay_key_secret' => $razorpayKeySecret,
 ];

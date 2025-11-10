@@ -1,23 +1,20 @@
 <?php
 /**
- * Admin Visit Bookings Management Page
- * View and manage all visit booking requests
+ * Admin Bookings Management Page
+ * View and manage all PG bookings
  */
 
-// Start session and load config/functions BEFORE any output
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require __DIR__ . '/../app/config.php';
 require_once __DIR__ . '/../app/functions.php';
 
-// Check admin authentication BEFORE processing POST
 if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     header('Location: ' . app_url('admin/login'));
     exit;
 }
 
-// Handle actions BEFORE header output
 $action = $_GET['action'] ?? '';
 $bookingId = intval($_GET['id'] ?? 0);
 
@@ -25,54 +22,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
     try {
         $db = db();
         
-        // Verify booking exists before any operation
-        $booking = $db->fetchOne("SELECT id FROM visit_bookings WHERE id = ?", [$bookingId]);
+        $booking = $db->fetchOne("SELECT id FROM bookings WHERE id = ?", [$bookingId]);
         if (!$booking) {
-            $_SESSION['flash_message'] = 'Visit booking not found';
+            $_SESSION['flash_message'] = 'Booking not found';
             $_SESSION['flash_type'] = 'danger';
-            header('Location: ' . app_url('admin/visit-bookings'));
+            header('Location: ' . app_url('admin/bookings'));
             exit;
         }
         
-        // Handle POST actions (update status, add notes, delete, etc.)
         if ($action === 'update_status' && isset($_POST['new_status'])) {
             $newStatus = $_POST['new_status'];
             if (in_array($newStatus, ['pending', 'confirmed', 'cancelled', 'completed'])) {
-                $db->execute("UPDATE visit_bookings SET status = ? WHERE id = ?", [$newStatus, $bookingId]);
-                error_log("Admin updated visit booking status: ID {$bookingId} to {$newStatus} by Admin ID {$_SESSION['user_id']}");
-                $_SESSION['flash_message'] = 'Visit booking status updated successfully';
+                // Get current booking status and room_config_id
+                $currentBooking = $db->fetchOne(
+                    "SELECT status, room_config_id FROM bookings WHERE id = ?",
+                    [$bookingId]
+                );
+                
+                if ($currentBooking) {
+                    $oldStatus = $currentBooking['status'];
+                    $roomConfigId = $currentBooking['room_config_id'];
+                    
+                    // Update booking status
+                    $db->execute("UPDATE bookings SET status = ? WHERE id = ?", [$newStatus, $bookingId]);
+                    
+                    // Update available_rooms based on status change
+                    if ($roomConfigId) {
+                        // If changing from pending/confirmed to cancelled, increase available_rooms
+                        if (in_array($oldStatus, ['pending', 'confirmed']) && $newStatus === 'cancelled') {
+                            $db->execute(
+                                "UPDATE room_configurations 
+                                 SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
+                                 WHERE id = ?",
+                                [$roomConfigId]
+                            );
+                        }
+                        // If changing from cancelled/pending to confirmed, decrease available_rooms
+                        elseif (in_array($oldStatus, ['pending', 'cancelled']) && $newStatus === 'confirmed') {
+                            $db->execute(
+                                "UPDATE room_configurations 
+                                 SET available_rooms = GREATEST(0, available_rooms - 1) 
+                                 WHERE id = ?",
+                                [$roomConfigId]
+                            );
+                        }
+                        // If changing from confirmed to completed, room becomes available (increase)
+                        elseif ($oldStatus === 'confirmed' && $newStatus === 'completed') {
+                            $db->execute(
+                                "UPDATE room_configurations 
+                                 SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
+                                 WHERE id = ?",
+                                [$roomConfigId]
+                            );
+                        }
+                    }
+                }
+                
+                $_SESSION['flash_message'] = 'Booking status updated successfully';
                 $_SESSION['flash_type'] = 'success';
-                header('Location: ' . app_url('admin/visit-bookings'));
+                header('Location: ' . app_url('admin/bookings'));
                 exit;
             }
         } elseif ($action === 'update_notes' && isset($_POST['admin_notes'])) {
             $adminNotes = trim($_POST['admin_notes']);
-            $db->execute("UPDATE visit_bookings SET admin_notes = ? WHERE id = ?", [$adminNotes ?: null, $bookingId]);
-            error_log("Admin updated visit booking notes: ID {$bookingId} by Admin ID {$_SESSION['user_id']}");
+            $db->execute("UPDATE bookings SET special_requests = ? WHERE id = ?", [$adminNotes ?: null, $bookingId]);
             $_SESSION['flash_message'] = 'Admin notes updated successfully';
             $_SESSION['flash_type'] = 'success';
-            header('Location: ' . app_url('admin/visit-bookings'));
+            header('Location: ' . app_url('admin/bookings'));
             exit;
         } elseif ($action === 'delete' && isset($_POST['confirm_delete'])) {
-            $db->execute("DELETE FROM visit_bookings WHERE id = ?", [$bookingId]);
-            error_log("Admin deleted visit booking: ID {$bookingId} by Admin ID {$_SESSION['user_id']}");
-            $_SESSION['flash_message'] = 'Visit booking deleted successfully';
+            // Get booking details before deletion
+            $bookingToDelete = $db->fetchOne(
+                "SELECT status, room_config_id FROM bookings WHERE id = ?",
+                [$bookingId]
+            );
+            
+            // Delete booking
+            $db->execute("DELETE FROM bookings WHERE id = ?", [$bookingId]);
+            
+            // If booking was confirmed, increase available_rooms
+            if ($bookingToDelete && $bookingToDelete['status'] === 'confirmed' && $bookingToDelete['room_config_id']) {
+                $db->execute(
+                    "UPDATE room_configurations 
+                     SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
+                     WHERE id = ?",
+                    [$bookingToDelete['room_config_id']]
+                );
+            }
+            
+            $_SESSION['flash_message'] = 'Booking deleted successfully';
             $_SESSION['flash_type'] = 'success';
-            header('Location: ' . app_url('admin/visit-bookings'));
+            header('Location: ' . app_url('admin/bookings'));
             exit;
         }
     } catch (Exception $e) {
-        error_log("Error in visit booking action: " . $e->getMessage());
         $_SESSION['flash_message'] = 'Error processing request: ' . $e->getMessage();
         $_SESSION['flash_type'] = 'danger';
     }
 }
 
-// Now include header and display page
-$pageTitle = "Visit Bookings Management";
+$pageTitle = "Bookings Management";
 require __DIR__ . '/../app/includes/admin_header.php';
 
-// Get filter parameters
 $search = trim($_GET['search'] ?? '');
 $status = $_GET['status'] ?? '';
 $sort = $_GET['sort'] ?? 'created_at';
@@ -84,12 +135,11 @@ $offset = ($page - 1) * $perPage;
 try {
     $db = db();
     
-    // Build WHERE clause
     $where = [];
     $params = [];
     
     if (!empty($search)) {
-        $where[] = "(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR l.title LIKE ? OR vb.message LIKE ?)";
+        $where[] = "(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR l.title LIKE ? OR b.special_requests LIKE ?)";
         $searchParam = "%{$search}%";
         $params[] = $searchParam;
         $params[] = $searchParam;
@@ -98,47 +148,47 @@ try {
         $params[] = $searchParam;
     }
     
-    if (!empty($status) && in_array($status, ['pending', 'confirmed', 'cancelled', 'completed'])) {
-        $where[] = "vb.status = ?";
+    if (!empty($status) && in_array($status, ['pending', 'confirmed', 'completed', 'cancelled'])) {
+        $where[] = "b.status = ?";
         $params[] = $status;
     }
     
     $whereClause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
     
-    // Get total count
     $totalBookings = $db->fetchValue(
-        "SELECT COUNT(*) FROM visit_bookings vb
-         LEFT JOIN users u ON vb.user_id = u.id
-         LEFT JOIN listings l ON vb.listing_id = l.id
-         LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+        "SELECT COUNT(*) FROM bookings b
+         LEFT JOIN users u ON b.user_id = u.id
+         LEFT JOIN listings l ON b.listing_id = l.id
          {$whereClause}",
         $params
     ) ?: 0;
     
     $totalPages = ceil($totalBookings / $perPage);
     
-    // Validate sort and order
-    $allowedSorts = ['vb.id', 'vb.preferred_date', 'vb.preferred_time', 'vb.status', 'vb.created_at', 'u.name', 'l.title'];
-    $sort = in_array($sort, $allowedSorts) ? $sort : 'vb.created_at';
+    $allowedSorts = ['b.id', 'b.booking_start_date', 'b.status', 'b.created_at', 'u.name', 'l.title', 'b.total_amount'];
+    $sort = in_array($sort, $allowedSorts) ? $sort : 'b.created_at';
     $order = strtoupper($order) === 'ASC' ? 'ASC' : 'DESC';
     
-    // Fetch visit bookings with user and listing info
     $bookings = $db->fetchAll(
-        "SELECT vb.id, vb.listing_id, vb.user_id, vb.preferred_date, vb.preferred_time, 
-                vb.message, vb.status, vb.admin_notes, vb.created_at, vb.updated_at,
+        "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, 
+                b.total_amount, b.status, b.special_requests, b.created_at, b.updated_at,
                 u.name as user_name, u.email as user_email, u.phone as user_phone,
-                l.title as listing_title, loc.city as listing_city, loc.pin_code as listing_pin_code
-         FROM visit_bookings vb
-         LEFT JOIN users u ON vb.user_id = u.id
-         LEFT JOIN listings l ON vb.listing_id = l.id
+                l.title as listing_title,
+                loc.city as listing_city, loc.pin_code as listing_pincode,
+                rc.room_type, rc.rent_per_month,
+                p.id as payment_id, p.status as payment_status, p.provider, p.provider_payment_id
+         FROM bookings b
+         LEFT JOIN users u ON b.user_id = u.id
+         LEFT JOIN listings l ON b.listing_id = l.id
          LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+         LEFT JOIN room_configurations rc ON b.room_config_id = rc.id
+         LEFT JOIN payments p ON b.id = p.booking_id
          {$whereClause}
          ORDER BY {$sort} {$order}
          LIMIT ? OFFSET ?",
         array_merge($params, [$perPage, $offset])
     );
     
-    // Get statistics (optimized with single query)
     $statsRow = $db->fetchOne(
         "SELECT 
             COUNT(*) as total,
@@ -147,8 +197,9 @@ try {
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
             SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
             SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END) as today,
-            SUM(CASE WHEN MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) THEN 1 ELSE 0 END) as this_month
-         FROM visit_bookings"
+            SUM(CASE WHEN MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) THEN 1 ELSE 0 END) as this_month,
+            SUM(CASE WHEN status = 'confirmed' THEN total_amount ELSE 0 END) as total_revenue
+         FROM bookings"
     );
     $stats = [
         'total' => intval($statsRow['total'] ?? 0),
@@ -157,20 +208,36 @@ try {
         'completed' => intval($statsRow['completed'] ?? 0),
         'cancelled' => intval($statsRow['cancelled'] ?? 0),
         'today' => intval($statsRow['today'] ?? 0),
-        'this_month' => intval($statsRow['this_month'] ?? 0)
+        'this_month' => intval($statsRow['this_month'] ?? 0),
+        'total_revenue' => floatval($statsRow['total_revenue'] ?? 0)
     ];
     
 } catch (Exception $e) {
-    error_log("Error in visit_bookings_manage.php: " . $e->getMessage());
     $bookings = [];
-    $stats = ['total' => 0, 'pending' => 0, 'confirmed' => 0, 'completed' => 0, 'cancelled' => 0, 'today' => 0, 'this_month' => 0];
+    $stats = ['total' => 0, 'pending' => 0, 'confirmed' => 0, 'completed' => 0, 'cancelled' => 0, 'today' => 0, 'this_month' => 0, 'total_revenue' => 0];
     $totalBookings = 0;
     $totalPages = 0;
-    $_SESSION['flash_message'] = 'Error loading visit bookings';
+    $_SESSION['flash_message'] = 'Error loading bookings';
     $_SESSION['flash_type'] = 'danger';
 }
 
-// Get flash message
+// Auto-complete expired bookings (run on page load)
+// Booking is completed when the next month starts
+// e.g., booking for January (2024-01-01) completes on February 1st (2024-02-01)
+if (empty($_GET['action']) && empty($_GET['id'])) {
+    try {
+        $db = db();
+        $db->execute(
+            "UPDATE bookings 
+             SET status = 'completed', updated_at = NOW()
+             WHERE status = 'confirmed' 
+             AND DATE_ADD(booking_start_date, INTERVAL 1 MONTH) <= CURDATE()"
+        );
+    } catch (Exception $e) {
+        // Silently fail - don't interrupt page load
+    }
+}
+
 $flashMessage = getFlashMessage();
 ?>
 
@@ -178,13 +245,12 @@ $flashMessage = getFlashMessage();
 <div class="admin-page-header mb-4">
     <div class="d-flex justify-content-between align-items-center">
         <div>
-            <h1 class="admin-page-title">Visit Bookings Management</h1>
-            <p class="admin-page-subtitle text-muted">View and manage all property visit requests</p>
+            <h1 class="admin-page-title">Bookings Management</h1>
+            <p class="admin-page-subtitle text-muted">View and manage all PG bookings</p>
         </div>
     </div>
 </div>
 
-<!-- Flash Message -->
 <?php if ($flashMessage): ?>
     <div class="alert alert-<?= htmlspecialchars($flashMessage['type']) ?> alert-dismissible fade show" role="alert">
         <?= htmlspecialchars($flashMessage['message']) ?>
@@ -194,18 +260,18 @@ $flashMessage = getFlashMessage();
 
 <!-- Statistics Cards -->
 <div class="row g-3 mb-4">
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-md-4 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                 <i class="bi bi-calendar-check"></i>
             </div>
             <div class="admin-stat-card-content">
-                <div class="admin-stat-card-label">Total Visits</div>
+                <div class="admin-stat-card-label">Total Bookings</div>
                 <div class="admin-stat-card-value"><?= number_format($stats['total']) ?></div>
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-md-4 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
                 <i class="bi bi-clock-history"></i>
@@ -216,7 +282,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-md-4 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
                 <i class="bi bi-check-circle"></i>
@@ -227,7 +293,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-md-4 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
                 <i class="bi bi-check-circle-fill"></i>
@@ -238,7 +304,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-md-4 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
                 <i class="bi bi-calendar-day"></i>
@@ -249,7 +315,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-md-4 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
                 <i class="bi bi-calendar-month"></i>
@@ -260,12 +326,23 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
+    <div class="col-xl-4 col-md-4 col-6">
+        <div class="admin-stat-card">
+            <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);">
+                <i class="bi bi-currency-rupee"></i>
+            </div>
+            <div class="admin-stat-card-content">
+                <div class="admin-stat-card-label">Total Revenue</div>
+                <div class="admin-stat-card-value">₹<?= number_format($stats['total_revenue'], 0) ?></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Filters and Search -->
 <div class="admin-card mb-4">
     <div class="admin-card-body">
-        <form method="GET" action="<?= htmlspecialchars(app_url('admin/visit-bookings')) ?>" class="row g-3">
+        <form method="GET" action="<?= htmlspecialchars(app_url('admin/bookings')) ?>" class="row g-3">
             <div class="col-md-4">
                 <label class="form-label">Search</label>
                 <input type="text" 
@@ -288,11 +365,12 @@ $flashMessage = getFlashMessage();
             <div class="col-md-2">
                 <label class="form-label">Sort By</label>
                 <select class="form-control form-control-sm filter-select" name="sort" style="height: 38px;">
-                    <option value="vb.created_at" <?= $sort === 'vb.created_at' ? 'selected' : '' ?>>Date</option>
-                    <option value="vb.preferred_date" <?= $sort === 'vb.preferred_date' ? 'selected' : '' ?>>Visit Date</option>
+                    <option value="b.created_at" <?= $sort === 'b.created_at' ? 'selected' : '' ?>>Date</option>
+                    <option value="b.booking_start_date" <?= $sort === 'b.booking_start_date' ? 'selected' : '' ?>>Start Date</option>
                     <option value="u.name" <?= $sort === 'u.name' ? 'selected' : '' ?>>User Name</option>
                     <option value="l.title" <?= $sort === 'l.title' ? 'selected' : '' ?>>Listing</option>
-                    <option value="vb.status" <?= $sort === 'vb.status' ? 'selected' : '' ?>>Status</option>
+                    <option value="b.status" <?= $sort === 'b.status' ? 'selected' : '' ?>>Status</option>
+                    <option value="b.total_amount" <?= $sort === 'b.total_amount' ? 'selected' : '' ?>>Amount</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -311,16 +389,15 @@ $flashMessage = getFlashMessage();
     </div>
 </div>
 
-<!-- Visit Bookings Table -->
+<!-- Bookings Table -->
 <div class="admin-card">
     <div class="admin-card-body p-0">
         <?php if (empty($bookings)): ?>
             <div class="text-center py-5">
                 <i class="bi bi-calendar-x fs-1 text-muted"></i>
-                <p class="text-muted mt-3">No visit bookings found</p>
+                <p class="text-muted mt-3">No bookings found</p>
             </div>
         <?php else: ?>
-            <!-- Desktop Table View -->
             <div class="table-responsive d-none d-lg-block">
                 <table class="table table-hover admin-table mb-0">
                     <thead>
@@ -328,15 +405,23 @@ $flashMessage = getFlashMessage();
                             <th>ID</th>
                             <th>User</th>
                             <th>Listing</th>
-                            <th>Visit Date & Time</th>
+                            <th>Start Date</th>
+                            <th>Room Type</th>
+                            <th>Amount</th>
+                            <th>Payment</th>
                             <th>Status</th>
-                            <th>Message</th>
                             <th>Created</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($bookings as $booking): ?>
+                            <?php
+                            $startDate = new DateTime($booking['booking_start_date']);
+                            $endDate = clone $startDate;
+                            $endDate->modify('+1 month');
+                            $endDate->modify('-1 day');
+                            ?>
                             <tr>
                                 <td><?= htmlspecialchars($booking['id']) ?></td>
                                 <td>
@@ -358,8 +443,8 @@ $flashMessage = getFlashMessage();
                                         <?php if (!empty($booking['listing_city'])): ?>
                                             <div class="small text-muted">
                                                 <i class="bi bi-geo-alt"></i> <?= htmlspecialchars($booking['listing_city']) ?>
-                                                <?php if (!empty($booking['listing_pin_code'])): ?>
-                                                    - <?= htmlspecialchars($booking['listing_pin_code']) ?>
+                                                <?php if (!empty($booking['listing_pincode'])): ?>
+                                                    - <?= htmlspecialchars($booking['listing_pincode']) ?>
                                                 <?php endif; ?>
                                             </div>
                                         <?php endif; ?>
@@ -367,18 +452,32 @@ $flashMessage = getFlashMessage();
                                 </td>
                                 <td>
                                     <div>
-                                        <strong><?= date('d M Y', strtotime($booking['preferred_date'])) ?></strong>
+                                        <strong><?= date('F 1, Y', strtotime($booking['booking_start_date'])) ?></strong>
                                         <div class="small text-muted">
-                                            <i class="bi bi-clock"></i> <?= date('h:i A', strtotime($booking['preferred_time'])) ?>
+                                            to <?= $endDate->format('F d, Y') ?>
                                         </div>
                                     </div>
+                                </td>
+                                <td><?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?></td>
+                                <td><strong>₹<?= number_format($booking['total_amount'], 2) ?></strong></td>
+                                <td>
+                                    <?php if ($booking['payment_status'] === 'success'): ?>
+                                        <span class="badge bg-success">Paid</span>
+                                        <?php if ($booking['provider']): ?>
+                                            <div class="small text-muted"><?= strtoupper($booking['provider']) ?></div>
+                                        <?php endif; ?>
+                                    <?php elseif ($booking['payment_status'] === 'initiated'): ?>
+                                        <span class="badge bg-warning">Pending</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-secondary">Not Paid</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php
                                     $statusColors = [
                                         'pending' => 'warning',
-                                        'confirmed' => 'info',
-                                        'completed' => 'success',
+                                        'confirmed' => 'success',
+                                        'completed' => 'info',
                                         'cancelled' => 'danger'
                                     ];
                                     $statusColor = $statusColors[$booking['status']] ?? 'secondary';
@@ -386,16 +485,6 @@ $flashMessage = getFlashMessage();
                                     <span class="badge bg-<?= $statusColor ?>">
                                         <?= ucfirst($booking['status']) ?>
                                     </span>
-                                </td>
-                                <td>
-                                    <?php if (!empty($booking['message'])): ?>
-                                        <span class="text-truncate d-inline-block" style="max-width: 200px;" 
-                                              title="<?= htmlspecialchars($booking['message']) ?>">
-                                            <?= htmlspecialchars($booking['message']) ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="text-muted">-</span>
-                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <div class="small">
@@ -425,9 +514,14 @@ $flashMessage = getFlashMessage();
                 </table>
             </div>
             
-            <!-- Mobile Card View -->
             <div class="d-lg-none">
                 <?php foreach ($bookings as $booking): ?>
+                    <?php
+                    $startDate = new DateTime($booking['booking_start_date']);
+                    $endDate = clone $startDate;
+                    $endDate->modify('+1 month');
+                    $endDate->modify('-1 day');
+                    ?>
                     <div class="card mb-3 border-0 shadow-sm">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-2">
@@ -438,8 +532,7 @@ $flashMessage = getFlashMessage();
                                 <?php
                                 $statusColors = [
                                     'pending' => 'warning',
-                                    'confirmed' => 'info',
-                                    'completed' => 'success',
+                                    'confirmed' => 'success',
                                     'cancelled' => 'danger'
                                 ];
                                 $statusColor = $statusColors[$booking['status']] ?? 'secondary';
@@ -458,15 +551,18 @@ $flashMessage = getFlashMessage();
                             </div>
                             <div class="mb-2">
                                 <div class="small">
-                                    <i class="bi bi-calendar"></i> <?= date('d M Y', strtotime($booking['preferred_date'])) ?>
-                                    <i class="bi bi-clock ms-2"></i> <?= date('h:i A', strtotime($booking['preferred_time'])) ?>
+                                    <i class="bi bi-calendar"></i> <?= date('F 1, Y', strtotime($booking['booking_start_date'])) ?> to <?= $endDate->format('F d, Y') ?>
+                                </div>
+                                <div class="small">
+                                    <i class="bi bi-door-open"></i> <?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?>
+                                </div>
+                                <div class="small">
+                                    <strong>₹<?= number_format($booking['total_amount'], 2) ?></strong>
+                                    <?php if ($booking['payment_status'] === 'success'): ?>
+                                        <span class="badge bg-success ms-2">Paid</span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
-                            <?php if (!empty($booking['message'])): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted"><?= htmlspecialchars($booking['message']) ?></small>
-                                </div>
-                            <?php endif; ?>
                             <div class="d-flex gap-2">
                                 <button type="button" class="btn btn-sm btn-outline-primary flex-fill" 
                                         data-bs-toggle="modal" 
@@ -484,7 +580,6 @@ $flashMessage = getFlashMessage();
                 <?php endforeach; ?>
             </div>
             
-            <!-- Pagination -->
             <?php if ($totalPages > 1): ?>
                 <div class="admin-card-body border-top">
                     <nav aria-label="Page navigation">
@@ -510,12 +605,17 @@ $flashMessage = getFlashMessage();
 
 <!-- View Detail Modals -->
 <?php foreach ($bookings as $booking): ?>
-    <!-- View Modal -->
+    <?php
+    $startDate = new DateTime($booking['booking_start_date']);
+    $endDate = clone $startDate;
+    $endDate->modify('+1 month');
+    $endDate->modify('-1 day');
+    ?>
     <div class="modal fade" id="viewModal<?= $booking['id'] ?>" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Visit Booking Details #<?= $booking['id'] ?></h5>
+                    <h5 class="modal-title">Booking Details #<?= $booking['id'] ?></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -535,23 +635,24 @@ $flashMessage = getFlashMessage();
                                 <p class="mb-1">
                                     <strong>Location:</strong> 
                                     <?= htmlspecialchars($booking['listing_city']) ?>
-                                    <?php if (!empty($booking['listing_pin_code'])): ?>
-                                        - <?= htmlspecialchars($booking['listing_pin_code']) ?>
+                                    <?php if (!empty($booking['listing_pincode'])): ?>
+                                        - <?= htmlspecialchars($booking['listing_pincode']) ?>
                                     <?php endif; ?>
                                 </p>
                             <?php endif; ?>
                         </div>
                         <div class="col-md-6">
-                            <h6 class="text-muted mb-2">Visit Details</h6>
-                            <p class="mb-1"><strong>Date:</strong> <?= date('d M Y', strtotime($booking['preferred_date'])) ?></p>
-                            <p class="mb-1"><strong>Time:</strong> <?= date('h:i A', strtotime($booking['preferred_time'])) ?></p>
+                            <h6 class="text-muted mb-2">Booking Details</h6>
+                            <p class="mb-1"><strong>Start Date:</strong> <?= date('F 1, Y', strtotime($booking['booking_start_date'])) ?></p>
+                            <p class="mb-1"><strong>End Date:</strong> <?= $endDate->format('F d, Y') ?></p>
+                            <p class="mb-1"><strong>Room Type:</strong> <?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?></p>
+                            <p class="mb-1"><strong>Amount:</strong> ₹<?= number_format($booking['total_amount'], 2) ?></p>
                             <p class="mb-1">
                                 <strong>Status:</strong> 
                                 <?php
                                 $statusColors = [
                                     'pending' => 'warning',
-                                    'confirmed' => 'info',
-                                    'completed' => 'success',
+                                    'confirmed' => 'success',
                                     'cancelled' => 'danger'
                                 ];
                                 $statusColor = $statusColors[$booking['status']] ?? 'secondary';
@@ -560,24 +661,36 @@ $flashMessage = getFlashMessage();
                             </p>
                         </div>
                         <div class="col-md-6">
+                            <h6 class="text-muted mb-2">Payment Information</h6>
+                            <?php if ($booking['payment_id']): ?>
+                                <p class="mb-1"><strong>Payment Status:</strong> 
+                                    <span class="badge bg-<?= $booking['payment_status'] === 'success' ? 'success' : 'warning' ?>">
+                                        <?= ucfirst($booking['payment_status'] ?? 'N/A') ?>
+                                    </span>
+                                </p>
+                                <?php if ($booking['provider']): ?>
+                                    <p class="mb-1"><strong>Provider:</strong> <?= strtoupper($booking['provider']) ?></p>
+                                <?php endif; ?>
+                                <?php if ($booking['provider_payment_id']): ?>
+                                    <p class="mb-1"><strong>Transaction ID:</strong> <?= htmlspecialchars($booking['provider_payment_id']) ?></p>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                <p class="mb-1 text-muted">No payment record found</p>
+                            <?php endif; ?>
+                        </div>
+                        <?php if (!empty($booking['special_requests'])): ?>
+                            <div class="col-12">
+                                <h6 class="text-muted mb-2">Special Requests</h6>
+                                <p class="mb-0"><?= nl2br(htmlspecialchars($booking['special_requests'])) ?></p>
+                            </div>
+                        <?php endif; ?>
+                        <div class="col-12">
                             <h6 class="text-muted mb-2">Timestamps</h6>
                             <p class="mb-1"><strong>Created:</strong> <?= date('d M Y h:i A', strtotime($booking['created_at'])) ?></p>
                             <?php if ($booking['updated_at'] !== $booking['created_at']): ?>
                                 <p class="mb-1"><strong>Updated:</strong> <?= date('d M Y h:i A', strtotime($booking['updated_at'])) ?></p>
                             <?php endif; ?>
                         </div>
-                        <?php if (!empty($booking['message'])): ?>
-                            <div class="col-12">
-                                <h6 class="text-muted mb-2">Message</h6>
-                                <p class="mb-0"><?= nl2br(htmlspecialchars($booking['message'])) ?></p>
-                            </div>
-                        <?php endif; ?>
-                        <?php if (!empty($booking['admin_notes'])): ?>
-                            <div class="col-12">
-                                <h6 class="text-muted mb-2">Admin Notes</h6>
-                                <p class="mb-0 bg-light p-2 rounded"><?= nl2br(htmlspecialchars($booking['admin_notes'])) ?></p>
-                            </div>
-                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -587,7 +700,6 @@ $flashMessage = getFlashMessage();
         </div>
     </div>
     
-    <!-- Status/Notes Modal -->
     <div class="modal fade" id="statusModal<?= $booking['id'] ?>" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -596,7 +708,6 @@ $flashMessage = getFlashMessage();
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Update Status Form -->
                     <form method="POST" action="?action=update_status&id=<?= $booking['id'] ?>" class="mb-4">
                         <h6 class="mb-3">Update Status</h6>
                         <div class="mb-3">
@@ -613,22 +724,20 @@ $flashMessage = getFlashMessage();
                     
                     <hr>
                     
-                    <!-- Update Notes Form -->
                     <form method="POST" action="?action=update_notes&id=<?= $booking['id'] ?>" class="mb-4">
-                        <h6 class="mb-3">Admin Notes</h6>
+                        <h6 class="mb-3">Special Requests / Notes</h6>
                         <div class="mb-3">
                             <label for="admin_notes<?= $booking['id'] ?>" class="form-label">Notes</label>
                             <textarea class="form-control" id="admin_notes<?= $booking['id'] ?>" name="admin_notes" rows="3" 
-                                      placeholder="Add internal notes about this visit booking..."><?= htmlspecialchars($booking['admin_notes'] ?? '') ?></textarea>
+                                      placeholder="Add notes about this booking..."><?= htmlspecialchars($booking['special_requests'] ?? '') ?></textarea>
                         </div>
                         <button type="submit" class="btn btn-secondary btn-sm">Save Notes</button>
                     </form>
                     
                     <hr>
                     
-                    <!-- Delete Form -->
                     <form method="POST" action="?action=delete&id=<?= $booking['id'] ?>" 
-                          onsubmit="return confirm('Are you sure you want to delete this visit booking? This action cannot be undone.');">
+                          onsubmit="return confirm('Are you sure you want to delete this booking? This action cannot be undone.');">
                         <h6 class="mb-3 text-danger">Danger Zone</h6>
                         <input type="hidden" name="confirm_delete" value="1">
                         <button type="submit" class="btn btn-danger btn-sm">

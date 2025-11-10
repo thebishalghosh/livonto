@@ -580,8 +580,11 @@ try {
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
       <div class="text-white">
         <div class="kicker" style="color: rgba(255,255,255,0.8)">Are you a PG owner?</div>
-        <h5 class="mb-1 text-white">Get listed on Livonto</h5>
-        <div class="small" style="color: rgba(255,255,255,0.9)">PG Booking Enquiry: 6293010501 | 7047133182 | 9831068248 • Timings: 10:00 AM to 8:00 PM</div>
+        <h5 class="mb-1 text-white">Get listed on <?= htmlspecialchars(function_exists('getSetting') ? getSetting('site_name', 'Livonto') : 'Livonto') ?></h5>
+        <div class="small" style="color: rgba(255,255,255,0.9)">
+          PG Booking Enquiry: <?= htmlspecialchars(function_exists('getSetting') ? getSetting('booking_enquiry_phone', '6293010501 | 7047133182 | 9831068248') : '6293010501 | 7047133182 | 9831068248') ?> 
+          • Timings: <?= htmlspecialchars(function_exists('getSetting') ? getSetting('booking_timings', '10:00 AM to 8:00 PM') : '10:00 AM to 8:00 PM') ?>
+        </div>
       </div>
       <a class="btn btn-light" href="<?= htmlspecialchars(app_url('contact')) ?>">Contact Us</a>
     </div>

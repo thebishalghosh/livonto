@@ -58,6 +58,47 @@ if ($listingId > 0) {
             $error = 'Listing not found.';
         }
     }
+    
+    // Fetch listing images if listing exists
+    if ($listing) {
+        try {
+            $listingImages = db()->fetchAll(
+                "SELECT id, image_path, image_order, is_cover 
+                 FROM listing_images 
+                 WHERE listing_id = ? 
+                 ORDER BY is_cover DESC, image_order ASC",
+                [$listingId]
+            );
+            
+            // Build image URLs
+            $imageUrls = [];
+            foreach ($listingImages as $img) {
+                $imgPath = trim($img['image_path']);
+                if (empty($imgPath)) continue;
+                
+                if (strpos($imgPath, 'http') === 0 || strpos($imgPath, '//') === 0) {
+                    $imageUrls[] = $imgPath;
+                } else {
+                    $imageUrls[] = app_url($imgPath);
+                }
+            }
+            
+            // Fallback to cover_image if no images in listing_images table
+            if (empty($imageUrls) && !empty($listing['cover_image'])) {
+                $coverImagePath = $listing['cover_image'];
+                if (strpos($coverImagePath, 'http') === 0 || strpos($coverImagePath, '//') === 0) {
+                    $imageUrls[] = $coverImagePath;
+                } else {
+                    $imageUrls[] = app_url($coverImagePath);
+                }
+            }
+            
+            $listing['images'] = $imageUrls;
+        } catch (Exception $e) {
+            error_log("Error fetching listing images: " . $e->getMessage());
+            $listing['images'] = [];
+        }
+    }
 } else {
     $error = 'No listing ID provided.';
 }

@@ -159,22 +159,20 @@ $message = $formData['message'] ?? '';
         
         <div class="mb-4">
           <div class="kicker mb-2">PG Booking Enquiry</div>
+          <?php
+          $bookingEnquiryPhone = function_exists('getSetting') ? getSetting('booking_enquiry_phone', '6293010501 | 7047133182 | 9831068248') : '6293010501 | 7047133182 | 9831068248';
+          $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
+          ?>
           <div class="d-flex flex-column gap-2">
-            <a href="tel:+916293010501" class="text-decoration-none d-flex align-items-center text-primary">
-              <i class="bi bi-telephone-fill text-primary me-2"></i>
-              <span class="text-primary">6293010501</span>
-            </a>
-            <a href="tel:+917047133182" class="text-decoration-none d-flex align-items-center text-primary">
-              <i class="bi bi-telephone-fill text-primary me-2"></i>
-              <span class="text-primary">7047133182</span>
-            </a>
-            <a href="tel:+919831068248" class="text-decoration-none d-flex align-items-center text-primary">
-              <i class="bi bi-telephone-fill text-primary me-2"></i>
-              <span class="text-primary">9831068248</span>
-            </a>
+            <?php foreach ($bookingPhones as $phone): ?>
+              <a href="tel:+91<?= preg_replace('/[^0-9]/', '', $phone) ?>" class="text-decoration-none d-flex align-items-center text-primary">
+                <i class="bi bi-telephone-fill text-primary me-2"></i>
+                <span class="text-primary"><?= htmlspecialchars($phone) ?></span>
+              </a>
+            <?php endforeach; ?>
           </div>
           <div class="small text-muted mt-2">
-            <i class="bi bi-clock me-1"></i>Timings: 10:00 AM to 8:00 PM
+            <i class="bi bi-clock me-1"></i>Timings: <?= htmlspecialchars(function_exists('getSetting') ? getSetting('booking_timings', '10:00 AM to 8:00 PM') : '10:00 AM to 8:00 PM') ?>
           </div>
         </div>
         
@@ -182,9 +180,9 @@ $message = $formData['message'] ?? '';
         
         <div class="mb-4">
           <div class="kicker mb-2">Email</div>
-          <a href="mailto:support@livonto.com" class="text-decoration-none d-flex align-items-center text-primary">
+          <a href="mailto:<?= htmlspecialchars(function_exists('getSetting') ? getSetting('contact_email', 'support@livonto.com') : 'support@livonto.com') ?>" class="text-decoration-none d-flex align-items-center text-primary">
             <i class="bi bi-envelope-fill text-primary me-2"></i>
-            <span class="text-primary">support@livonto.com</span>
+            <span class="text-primary"><?= htmlspecialchars(function_exists('getSetting') ? getSetting('contact_email', 'support@livonto.com') : 'support@livonto.com') ?></span>
           </a>
         </div>
         

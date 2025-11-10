@@ -29,9 +29,6 @@ if (!$listingId) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_listing') {
     $errors = [];
     
-    // Debug: Log that form was submitted
-    error_log("Edit listing form submitted for listing ID: {$listingId}");
-    
     // Get form data
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
@@ -76,8 +73,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     // Amenities and rules
     $amenities = $_POST['amenities'] ?? [];
     $houseRules = $_POST['house_rules'] ?? [];
-    
-    error_log("Form data received - Title: {$title}, Description length: " . strlen($description));
     
     // Handle new image uploads
     $newUploadedImages = [];
@@ -512,7 +507,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Available For</label>
-                    <select class="form-select" name="available_for">
+                    <select class="form-control filter-select" name="available_for">
                         <option value="both" <?= $listing['available_for'] === 'both' ? 'selected' : '' ?>>Both</option>
                         <option value="boys" <?= $listing['available_for'] === 'boys' ? 'selected' : '' ?>>Boys</option>
                         <option value="girls" <?= $listing['available_for'] === 'girls' ? 'selected' : '' ?>>Girls</option>
@@ -520,7 +515,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Gender Allowed</label>
-                    <select class="form-select" name="gender_allowed">
+                    <select class="form-control filter-select" name="gender_allowed">
                         <option value="unisex" <?= $listing['gender_allowed'] === 'unisex' ? 'selected' : '' ?>>Unisex</option>
                         <option value="male" <?= $listing['gender_allowed'] === 'male' ? 'selected' : '' ?>>Male</option>
                         <option value="female" <?= $listing['gender_allowed'] === 'female' ? 'selected' : '' ?>>Female</option>
@@ -528,7 +523,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Preferred Tenants</label>
-                    <select class="form-select" name="preferred_tenants">
+                    <select class="form-control filter-select" name="preferred_tenants">
                         <option value="anyone" <?= ($listing['preferred_tenants'] ?? 'anyone') === 'anyone' ? 'selected' : '' ?>>Anyone</option>
                         <option value="students" <?= ($listing['preferred_tenants'] ?? '') === 'students' ? 'selected' : '' ?>>Students</option>
                         <option value="working professionals" <?= ($listing['preferred_tenants'] ?? '') === 'working professionals' ? 'selected' : '' ?>>Working Professionals</option>
@@ -548,7 +543,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Status</label>
-                    <select class="form-select" name="status">
+                    <select class="form-control filter-select" name="status">
                         <option value="draft" <?= $listing['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>
                         <option value="active" <?= $listing['status'] === 'active' ? 'selected' : '' ?>>Active</option>
                         <option value="inactive" <?= $listing['status'] === 'inactive' ? 'selected' : '' ?>>Inactive</option>
@@ -626,7 +621,7 @@ $flashMessage = getFlashMessage();
                         <div class="row g-3 mb-3 border rounded p-3 room-config-item">
                             <div class="col-md-3">
                                 <label class="form-label">Room Type <span class="text-danger">*</span></label>
-                                <select class="form-select" name="room_configs[<?= $index ?>][room_type]" required>
+                                <select class="form-control filter-select" name="room_configs[<?= $index ?>][room_type]" required>
                                     <option value="single sharing" <?= $config['room_type'] === 'single sharing' ? 'selected' : '' ?>>Single Sharing</option>
                                     <option value="double sharing" <?= $config['room_type'] === 'double sharing' ? 'selected' : '' ?>>Double Sharing</option>
                                     <option value="triple sharing" <?= $config['room_type'] === 'triple sharing' ? 'selected' : '' ?>>Triple Sharing</option>
@@ -680,7 +675,7 @@ $flashMessage = getFlashMessage();
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Electricity Charges</label>
-                    <select class="form-select" name="electricity_charges">
+                    <select class="form-control filter-select" name="electricity_charges">
                         <option value="">Select</option>
                         <option value="included" <?= ($listing['electricity_charges'] ?? '') === 'included' ? 'selected' : '' ?>>Included</option>
                         <option value="as per usage" <?= ($listing['electricity_charges'] ?? '') === 'as per usage' ? 'selected' : '' ?>>As per usage</option>
@@ -690,7 +685,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Food Availability</label>
-                    <select class="form-select" name="food_availability">
+                    <select class="form-control filter-select" name="food_availability">
                         <option value="">Select</option>
                         <option value="vegetarian" <?= ($listing['food_availability'] ?? '') === 'vegetarian' ? 'selected' : '' ?>>Vegetarian</option>
                         <option value="non-vegetarian" <?= ($listing['food_availability'] ?? '') === 'non-vegetarian' ? 'selected' : '' ?>>Non-vegetarian</option>
@@ -884,7 +879,7 @@ function addRoomConfig() {
     div.innerHTML = `
         <div class="col-md-3">
             <label class="form-label">Room Type <span class="text-danger">*</span></label>
-            <select class="form-select" name="room_configs[${roomConfigCount}][room_type]" required>
+            <select class="form-control filter-select" name="room_configs[${roomConfigCount}][room_type]" required>
                 <option value="single sharing">Single Sharing</option>
                 <option value="double sharing">Double Sharing</option>
                 <option value="triple sharing">Triple Sharing</option>
@@ -1038,8 +1033,6 @@ if (imagesContainer) {
             return; // No change needed
         }
         
-        console.log('Reordering image:', imageId, 'from', draggedFromIndex, 'to', newOrder);
-        
         const formData = new FormData();
         formData.append('action', 'reorder');
         formData.append('image_id', imageId);
@@ -1060,7 +1053,6 @@ if (imagesContainer) {
             }
             
             const data = await response.json();
-            console.log('Reorder response:', data);
             
             if (data.status === 'success') {
                 // Update order display and data attributes

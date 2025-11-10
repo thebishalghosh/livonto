@@ -2,7 +2,7 @@
 // admin/index.php
 $pageTitle = "Dashboard";
 require __DIR__ . '/../app/includes/admin_header.php';
-require __DIR__ . '/../app/functions.php';
+// functions.php is already included in admin_header.php
 
 try {
     $db = db();
@@ -644,16 +644,16 @@ try {
     // User Growth (Area Chart)
     function drawUserGrowthChart() {
         var growthData = <?= json_encode($userGrowthData) ?>;
-        var chartData = [['Month', 'Users', 'Hosts']];
+        var chartData = [['Month', 'Users']];
         
         if (growthData.length > 0) {
             growthData.forEach(function(item) {
                 var date = new Date(item.month + '-01');
-                chartData.push([date.toLocaleDateString('en-US', { month: 'short' }), parseInt(item.user_count), parseInt(item.host_count || 0)]);
+                chartData.push([date.toLocaleDateString('en-US', { month: 'short' }), parseInt(item.user_count)]);
             });
         } else {
             // Show placeholder if no data
-            chartData.push(['No Data', 0, 0]);
+            chartData.push(['No Data', 0]);
         }
         
         var data = google.visualization.arrayToDataTable(chartData);
@@ -670,7 +670,7 @@ try {
                 textStyle: { color: '#757095' },
                 titleTextStyle: { color: '#757095' }
             },
-            colors: ['#8B6BD1', '#4facfe'],
+            colors: ['#8B6BD1'],
             backgroundColor: 'transparent',
             chartArea: {
                 left: 60,

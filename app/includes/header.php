@@ -2,7 +2,15 @@
 // app/includes/header.php
 if (session_status() === PHP_SESSION_NONE) session_start();
 $config = @include __DIR__ . '/../config.php';
-$pageTitle = $pageTitle ?? 'PG Finder';
+// Load functions if available to get site name
+if (file_exists(__DIR__ . '/../functions.php') && !function_exists('getSetting')) {
+    require_once __DIR__ . '/../functions.php';
+}
+$siteName = function_exists('getSetting') ? getSetting('site_name', 'Livonto') : 'Livonto';
+$pageTitle = $pageTitle ?? $siteName;
+// Get SEO settings
+$metaDescription = function_exists('getSetting') ? getSetting('meta_description', '') : '';
+$metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') : '';
 ?>
 <!doctype html>
 <html lang="en">
@@ -10,6 +18,14 @@ $pageTitle = $pageTitle ?? 'PG Finder';
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title><?= htmlspecialchars($pageTitle) ?></title>
+  
+  <?php if (!empty($metaDescription)): ?>
+  <meta name="description" content="<?= htmlspecialchars($metaDescription) ?>">
+  <?php endif; ?>
+  
+  <?php if (!empty($metaKeywords)): ?>
+  <meta name="keywords" content="<?= htmlspecialchars($metaKeywords) ?>">
+  <?php endif; ?>
   
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
@@ -72,10 +88,46 @@ $pageTitle = $pageTitle ?? 'PG Finder';
         
 
         <?php if(!empty($_SESSION['user_id'])): ?>
+          <?php
+          // Fetch user profile image if available
+          // First check session (for immediate display after login)
+          $userProfileImage = $_SESSION['user_profile_image'] ?? null;
+          $hasUserProfileImage = !empty($userProfileImage);
+          
+          // If not in session, fetch from database
+          if (!$hasUserProfileImage) {
+              try {
+                  require_once __DIR__ . '/../functions.php';
+                  $db = db();
+                  $profileImage = $db->fetchValue("SELECT profile_image FROM users WHERE id = ?", [$_SESSION['user_id']]);
+                  if (!empty($profileImage) && trim($profileImage) !== '') {
+                      // Handle both http:// and https:// URLs (Google uses https://)
+                      if (strpos($profileImage, 'http://') === 0 || strpos($profileImage, 'https://') === 0) {
+                          $userProfileImage = $profileImage;
+                      } else {
+                          $userProfileImage = app_url($profileImage);
+                      }
+                      $hasUserProfileImage = true;
+                      // Update session for next time
+                      $_SESSION['user_profile_image'] = $userProfileImage;
+                  }
+              } catch (Exception $e) {
+                  // Silently fail - will show icon instead
+              }
+          }
+          ?>
           <!-- User Dropdown -->
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <i class="bi bi-person-circle fs-5 me-2"></i>
+              <?php if ($hasUserProfileImage && $userProfileImage): ?>
+                <img src="<?= htmlspecialchars($userProfileImage) ?>" 
+                     alt="<?= htmlspecialchars($_SESSION['user_name'] ?? 'User') ?>" 
+                     id="headerProfileImage"
+                     class="rounded-circle me-2" 
+                     style="width: 32px; height: 32px; object-fit: cover; border: 2px solid var(--primary);"
+                     onerror="this.style.display='none'; document.getElementById('headerProfileIcon').style.display='inline-block';">
+              <?php endif; ?>
+              <i class="bi bi-person-circle fs-5 me-2" id="headerProfileIcon" style="<?= $hasUserProfileImage ? 'display: none;' : 'display: inline-block;' ?>"></i>
               <span class="d-none d-md-inline"><?= htmlspecialchars($_SESSION['user_name'] ?? 'User')?></span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
@@ -122,6 +174,23 @@ $pageTitle = $pageTitle ?? 'PG Finder';
 
         <div class="modal-body">
           <div id="loginAlert"></div>
+
+          <!-- Google Sign In Button -->
+          <div class="mb-3">
+            <button type="button" id="googleSignInBtn" class="btn w-100 d-flex align-items-center justify-content-center" style="background: white; border: 1px solid #dadce0; color: #3c4043; font-weight: 500; padding: 10px 16px; border-radius: 4px; transition: box-shadow 0.2s;">
+              <svg width="18" height="18" viewBox="0 0 18 18" class="me-2">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.96-2.184l-2.908-2.258c-.806.54-1.837.86-3.052.86-2.347 0-4.335-1.585-5.043-3.716H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+                <path fill="#FBBC05" d="M3.957 10.702c-.18-.54-.282-1.117-.282-1.702s.102-1.162.282-1.702V4.966H.957C.348 6.175 0 7.55 0 9s.348 2.825.957 4.034l3-2.332z"/>
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.966L3.957 7.3C4.665 5.168 6.653 3.58 9 3.58z"/>
+              </svg>
+              Continue with Google
+            </button>
+          </div>
+
+          <div class="text-center mb-3">
+            <span class="text-muted small">or</span>
+          </div>
 
           <div class="mb-3">
             <label for="loginEmail" class="form-label">Email</label>
@@ -170,6 +239,23 @@ $pageTitle = $pageTitle ?? 'PG Finder';
 
         <div class="modal-body">
           <div id="registerAlert"></div>
+
+          <!-- Google Sign In Button -->
+          <div class="mb-3">
+            <button type="button" id="googleSignUpBtn" class="btn w-100 d-flex align-items-center justify-content-center" style="background: white; border: 1px solid #dadce0; color: #3c4043; font-weight: 500; padding: 10px 16px; border-radius: 4px; transition: box-shadow 0.2s;">
+              <svg width="18" height="18" viewBox="0 0 18 18" class="me-2">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.96-2.184l-2.908-2.258c-.806.54-1.837.86-3.052.86-2.347 0-4.335-1.585-5.043-3.716H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+                <path fill="#FBBC05" d="M3.957 10.702c-.18-.54-.282-1.117-.282-1.702s.102-1.162.282-1.702V4.966H.957C.348 6.175 0 7.55 0 9s.348 2.825.957 4.034l3-2.332z"/>
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.966L3.957 7.3C4.665 5.168 6.653 3.58 9 3.58z"/>
+              </svg>
+              Sign up with Google
+            </button>
+          </div>
+
+          <div class="text-center mb-3">
+            <span class="text-muted small">or</span>
+          </div>
 
           <div class="mb-3">
             <label for="regName" class="form-label">Full name</label>
@@ -374,5 +460,155 @@ $pageTitle = $pageTitle ?? 'PG Finder';
         loginModal.show();
       });
     }
+
+    // Google Sign-In functionality
+    <?php
+    $config = require __DIR__ . '/../config.php';
+    $googleClientId = is_array($config) ? ($config['google_client_id'] ?? '') : '';
+    ?>
+    
+    const googleClientId = '<?= htmlspecialchars($googleClientId) ?>';
+    
+    if (googleClientId) {
+      // Load Google Identity Services
+      (function() {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      })();
+
+      // Initialize Google Sign-In when library loads
+      window.addEventListener('load', function() {
+        if (typeof google !== 'undefined' && google.accounts) {
+          // Set up sign-in buttons
+          const googleSignInBtn = document.getElementById('googleSignInBtn');
+          const googleSignUpBtn = document.getElementById('googleSignUpBtn');
+
+          if (googleSignInBtn) {
+            googleSignInBtn.addEventListener('click', function() {
+              const client = google.accounts.oauth2.initTokenClient({
+                client_id: googleClientId,
+                scope: 'openid email profile',
+                callback: function(response) {
+                  if (response.access_token) {
+                    // Get user info
+                    fetch('https://www.googleapis.com/oauth2/v2/userinfo?access_token=' + response.access_token)
+                      .then(res => res.json())
+                      .then(userInfo => {
+                        // Send to server for verification and login
+                        sendGoogleUserInfoToServer(userInfo, '');
+                      })
+                      .catch(err => {
+                        console.error('Google OAuth error:', err);
+                        showAlert('loginAlert', 'danger', 'Failed to sign in with Google. Please try again.');
+                      });
+                  }
+                }
+              });
+              client.requestAccessToken();
+            });
+          }
+
+          if (googleSignUpBtn) {
+            googleSignUpBtn.addEventListener('click', function() {
+              const referralCode = document.getElementById('regReferral')?.value || '';
+              const client = google.accounts.oauth2.initTokenClient({
+                client_id: googleClientId,
+                scope: 'openid email profile',
+                callback: function(response) {
+                  if (response.access_token) {
+                    fetch('https://www.googleapis.com/oauth2/v2/userinfo?access_token=' + response.access_token)
+                      .then(res => res.json())
+                      .then(userInfo => {
+                        sendGoogleUserInfoToServer(userInfo, referralCode);
+                      })
+                      .catch(err => {
+                        console.error('Google OAuth error:', err);
+                        showAlert('registerAlert', 'danger', 'Failed to sign up with Google. Please try again.');
+                      });
+                  }
+                }
+              });
+              client.requestAccessToken();
+            });
+          }
+        }
+      });
+
+      function sendGoogleUserInfoToServer(userInfo, referralCode = '') {
+        const formData = new FormData();
+        formData.append('google_id', userInfo.id);
+        formData.append('email', userInfo.email);
+        formData.append('name', userInfo.name);
+        formData.append('picture', userInfo.picture || '');
+        if (referralCode) {
+          formData.append('referral_code', referralCode);
+        }
+
+        const alertId = referralCode ? 'registerAlert' : 'loginAlert';
+
+        fetch('<?= htmlspecialchars(app_url('google-auth-callback')) ?>', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include'
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'ok' || data.status === 'success') {
+            showAlert(alertId, 'success', data.message || 'Login successful!');
+            setTimeout(() => {
+              // Close modal
+              const modalEl = document.querySelector('.modal.show');
+              if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                if (modal) modal.hide();
+              }
+              if (data.redirect) {
+                window.location.href = data.redirect;
+              } else {
+                window.location.reload();
+              }
+            }, 500);
+          } else {
+            showAlert(alertId, 'danger', data.message || 'Login failed');
+          }
+        })
+        .catch(err => {
+          console.error('Error:', err);
+          showAlert(alertId, 'danger', 'An error occurred. Please try again.');
+        });
+      }
+    } else {
+      // Hide Google buttons if not configured
+      const googleBtns = document.querySelectorAll('#googleSignInBtn, #googleSignUpBtn');
+      googleBtns.forEach(btn => {
+        if (btn) btn.style.display = 'none';
+      });
+    }
+
+    // Add hover effects to Google buttons
+    const googleButtons = document.querySelectorAll('#googleSignInBtn, #googleSignUpBtn');
+    googleButtons.forEach(btn => {
+      if (btn) {
+        btn.addEventListener('mouseenter', function() {
+          this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)';
+          this.style.borderColor = '#c8ccd0';
+        });
+        btn.addEventListener('mouseleave', function() {
+          this.style.boxShadow = 'none';
+          this.style.borderColor = '#dadce0';
+        });
+        btn.addEventListener('mousedown', function() {
+          this.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+          this.style.backgroundColor = '#f8f9fa';
+        });
+        btn.addEventListener('mouseup', function() {
+          this.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)';
+          this.style.backgroundColor = 'white';
+        });
+      }
+    });
   })();
 </script>

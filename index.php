@@ -29,6 +29,14 @@ if (empty($path) || $path === 'index.php') {
     $path = 'index';
 }
 
+// Check for listing detail route (listings/{id})
+if (preg_match('#^listings/(\d+)$#', $path, $matches)) {
+    $listingId = intval($matches[1]);
+    $_GET['id'] = $listingId;
+    require __DIR__ . '/public/listing_detail.php';
+    exit;
+}
+
 // Map of clean URLs to actual PHP files
 $routes = [
     'index' => 'public/index.php',
@@ -43,6 +51,14 @@ $routes = [
     'refer' => 'public/refer.php',
     'visit-book' => 'public/visit_book.php',
     'visit-book-api' => 'app/visit_book_api.php',
+    'book' => 'public/book.php',
+    'book-api' => 'app/book_api.php',
+    'payment' => 'public/payment.php',
+    'razorpay-api' => 'app/razorpay_api.php',
+    'razorpay-callback' => 'app/razorpay_callback.php',
+    'google-auth-callback' => 'app/google_auth_callback.php',
+    'invoice' => 'public/invoice.php',
+    'invoice-api' => 'app/invoice_api.php',
 ];
 
 // Admin routes
@@ -61,6 +77,9 @@ $adminRoutes = [
     'admin/referrals' => 'admin/referrals_manage.php',
     'admin/enquiries' => 'admin/enquiries_manage.php',
     'admin/visit-bookings' => 'admin/visit_bookings_manage.php',
+    'admin/bookings' => 'admin/bookings_manage.php',
+    'admin/payments' => 'admin/payments_manage.php',
+    'admin/settings' => 'admin/settings.php',
 ];
 
 // Check if it's an admin route

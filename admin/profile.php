@@ -6,7 +6,7 @@
 
 $pageTitle = "My Profile";
 require __DIR__ . '/../app/includes/admin_header.php';
-require __DIR__ . '/../app/functions.php';
+// functions.php is already included in admin_header.php
 
 $adminId = $_SESSION['user_id'];
 $admin = null;
@@ -79,15 +79,26 @@ $admin = array_merge([
                 <div class="col-auto">
                     <!-- Profile Image -->
                     <div class="profile-avatar-wrapper">
-                        <?php if (!empty($admin['profile_image'])): ?>
-                            <img src="<?= htmlspecialchars(app_url($admin['profile_image'])) ?>" 
+                        <?php 
+                        $adminProfileImageUrl = null;
+                        if (!empty($admin['profile_image']) && trim($admin['profile_image']) !== '') {
+                            // Handle both Google URLs and local paths
+                            if (strpos($admin['profile_image'], 'http://') === 0 || strpos($admin['profile_image'], 'https://') === 0) {
+                                $adminProfileImageUrl = $admin['profile_image'];
+                            } else {
+                                $adminProfileImageUrl = app_url($admin['profile_image']);
+                            }
+                        }
+                        ?>
+                        <?php if (!empty($adminProfileImageUrl)): ?>
+                            <img src="<?= htmlspecialchars($adminProfileImageUrl) ?>" 
                                  alt="<?= htmlspecialchars($admin['name']) ?>"
                                  class="profile-avatar-img">
                         <?php else: ?>
                             <div class="profile-avatar-placeholder">
                                 <i class="bi bi-person-fill"></i>
                             </div>
-                    <?php endif; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="col">

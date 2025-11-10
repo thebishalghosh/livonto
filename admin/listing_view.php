@@ -737,8 +737,8 @@ $baseUrl = app_url('');
                                 <thead>
                                     <tr>
                                         <th>User</th>
-                                        <th>Check-in</th>
-                                        <th>Check-out</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
                                         <th>Amount</th>
                                         <th>Status</th>
                                         <th>Date</th>
@@ -751,8 +751,18 @@ $baseUrl = app_url('');
                                                 <div><?= htmlspecialchars($booking['user_name'] ?: 'Unknown') ?></div>
                                                 <small class="text-muted"><?= htmlspecialchars($booking['user_email'] ?: '') ?></small>
                                             </td>
-                                            <td><?= $booking['checkin_date'] ? formatDate($booking['checkin_date'], 'd M Y') : 'N/A' ?></td>
-                                            <td><?= $booking['checkout_date'] ? formatDate($booking['checkout_date'], 'd M Y') : 'N/A' ?></td>
+                                            <?php
+                                            $startDate = $booking['booking_start_date'] ?? null;
+                                            $endDate = null;
+                                            if ($startDate) {
+                                                $start = new DateTime($startDate);
+                                                $end = clone $start;
+                                                $end->modify('+1 month');
+                                                $endDate = $end->format('Y-m-d');
+                                            }
+                                            ?>
+                                            <td><?= $startDate ? formatDate($startDate, 'd M Y') : 'N/A' ?></td>
+                                            <td><?= $endDate ? formatDate($endDate, 'd M Y') : 'N/A' ?></td>
                                             <td class="fw-semibold">₹<?= number_format($booking['total_amount'], 2) ?></td>
                                             <td>
                                                 <span class="badge bg-<?= $booking['status'] === 'confirmed' ? 'success' : ($booking['status'] === 'pending' ? 'warning' : 'secondary') ?>">

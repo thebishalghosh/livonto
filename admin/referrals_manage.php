@@ -246,43 +246,42 @@ $flashMessage = getFlashMessage();
 <!-- Filters and Search -->
 <div class="admin-card mb-4">
     <div class="admin-card-body">
-        <form method="GET" action="<?= htmlspecialchars(app_url('admin/referrals')) ?>" class="row g-3 align-items-end listings-filters">
-            <div class="col-12 col-sm-6 col-md-4 col-lg-4">
+        <form method="GET" action="<?= htmlspecialchars(app_url('admin/referrals')) ?>" class="row g-3">
+            <div class="col-md-4">
                 <label class="form-label">Search</label>
                 <input type="text" 
                        class="form-control form-control-sm" 
                        name="search" 
                        placeholder="Referrer, Referred user, or code..." 
-                       value="<?= htmlspecialchars($search) ?>">
+                       value="<?= htmlspecialchars($search) ?>"
+                       style="height: 38px;">
             </div>
-            <div class="col-6 col-sm-3 col-md-2 col-lg-2">
+            <div class="col-md-2">
                 <label class="form-label">Status</label>
-                <select class="form-select form-select-sm" name="status">
+                <select class="form-control form-control-sm filter-select" name="status" style="height: 38px;">
                     <option value="">All Status</option>
                     <option value="pending" <?= $status === 'pending' ? 'selected' : '' ?>>Pending</option>
                     <option value="credited" <?= $status === 'credited' ? 'selected' : '' ?>>Credited</option>
                 </select>
             </div>
-            <div class="col-6 col-sm-3 col-md-2 col-lg-2">
+            <div class="col-md-2">
                 <label class="form-label">Sort By</label>
-                <select class="form-select form-select-sm" name="sort">
+                <select class="form-control form-control-sm filter-select" name="sort" style="height: 38px;">
                     <option value="created_at" <?= $sort === 'created_at' ? 'selected' : '' ?>>Date</option>
                     <option value="status" <?= $sort === 'status' ? 'selected' : '' ?>>Status</option>
                     <option value="reward_amount" <?= $sort === 'reward_amount' ? 'selected' : '' ?>>Reward</option>
                 </select>
             </div>
-            <div class="col-6 col-sm-3 col-md-2 col-lg-2">
+            <div class="col-md-2">
                 <label class="form-label">Order</label>
-                <select class="form-select form-select-sm" name="order">
+                <select class="form-control form-control-sm filter-select" name="order" style="height: 38px;">
                     <option value="DESC" <?= $order === 'DESC' ? 'selected' : '' ?>>Newest First</option>
                     <option value="ASC" <?= $order === 'ASC' ? 'selected' : '' ?>>Oldest First</option>
                 </select>
             </div>
-            <div class="col-12 col-sm-12 col-md-12 col-lg-2">
-                <label class="form-label d-block d-lg-none mb-1">&nbsp;</label>
-                <button type="submit" class="btn btn-primary btn-sm w-100">
-                    <i class="bi bi-search d-md-none"></i>
-                    <span class="d-none d-md-inline">Search</span>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary btn-sm w-100" style="height: 38px;">
+                    <i class="bi bi-search me-1"></i>Filter
                 </button>
             </div>
         </form>

@@ -7,7 +7,7 @@
 // Start session and load config/functions BEFORE any output
 if (session_status() === PHP_SESSION_NONE) session_start();
 require __DIR__ . '/../app/config.php';
-require __DIR__ . '/../app/functions.php';
+require_once __DIR__ . '/../app/functions.php';
 
 // Require login - MUST be before header output
 if (!isLoggedIn()) {
@@ -39,53 +39,56 @@ try {
         exit;
     }
     
+    // Ensure profile_image is fetched correctly
+    // If profile_image is missing from the result, fetch it separately like header does
+    if (!isset($user['profile_image'])) {
+        $profileImageFromDb = $db->fetchValue("SELECT profile_image FROM users WHERE id = ?", [$userId]);
+        $user['profile_image'] = $profileImageFromDb;
+    }
+    
+    // Fetch gender separately to ensure we get it
+    $genderFromDb = $db->fetchValue("SELECT gender FROM users WHERE id = ?", [$userId]);
+    if ($genderFromDb !== null && $genderFromDb !== '') {
+        $user['gender'] = $genderFromDb;
+    }
+    
     // Get user statistics
+    // Optimize visit booking stats with a single query
+    $visitStats = $db->fetchOne(
+        "SELECT 
+            COUNT(*) as total_visits,
+            COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending_visits,
+            COALESCE(SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END), 0) as confirmed_visits,
+            COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed_visits,
+            COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled_visits
+         FROM visit_bookings 
+         WHERE user_id = ?",
+        [$userId]
+    );
+    
+    // Ensure visitStats is an array even if query returns null/empty
+    if (empty($visitStats) || !is_array($visitStats)) {
+        $visitStats = [
+            'total_visits' => 0,
+            'pending_visits' => 0,
+            'confirmed_visits' => 0,
+            'completed_visits' => 0,
+            'cancelled_visits' => 0
+        ];
+    }
+    
     $userStats = [
         'total_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ?", [$userId]) ?: 0,
         'confirmed_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ? AND status = 'confirmed'", [$userId]) ?: 0,
         'pending_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ? AND status = 'pending'", [$userId]) ?: 0,
-        'total_visits' => (int)$db->fetchValue("SELECT COUNT(*) FROM visit_bookings WHERE user_id = ?", [$userId]) ?: 0,
+        'total_visits' => (int)($visitStats['total_visits'] ?? 0),
+        'pending_visits' => (int)($visitStats['pending_visits'] ?? 0),
+        'confirmed_visits' => (int)($visitStats['confirmed_visits'] ?? 0),
+        'completed_visits' => (int)($visitStats['completed_visits'] ?? 0),
+        'cancelled_visits' => (int)($visitStats['cancelled_visits'] ?? 0),
         'total_referrals' => (int)$db->fetchValue("SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", [$userId]) ?: 0,
         'total_rewards' => (float)$db->fetchValue("SELECT COALESCE(SUM(reward_amount), 0) FROM referrals WHERE referrer_id = ? AND status = 'credited'", [$userId]) ?: 0,
     ];
-    
-    // Get recent bookings (last 5)
-    $recentBookings = $db->fetchAll(
-        "SELECT b.id, b.status, b.total_amount, b.created_at,
-                l.title as listing_title, l.cover_image,
-                loc.city as listing_city
-         FROM bookings b
-         LEFT JOIN listings l ON b.listing_id = l.id
-         LEFT JOIN listing_locations loc ON l.id = loc.listing_id
-         WHERE b.user_id = ?
-         ORDER BY b.created_at DESC
-         LIMIT 5",
-        [$userId]
-    );
-    
-    // Get recent visits (last 5)
-    $recentVisits = $db->fetchAll(
-        "SELECT vb.id, vb.preferred_date as visit_date, vb.status, vb.created_at,
-                l.title as listing_title, l.cover_image,
-                loc.city as listing_city
-         FROM visit_bookings vb
-         LEFT JOIN listings l ON vb.listing_id = l.id
-         LEFT JOIN listing_locations loc ON l.id = loc.listing_id
-         WHERE vb.user_id = ?
-         ORDER BY vb.created_at DESC
-         LIMIT 5",
-        [$userId]
-    );
-    
-    // Get KYC status
-    $kycStatus = $db->fetchOne(
-        "SELECT status, document_type, created_at, verified_at, rejection_reason
-         FROM user_kyc
-         WHERE user_id = ?
-         ORDER BY created_at DESC
-         LIMIT 1",
-        [$userId]
-    );
     
 } catch (Exception $e) {
     error_log("Error loading profile data: " . $e->getMessage());
@@ -106,16 +109,123 @@ try {
         'updated_at' => date('Y-m-d H:i:s'),
         'google_id' => null
     ];
+    // Initialize visit stats to 0 on error
+    $visitStats = [
+        'total_visits' => 0,
+        'pending_visits' => 0,
+        'confirmed_visits' => 0,
+        'completed_visits' => 0,
+        'cancelled_visits' => 0
+    ];
     $userStats = [
         'total_bookings' => 0,
         'confirmed_bookings' => 0,
         'pending_bookings' => 0,
         'total_visits' => 0,
+        'pending_visits' => 0,
+        'confirmed_visits' => 0,
+        'completed_visits' => 0,
+        'cancelled_visits' => 0,
         'total_referrals' => 0,
         'total_rewards' => 0.0
     ];
     $recentBookings = [];
     $recentVisits = [];
+    $kycStatus = null;
+}
+
+if (!isset($jsVisitStats)) {
+    $jsVisitStats = json_encode([
+        'userId' => $userId ?? 0,
+        'visitStats' => $visitStats ?? ['total_visits' => 0, 'pending_visits' => 0, 'confirmed_visits' => 0, 'completed_visits' => 0, 'cancelled_visits' => 0],
+        'userStats' => $userStats ?? []
+    ], JSON_PRETTY_PRINT);
+}
+
+// Get recent bookings (last 5) - always fetch fresh data
+try {
+    if (!isset($db)) {
+        $db = db();
+    }
+    $recentBookings = $db->fetchAll(
+        "SELECT b.id, b.status, b.total_amount, b.created_at,
+                l.title as listing_title, l.cover_image,
+                loc.city as listing_city,
+                i.id as invoice_id, i.invoice_number
+         FROM bookings b
+         LEFT JOIN listings l ON b.listing_id = l.id
+         LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+         LEFT JOIN invoices i ON b.id = i.booking_id
+         WHERE b.user_id = ?
+         ORDER BY b.created_at DESC
+         LIMIT 5",
+        [$userId]
+    );
+} catch (Exception $e) {
+    $recentBookings = [];
+}
+
+// Get recent visits (last 5) - always fetch fresh data
+try {
+    if (!isset($db)) {
+        $db = db();
+    }
+    $recentVisits = $db->fetchAll(
+        "SELECT vb.id, vb.preferred_date as visit_date, vb.status, vb.created_at,
+                l.title as listing_title, l.cover_image,
+                loc.city as listing_city
+         FROM visit_bookings vb
+         LEFT JOIN listings l ON vb.listing_id = l.id
+         LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+         WHERE vb.user_id = ?
+         ORDER BY vb.created_at DESC
+         LIMIT 5",
+        [$userId]
+    );
+} catch (Exception $e) {
+    $recentVisits = [];
+}
+
+// Get KYC status - always fetch fresh
+try {
+    $db = db();
+    
+    // Check which columns exist
+    $columns = $db->fetchAll("DESCRIBE user_kyc");
+    $columnNames = array_column($columns, 'Field');
+    
+    // Build SELECT query based on available columns
+    $selectFields = ['id', 'status'];
+    if (in_array('document_type', $columnNames)) {
+        $selectFields[] = 'document_type';
+    } elseif (in_array('doc_type', $columnNames)) {
+        $selectFields[] = 'doc_type as document_type';
+    }
+    
+    $orderBy = 'id';
+    if (in_array('created_at', $columnNames)) {
+        $orderBy = 'created_at';
+    } elseif (in_array('submitted_at', $columnNames)) {
+        $orderBy = 'submitted_at';
+    }
+    
+    if (in_array('verified_at', $columnNames)) {
+        $selectFields[] = 'verified_at';
+    }
+    if (in_array('rejection_reason', $columnNames)) {
+        $selectFields[] = 'rejection_reason';
+    }
+    
+    $kycStatus = $db->fetchOne(
+        "SELECT " . implode(', ', $selectFields) . "
+         FROM user_kyc
+         WHERE user_id = ?
+         ORDER BY $orderBy DESC
+         LIMIT 1",
+        [$userId]
+    );
+} catch (Exception $e) {
+    error_log("Error fetching KYC status in profile: " . $e->getMessage());
     $kycStatus = null;
 }
 
@@ -128,15 +238,13 @@ if (!$user || empty($user['id'])) {
     }
 }
 
-// Get profile image URL
-$profileImageUrl = null;
-$hasProfileImage = false;
-if (!empty($user['profile_image'])) {
-    $profileImageUrl = strpos($user['profile_image'], 'http') === 0 
-        ? $user['profile_image'] 
-        : app_url($user['profile_image']);
-    $hasProfileImage = true;
-}
+// Preserve all important values before array_merge
+$preservedGender = isset($user['gender']) ? $user['gender'] : null;
+$preservedPhone = isset($user['phone']) ? $user['phone'] : null;
+$preservedAddress = isset($user['address']) ? $user['address'] : null;
+$preservedCity = isset($user['city']) ? $user['city'] : null;
+$preservedState = isset($user['state']) ? $user['state'] : null;
+$preservedPincode = isset($user['pincode']) ? $user['pincode'] : null;
 
 // Set default values for user data to prevent undefined key warnings
 $user = array_merge([
@@ -155,12 +263,100 @@ $user = array_merge([
     'google_id' => null
 ], $user);
 
+// Restore preserved values (array_merge should preserve them, but this ensures they're kept)
+if ($preservedGender !== null && $preservedGender !== '') {
+    $user['gender'] = $preservedGender;
+}
+if ($preservedPhone !== null) {
+    $user['phone'] = $preservedPhone;
+}
+if ($preservedAddress !== null) {
+    $user['address'] = $preservedAddress;
+}
+if ($preservedCity !== null) {
+    $user['city'] = $preservedCity;
+}
+if ($preservedState !== null) {
+    $user['state'] = $preservedState;
+}
+if ($preservedPincode !== null) {
+    $user['pincode'] = $preservedPincode;
+}
+
+// Fetch all user fields again after merge to ensure we have the latest values
+// Use the existing $db connection from the try block above
+try {
+    // Reuse the database connection - don't create a new one
+    if (!isset($db)) {
+        $db = db();
+    }
+    $userDataAfterMerge = $db->fetchOne(
+        "SELECT phone, gender, address, city, state, pincode FROM users WHERE id = ?",
+        [$userId]
+    );
+    if ($userDataAfterMerge) {
+        // Update user array with fresh data from database
+        if (isset($userDataAfterMerge['phone'])) {
+            $user['phone'] = $userDataAfterMerge['phone'];
+        }
+        if (isset($userDataAfterMerge['gender']) && $userDataAfterMerge['gender'] !== null && $userDataAfterMerge['gender'] !== '') {
+            $user['gender'] = $userDataAfterMerge['gender'];
+        }
+        if (isset($userDataAfterMerge['address'])) {
+            $user['address'] = $userDataAfterMerge['address'];
+        }
+        if (isset($userDataAfterMerge['city'])) {
+            $user['city'] = $userDataAfterMerge['city'];
+        }
+        if (isset($userDataAfterMerge['state'])) {
+            $user['state'] = $userDataAfterMerge['state'];
+        }
+        if (isset($userDataAfterMerge['pincode'])) {
+            $user['pincode'] = $userDataAfterMerge['pincode'];
+        }
+    }
+} catch (Exception $e) {
+    error_log("Error fetching user data after merge: " . $e->getMessage());
+}
+
+// Get profile image URL (after array_merge to ensure we have final user data)
+// Fetch separately like header does to ensure we get the value
+$profileImageUrl = null;
+$hasProfileImage = false;
+
+// Fetch profile image directly from database like header does
+try {
+    $db = db();
+    $profileImage = $db->fetchValue("SELECT profile_image FROM users WHERE id = ?", [$userId]);
+    
+    if (!empty($profileImage) && $profileImage !== null && trim($profileImage) !== '') {
+        // Handle both local paths and external URLs (like Google profile images)
+        if (strpos($profileImage, 'http://') === 0 || strpos($profileImage, 'https://') === 0) {
+            // External URL (e.g., Google profile image)
+            $profileImageUrl = $profileImage;
+        } else {
+            // Local file path - use app_url() like header does
+            $profileImageUrl = app_url($profileImage);
+        }
+        $hasProfileImage = true;
+        
+        // Also update user array for consistency
+        $user['profile_image'] = $profileImage;
+    }
+} catch (Exception $e) {
+    error_log("Error fetching profile image: " . $e->getMessage());
+}
+
 // Set default values for stats
 $userStats = array_merge([
     'total_bookings' => 0,
     'confirmed_bookings' => 0,
     'pending_bookings' => 0,
     'total_visits' => 0,
+    'pending_visits' => 0,
+    'confirmed_visits' => 0,
+    'completed_visits' => 0,
+    'cancelled_visits' => 0,
     'total_referrals' => 0,
     'total_rewards' => 0.0
 ], $userStats);
@@ -177,15 +373,16 @@ require __DIR__ . '/../app/includes/header.php';
         <div class="card-body p-4">
             <div class="row align-items-center">
                 <div class="col-auto">
-                    <div class="profile-avatar" style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; border: 4px solid var(--primary); background: linear-gradient(135deg, var(--primary) 0%, var(--primary-700) 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(139, 107, 209, 0.2);">
-                        <?php if ($hasProfileImage && $profileImageUrl): ?>
+                    <div class="profile-avatar" style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; border: 4px solid var(--primary); background: linear-gradient(135deg, var(--primary) 0%, var(--primary-700) 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(139, 107, 209, 0.2); position: relative;">
+                        <?php if ($hasProfileImage && !empty($profileImageUrl)): ?>
                         <img src="<?= htmlspecialchars($profileImageUrl) ?>" 
                              alt="<?= htmlspecialchars($user['name'] ?: 'User') ?>" 
+                             id="profilePageImage"
                              class="w-100 h-100" 
-                             style="object-fit: cover;"
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                             style="object-fit: cover; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;"
+                             onerror="this.style.display='none'; document.getElementById('profileIconPlaceholder').style.display='flex';">
                         <?php endif; ?>
-                        <div class="profile-icon-placeholder" style="display: <?= $hasProfileImage ? 'none' : 'flex' ?>; align-items: center; justify-content: center; width: 100%; height: 100%;">
+                        <div class="profile-icon-placeholder" id="profileIconPlaceholder" style="display: <?= ($hasProfileImage && !empty($profileImageUrl)) ? 'none' : 'flex' ?>; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1;">
                             <i class="bi bi-person-fill" style="font-size: 60px; color: white; opacity: 0.9;"></i>
                         </div>
                     </div>
@@ -338,12 +535,19 @@ require __DIR__ . '/../app/includes/header.php';
                                         <p class="small text-muted mb-1">
                                             <i class="bi bi-geo-alt me-1"></i><?= htmlspecialchars($booking['listing_city'] ?: 'N/A') ?>
                                         </p>
-                                        <div class="d-flex align-items-center gap-3">
+                                        <div class="d-flex align-items-center gap-3 flex-wrap">
                                             <span class="badge" style="background: <?= $booking['status'] === 'confirmed' ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' : ($booking['status'] === 'pending' ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)') ?>; color: white; border: none;">
                                                 <?= ucfirst($booking['status']) ?>
                                             </span>
                                             <span class="text-muted small">₹<?= number_format($booking['total_amount'], 2) ?></span>
                                             <span class="text-muted small"><?= formatDate($booking['created_at'], 'd M Y') ?></span>
+                                            <?php if ($booking['status'] === 'confirmed' && !empty($booking['invoice_id'])): ?>
+                                            <a href="<?= app_url('invoice?id=' . $booking['invoice_id']) ?>" 
+                                               class="btn btn-sm btn-outline-primary" 
+                                               title="View Invoice">
+                                                <i class="bi bi-receipt me-1"></i>Invoice
+                                            </a>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -388,7 +592,11 @@ require __DIR__ . '/../app/includes/header.php';
                                             <i class="bi bi-geo-alt me-1"></i><?= htmlspecialchars($visit['listing_city'] ?: 'N/A') ?>
                                         </p>
                                         <div class="d-flex align-items-center gap-3">
-                                            <span class="badge" style="background: <?= $visit['status'] === 'confirmed' ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' : ($visit['status'] === 'requested' ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)') ?>; color: white; border: none;">
+                                            <span class="badge" style="background: <?= 
+                                                $visit['status'] === 'confirmed' ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' : 
+                                                ($visit['status'] === 'pending' ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' : 
+                                                ($visit['status'] === 'completed' ? 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)' : 
+                                                'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)')) ?>; color: white; border: none;">
                                                 <?= ucfirst($visit['status']) ?>
                                             </span>
                                             <span class="text-muted small">
@@ -421,7 +629,7 @@ require __DIR__ . '/../app/includes/header.php';
                             <i class="bi bi-clipboard me-1"></i>Copy Code
                         </button>
                     </div>
-                    <a href="<?= htmlspecialchars(app_url('refer')) ?>" class="btn btn-primary btn-sm">
+                    <a href="<?= htmlspecialchars(app_url('refer')) ?>" class="btn btn-primary btn-sm text-white">
                         <i class="bi bi-share me-1"></i>Share & Earn
                     </a>
                     <?php else: ?>
@@ -438,28 +646,38 @@ require __DIR__ . '/../app/includes/header.php';
                     </h5>
                     <?php if ($kycStatus): ?>
                     <div class="mb-3">
-                        <span class="badge" style="background: <?= $kycStatus['status'] === 'verified' ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' : ($kycStatus['status'] === 'pending' ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)') ?>; color: white; border: none; padding: 0.5rem 1rem;">
-                            <?= ucfirst($kycStatus['status']) ?>
+                        <?php
+                        $status = $kycStatus['status'] ?? 'pending';
+                        $badgeColor = $status === 'verified' 
+                            ? 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)' 
+                            : ($status === 'pending' 
+                                ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' 
+                                : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)');
+                        ?>
+                        <span class="badge" style="background: <?= $badgeColor ?>; color: white; border: none; padding: 0.5rem 1rem;">
+                            <?= ucfirst($status) ?>
                         </span>
                     </div>
+                    <?php if (!empty($kycStatus['document_type'])): ?>
                     <p class="small text-muted mb-1">
                         <strong>Document Type:</strong> <?= ucfirst(str_replace('_', ' ', $kycStatus['document_type'])) ?>
                     </p>
-                    <?php if ($kycStatus['verified_at']): ?>
-                    <p class="small text-muted mb-0">
-                        Verified: <?= formatDate($kycStatus['verified_at'], 'd M Y') ?>
+                    <?php endif; ?>
+                    <?php if (!empty($kycStatus['verified_at'])): ?>
+                    <p class="small text-muted mb-1">
+                        <strong>Verified:</strong> <?= date('d M Y', strtotime($kycStatus['verified_at'])) ?>
                     </p>
                     <?php endif; ?>
-                    <?php if ($kycStatus['rejection_reason']): ?>
+                    <?php if (!empty($kycStatus['rejection_reason'])): ?>
                     <p class="small text-danger mt-2 mb-0">
                         <strong>Reason:</strong> <?= htmlspecialchars($kycStatus['rejection_reason']) ?>
                     </p>
                     <?php endif; ?>
                     <?php else: ?>
                     <p class="text-muted small mb-3">KYC not submitted</p>
-                    <button class="btn btn-primary btn-sm">
+                    <a href="<?= app_url('book?id=0') ?>" class="btn btn-primary btn-sm">
                         <i class="bi bi-upload me-1"></i>Submit KYC
-                    </button>
+                    </a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -499,48 +717,93 @@ require __DIR__ . '/../app/includes/header.php';
                 <div class="modal-body">
                     <div id="profileAlert"></div>
                     
+                    <!-- Profile Picture Upload -->
+                    <div class="mb-4 text-center">
+                        <label class="form-label d-block">Profile Picture</label>
+                        <div class="position-relative d-inline-block">
+                            <div class="profile-avatar-upload" style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; border: 4px solid var(--primary); background: linear-gradient(135deg, var(--primary) 0%, var(--primary-700) 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(139, 107, 209, 0.2); cursor: pointer; position: relative;" onclick="document.getElementById('profileImageInput').click();">
+                                <img id="profileImagePreview" 
+                                     src="<?= ($hasProfileImage && !empty($profileImageUrl)) ? htmlspecialchars($profileImageUrl) : '' ?>" 
+                                     alt="Profile Picture" 
+                                     class="w-100 h-100" 
+                                     style="object-fit: cover; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; <?= !$hasProfileImage || empty($profileImageUrl) ? 'display: none;' : '' ?>"
+                                     onerror="this.style.display='none'; document.getElementById('profileImagePlaceholder').style.display='flex';">
+                                <div id="profileImagePlaceholder" class="w-100 h-100" style="display: <?= ($hasProfileImage && !empty($profileImageUrl)) ? 'none' : 'flex' ?>; align-items: center; justify-content: center; position: absolute; top: 0; left: 0; z-index: 0;">
+                                    <i class="bi bi-person-fill" style="font-size: 60px; color: white; opacity: 0.9;"></i>
+                                </div>
+                                <div class="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle p-2" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                                    <i class="bi bi-camera-fill" style="font-size: 16px;"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="file" 
+                               id="profileImageInput" 
+                               name="profile_image" 
+                               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" 
+                               class="d-none"
+                               onchange="previewProfileImage(this);">
+                        <div class="mt-2">
+                            <small class="text-muted d-block">Click to upload (Max 2MB, JPG/PNG/GIF/WebP)</small>
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1" id="removeProfileImageBtn" style="<?= !$hasProfileImage ? 'display: none;' : '' ?>" onclick="removeProfileImage();">
+                                <i class="bi bi-trash me-1"></i>Remove Picture
+                            </button>
+                        </div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label for="editName" class="form-label">Full Name</label>
                         <input type="text" class="form-control modal-input" id="editName" name="name" 
-                               value="<?= htmlspecialchars($user['name']) ?>" required>
+                               value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
                     </div>
                     
                     <div class="mb-3">
                         <label for="editPhone" class="form-label">Phone</label>
                         <input type="tel" class="form-control modal-input" id="editPhone" name="phone" 
-                               value="<?= htmlspecialchars($user['phone'] ?? '') ?>">
+                               value="<?= htmlspecialchars(isset($user['phone']) && $user['phone'] !== null ? $user['phone'] : '') ?>" 
+                               placeholder="Enter your phone number">
                     </div>
                     
                     <div class="mb-3">
                         <label for="editGender" class="form-label">Gender</label>
+                        <?php 
+                        // Get gender value directly - check multiple sources
+                        $currentGender = '';
+                        if (isset($user['gender']) && $user['gender'] !== null && $user['gender'] !== '') {
+                            $currentGender = trim($user['gender']);
+                        }
+                        ?>
                         <select class="form-select modal-input" id="editGender" name="gender">
                             <option value="">Select Gender</option>
-                            <option value="male" <?= $user['gender'] === 'male' ? 'selected' : '' ?>>Male</option>
-                            <option value="female" <?= $user['gender'] === 'female' ? 'selected' : '' ?>>Female</option>
-                            <option value="other" <?= $user['gender'] === 'other' ? 'selected' : '' ?>>Other</option>
+                            <option value="male" <?= ($currentGender === 'male') ? 'selected="selected"' : '' ?>>Male</option>
+                            <option value="female" <?= ($currentGender === 'female') ? 'selected="selected"' : '' ?>>Female</option>
+                            <option value="other" <?= ($currentGender === 'other') ? 'selected="selected"' : '' ?>>Other</option>
                         </select>
                     </div>
                     
                     <div class="mb-3">
                         <label for="editAddress" class="form-label">Address</label>
-                        <textarea class="form-control modal-input" id="editAddress" name="address" rows="3"><?= htmlspecialchars($user['address'] ?? '') ?></textarea>
+                        <textarea class="form-control modal-input" id="editAddress" name="address" rows="3" 
+                                  placeholder="Enter your address"><?= htmlspecialchars(isset($user['address']) && $user['address'] !== null ? $user['address'] : '') ?></textarea>
                     </div>
                     
                     <div class="row g-2">
                         <div class="col-md-4">
                             <label for="editCity" class="form-label">City</label>
                             <input type="text" class="form-control modal-input" id="editCity" name="city" 
-                                   value="<?= htmlspecialchars($user['city'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(isset($user['city']) && $user['city'] !== null ? $user['city'] : '') ?>" 
+                                   placeholder="City">
                         </div>
                         <div class="col-md-4">
                             <label for="editState" class="form-label">State</label>
                             <input type="text" class="form-control modal-input" id="editState" name="state" 
-                                   value="<?= htmlspecialchars($user['state'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(isset($user['state']) && $user['state'] !== null ? $user['state'] : '') ?>" 
+                                   placeholder="State">
                         </div>
                         <div class="col-md-4">
                             <label for="editPincode" class="form-label">Pin Code</label>
                             <input type="text" class="form-control modal-input" id="editPincode" name="pincode" 
-                                   value="<?= htmlspecialchars($user['pincode'] ?? '') ?>">
+                                   value="<?= htmlspecialchars(isset($user['pincode']) && $user['pincode'] !== null ? $user['pincode'] : '') ?>" 
+                                   placeholder="Pin Code">
                         </div>
                     </div>
                 </div>
@@ -574,6 +837,65 @@ function copyToClipboard(text, buttonId) {
     });
 }
 
+// Profile Image Preview
+function previewProfileImage(input) {
+    const file = input.files[0];
+    if (file) {
+        // Validate file size (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Image size must be less than 2MB');
+            input.value = '';
+            return;
+        }
+        
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPG, PNG, GIF, or WebP)');
+            input.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('profileImagePreview');
+            const placeholder = document.getElementById('profileImagePlaceholder');
+            const removeBtn = document.getElementById('removeProfileImageBtn');
+            
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            placeholder.style.display = 'none';
+            removeBtn.style.display = 'inline-block';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Remove Profile Image
+function removeProfileImage() {
+    const input = document.getElementById('profileImageInput');
+    const preview = document.getElementById('profileImagePreview');
+    const placeholder = document.getElementById('profileImagePlaceholder');
+    const removeBtn = document.getElementById('removeProfileImageBtn');
+    
+    input.value = '';
+    preview.src = '';
+    preview.style.display = 'none';
+    placeholder.style.display = 'flex';
+    removeBtn.style.display = 'none';
+    
+    // Add a hidden field to indicate removal
+    let removeField = document.getElementById('removeProfileImage');
+    if (!removeField) {
+        removeField = document.createElement('input');
+        removeField.type = 'hidden';
+        removeField.id = 'removeProfileImage';
+        removeField.name = 'remove_profile_image';
+        removeField.value = '1';
+        document.getElementById('editProfileForm').appendChild(removeField);
+    }
+}
+
 // Edit Profile Form AJAX
 (function() {
     const form = document.getElementById('editProfileForm');
@@ -605,11 +927,46 @@ function copyToClipboard(text, buttonId) {
                 
                 if (data.status === 'ok' || data.status === 'success') {
                     alertContainer.innerHTML = '<div class="alert alert-success">Profile updated successfully!</div>';
+                    
+                    // Update profile image preview if new image was uploaded
+                    if (data.data && data.data.user && data.data.user.profile_image) {
+                        const preview = document.getElementById('profileImagePreview');
+                        const placeholder = document.getElementById('profileImagePlaceholder');
+                        const removeBtn = document.getElementById('removeProfileImageBtn');
+                        
+                        // Update preview with new image URL
+                        const baseUrl = '<?= htmlspecialchars($baseUrl) ?>';
+                        preview.src = baseUrl + '/' + data.data.user.profile_image;
+                        preview.style.display = 'block';
+                        placeholder.style.display = 'none';
+                        removeBtn.style.display = 'inline-block';
+                    } else if (data.data && data.data.user && !data.data.user.profile_image) {
+                        // Image was removed
+                        const preview = document.getElementById('profileImagePreview');
+                        const placeholder = document.getElementById('profileImagePlaceholder');
+                        const removeBtn = document.getElementById('removeProfileImageBtn');
+                        
+                        preview.src = '';
+                        preview.style.display = 'none';
+                        placeholder.style.display = 'flex';
+                        removeBtn.style.display = 'none';
+                    }
+                    
                     setTimeout(() => {
                         window.location.reload();
-                    }, 1000);
+                    }, 1500);
                 } else {
-                    alertContainer.innerHTML = '<div class="alert alert-danger">' + (data.message || 'Error updating profile') + '</div>';
+                    // Show field errors if any
+                    if (data.errors && typeof data.errors === 'object') {
+                        let errorHtml = '<div class="alert alert-danger"><ul class="mb-0">';
+                        Object.keys(data.errors).forEach(field => {
+                            errorHtml += '<li>' + data.errors[field] + '</li>';
+                        });
+                        errorHtml += '</ul></div>';
+                        alertContainer.innerHTML = errorHtml;
+                    } else {
+                        alertContainer.innerHTML = '<div class="alert alert-danger">' + (data.message || 'Error updating profile') + '</div>';
+                    }
                     submitBtn.disabled = false;
                     spinner.classList.add('d-none');
                 }

@@ -479,7 +479,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Available For <span class="text-danger">*</span></label>
-                    <select class="form-select" name="available_for" required>
+                    <select class="form-control filter-select" name="available_for" required>
                         <option value="both">Both</option>
                         <option value="boys">Boys</option>
                         <option value="girls">Girls</option>
@@ -487,7 +487,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Gender Allowed <span class="text-danger">*</span></label>
-                    <select class="form-select" name="gender_allowed" required>
+                    <select class="form-control filter-select" name="gender_allowed" required>
                         <option value="unisex">Unisex</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
@@ -495,7 +495,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Preferred Tenants</label>
-                    <select class="form-select" name="preferred_tenants">
+                    <select class="form-control filter-select" name="preferred_tenants">
                         <option value="anyone">Anyone</option>
                         <option value="students">Students</option>
                         <option value="working professionals">Working Professionals</option>
@@ -534,7 +534,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Status <span class="text-danger">*</span></label>
-                    <select class="form-select" name="status" required>
+                    <select class="form-control filter-select" name="status" required>
                         <option value="draft">Draft</option>
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
@@ -621,7 +621,7 @@ $flashMessage = getFlashMessage();
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Electricity Charges</label>
-                    <select class="form-select" name="electricity_charges">
+                    <select class="form-control filter-select" name="electricity_charges">
                         <option value="">Select</option>
                         <option value="included">Included</option>
                         <option value="as per usage">As per usage</option>
@@ -631,7 +631,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Food Availability</label>
-                    <select class="form-select" name="food_availability">
+                    <select class="form-control filter-select" name="food_availability">
                         <option value="">Select</option>
                         <option value="vegetarian">Vegetarian</option>
                         <option value="non-vegetarian">Non-vegetarian</option>
@@ -738,7 +738,7 @@ function addRoomConfig() {
     div.innerHTML = `
         <div class="col-md-3">
             <label class="form-label">Room Type <span class="text-danger">*</span></label>
-            <select class="form-select" name="room_configs[${roomConfigCount}][room_type]" required>
+            <select class="form-control filter-select" name="room_configs[${roomConfigCount}][room_type]" required>
                 <option value="single sharing">Single Sharing</option>
                 <option value="double sharing">Double Sharing</option>
                 <option value="triple sharing">Triple Sharing</option>

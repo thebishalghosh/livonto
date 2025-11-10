@@ -275,6 +275,26 @@ body {
   color: white;
 }
 
+/* Outline primary button hover states - override Bootstrap blue */
+.btn-outline-primary {
+  border-color: var(--primary);
+  color: var(--primary);
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease, transform .12s ease;
+}
+.btn-outline-primary:hover {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  transform: translateY(-1px);
+}
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+  background-color: var(--primary-700);
+  border-color: var(--primary-700);
+  color: white;
+  box-shadow: 0 0 0 0.25rem rgba(139, 107, 209, 0.25);
+}
+
 /* Thumbnails */
 .card .card-img-top {
   object-fit: cover;
@@ -291,13 +311,24 @@ body {
   box-shadow: 0 8px 24px rgba(139,107,209,0.12);
   padding: 0.6rem 1rem;
   border-radius: 10px;
-  transition: transform .12s ease, box-shadow .12s ease;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
   color: #fff;
 }
 :root[data-theme="dark"] .btn-primary {
   box-shadow: 0 8px 30px rgba(86,60,150,0.18);
 }
-.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(110,88,176,0.12); }
+.btn-primary:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 16px 40px rgba(110,88,176,0.12);
+  background: linear-gradient(90deg, var(--primary-700) 0%, var(--primary) 100%);
+  color: #fff;
+}
+.btn-primary:focus,
+.btn-primary:active {
+  background: linear-gradient(90deg, var(--primary-700) 0%, var(--primary) 100%);
+  color: #fff;
+  border: none;
+}
 .btn-outline-secondary {
   border-radius: 10px;
   border-color: rgba(124,109,176,0.14);
@@ -563,6 +594,107 @@ footer .d-flex.gap-3 a:hover { transform: translateY(-4px); opacity: 1; }
 /* Navbar link readability under dark */
 :root[data-theme="dark"] .navbar .nav-link { color: var(--muted) !important; }
 :root[data-theme="dark"] .navbar .nav-link:hover { color: var(--primary-700) !important; }
+
+/* ======================================================
+   Listing Detail Page Styles
+   ====================================================== */
+
+/* Listing detail image gallery */
+.listing-detail-gallery {
+  height: 500px;
+  object-fit: cover;
+}
+
+/* Section headings with theme color */
+.listing-section-heading {
+  color: var(--primary-700);
+}
+
+/* Icon with primary color */
+.icon-primary {
+  color: var(--primary);
+}
+
+.icon-primary-700 {
+  color: var(--primary-700);
+}
+
+/* Accent background boxes */
+.accent-bg {
+  background: var(--accent);
+}
+
+/* Theme border utilities */
+.theme-border {
+  border: 1px solid var(--border);
+}
+
+.theme-border-color {
+  border-color: var(--border) !important;
+}
+
+/* Price display */
+.price-display {
+  color: var(--primary-700);
+  font-weight: 700;
+}
+
+/* Room card nested styling */
+.room-card-nested {
+  border: 1px solid var(--border);
+}
+
+/* Badge with primary background */
+.badge-primary {
+  background: var(--primary);
+  color: white;
+  font-weight: 500;
+}
+
+/* Badge with success gradient */
+.badge-success-gradient {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  color: white;
+}
+
+/* Info item with icon */
+.info-item-icon {
+  color: var(--primary-700);
+  font-size: 1.5rem;
+}
+
+/* Sticky sidebar card */
+.sticky-sidebar-card {
+  top: 20px;
+  border: 1px solid var(--border);
+}
+
+/* Review profile image */
+.review-profile-img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border: 2px solid var(--primary);
+}
+
+.review-profile-icon {
+  font-size: 50px;
+  color: var(--primary);
+}
+
+/* Text line height utilities */
+.text-line-height-lg {
+  line-height: 1.8;
+}
+
+.text-line-height-md {
+  line-height: 1.7;
+}
+
+/* Preserve whitespace */
+.preserve-whitespace {
+  white-space: pre-wrap;
+}
 
 /* Navbar brand logos (light/dark) */
 .navbar .navbar-brand img.brand-logo { height: 45px; width: auto; display: inline-block; vertical-align: middle; }

@@ -1,7 +1,7 @@
 <?php
 $pageTitle = "Refer & Earn";
-require __DIR__ . '/../app/includes/header.php';
-require __DIR__ . '/../app/functions.php';
+require_once __DIR__ . '/../app/includes/header.php';
+require_once __DIR__ . '/../app/functions.php';
 $baseUrl = app_url('');
 
 // Try to read referral code from session if available
@@ -334,4 +334,4 @@ function copyToClipboard(text, buttonId) {
 }
 </style>
 
-<?php require __DIR__ . '/../app/includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../app/includes/footer.php'; ?>

@@ -6,7 +6,7 @@
 
 $pageTitle = "Users Management";
 require __DIR__ . '/../app/includes/admin_header.php';
-require __DIR__ . '/../app/functions.php';
+// functions.php is already included in admin_header.php
 
 // Get filter parameters
 $search = trim($_GET['search'] ?? '');
@@ -95,7 +95,7 @@ try {
     
     // Get users with pagination
     $users = $db->fetchAll(
-        "SELECT u.id, u.name, u.email, u.phone, u.role, u.referral_code, u.google_id, 
+        "SELECT u.id, u.name, u.email, u.phone, u.role, u.referral_code, u.google_id, u.profile_image,
                 u.created_at, u.updated_at,
                 (SELECT COUNT(*) FROM listings WHERE owner_name = u.name) as listings_count,
                 (SELECT COUNT(*) FROM bookings WHERE user_id = u.id) as bookings_count,
@@ -239,7 +239,7 @@ $flashMessage = getFlashMessage();
             </div>
             <div class="col-md-2">
                 <label class="form-label">Role</label>
-                <select class="form-select form-select-sm" name="role" style="height: 38px;">
+                <select class="form-control form-control-sm filter-select" name="role" style="height: 38px;">
                     <option value="">All Roles</option>
                     <option value="user" <?= $role === 'user' ? 'selected' : '' ?>>User</option>
                     <option value="admin" <?= $role === 'admin' ? 'selected' : '' ?>>Admin</option>
@@ -247,7 +247,7 @@ $flashMessage = getFlashMessage();
             </div>
             <div class="col-md-2">
                 <label class="form-label">Sort By</label>
-                <select class="form-select form-select-sm" name="sort" style="height: 38px;">
+                <select class="form-control form-control-sm filter-select" name="sort" style="height: 38px;">
                     <option value="created_at" <?= $sort === 'created_at' ? 'selected' : '' ?>>Date</option>
                     <option value="name" <?= $sort === 'name' ? 'selected' : '' ?>>Name</option>
                     <option value="email" <?= $sort === 'email' ? 'selected' : '' ?>>Email</option>
@@ -256,7 +256,7 @@ $flashMessage = getFlashMessage();
             </div>
             <div class="col-md-2">
                 <label class="form-label">Order</label>
-                <select class="form-select form-select-sm" name="order" style="height: 38px;">
+                <select class="form-control form-control-sm filter-select" name="order" style="height: 38px;">
                     <option value="DESC" <?= $order === 'DESC' ? 'selected' : '' ?>>Newest First</option>
                     <option value="ASC" <?= $order === 'ASC' ? 'selected' : '' ?>>Oldest First</option>
                 </select>
@@ -305,8 +305,37 @@ $flashMessage = getFlashMessage();
                                 <td><?= htmlspecialchars($user['id']) ?></td>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <div class="admin-user-avatar me-2">
-                                            <i class="bi bi-person-circle"></i>
+                                        <?php
+                                        // Get profile image URL - simple logic
+                                        $profileImageUrl = null;
+                                        $hasProfileImage = false;
+                                        if (!empty($user['profile_image']) && $user['profile_image'] !== null && trim($user['profile_image']) !== '') {
+                                            // If user has google_id, use profile_image value directly
+                                            // It could be a Google URL or a cached local path
+                                            if (!empty($user['google_id'])) {
+                                                // Check if it's already a full URL (Google URL) or a local path
+                                                if (strpos($user['profile_image'], 'http://') === 0 || strpos($user['profile_image'], 'https://') === 0) {
+                                                    $profileImageUrl = $user['profile_image']; // Google URL
+                                                } else {
+                                                    $profileImageUrl = app_url($user['profile_image']); // Cached local path
+                                                }
+                                            } else {
+                                                // For non-Google users, use app_url for local paths
+                                                $profileImageUrl = app_url($user['profile_image']);
+                                            }
+                                            $hasProfileImage = true;
+                                        }
+                                        ?>
+                                        <div class="admin-user-avatar me-2" style="position: relative; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <?php if ($hasProfileImage && !empty($profileImageUrl)): ?>
+                                                <img src="<?= htmlspecialchars($profileImageUrl) ?>" 
+                                                     alt="<?= htmlspecialchars($user['name']) ?>" 
+                                                     style="width: 100%; height: 100%; object-fit: cover;"
+                                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                <i class="bi bi-person-circle" style="display: none; font-size: 24px; color: white; position: absolute;"></i>
+                                            <?php else: ?>
+                                                <i class="bi bi-person-circle" style="font-size: 24px; color: white;"></i>
+                                            <?php endif; ?>
                                         </div>
                                         <div>
                                             <div class="fw-semibold"><?= htmlspecialchars($user['name']) ?></div>
@@ -415,7 +444,7 @@ $flashMessage = getFlashMessage();
                     <p>Select new role for user: <strong id="changeRoleUserName"></strong></p>
                     <div class="mb-3">
                         <label class="form-label">Role</label>
-                        <select class="form-select" name="new_role" id="newRoleSelect" required>
+                        <select class="form-control filter-select" name="new_role" id="newRoleSelect" required>
                             <option value="user">User</option>
                             <option value="admin">Admin</option>
                         </select>

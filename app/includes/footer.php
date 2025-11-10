@@ -1,5 +1,9 @@
 <?php
 // app/includes/footer.php
+// Ensure baseUrl is set (needed for asset paths)
+if (!isset($baseUrl)) {
+    $baseUrl = app_url('');
+}
 // Load settings if functions.php is available
 if (function_exists('getSetting')) {
     $siteName = getSetting('site_name', 'Livonto');

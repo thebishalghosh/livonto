@@ -13,6 +13,11 @@ RewriteRule ^ - [L]
 RewriteCond %{REQUEST_URI} \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ [NC]
 RewriteRule ^ - [L]
 
+# Explicitly allow admin/assets directory - must come before admin route rule
+RewriteCond %{REQUEST_URI} ^/admin/assets/ [NC]
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
 # Handle admin routes - always route through index.php even if directory exists
 # But exclude admin/assets directory and asset files
 RewriteCond %{REQUEST_URI} admin/ [NC]

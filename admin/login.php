@@ -9,51 +9,13 @@ if (!empty($_SESSION['user_id']) && $_SESSION['user_role'] === 'admin') {
     header('Location: ' . app_url('admin'));
     exit;
 }
-// Get baseUrl - ensure it's the actual value, not app_url('') which returns '/' for empty
-global $baseUrl;
-if (!isset($baseUrl)) {
-    $baseUrl = getenv('LIVONTO_BASE_URL') ?: '';
-    if (empty($baseUrl)) {
-        // Auto-detect baseUrl
-        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
-        $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
-        $projectRoot = dirname(__DIR__);
-        
-        $scriptDir = dirname($scriptName);
-        
-        // Check REQUEST_URI
-        if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
-            $potentialBase = '/' . $matches[1];
-            if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
-                $baseUrl = $potentialBase;
-            }
-        }
-        
-        // Calculate from project root
-        if (empty($baseUrl)) {
-            $relativePath = str_replace($documentRoot, '', $projectRoot);
-            $relativePath = str_replace('\\', '/', $relativePath);
-            $relativePath = trim($relativePath, '/');
-            $baseUrl = !empty($relativePath) ? '/' . $relativePath : '';
-        }
-        
-        // From SCRIPT_NAME
-        if (empty($baseUrl) || $baseUrl === '/') {
-            if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
-                $baseUrl = '';
-            } else {
-                $baseUrl = rtrim($scriptDir, '/');
-            }
-        }
-        
-        // Fallback
-        if (empty($baseUrl) && strpos($requestUri, '/Livonto/') !== false) {
-            $baseUrl = '/Livonto';
-        }
-    }
-    $baseUrl = rtrim($baseUrl, '/');
+// baseUrl is set by config.php - ensure it's available and properly formatted
+// config.php sets $baseUrl in the file scope, so it should be available after require
+if (!isset($baseUrl) || $baseUrl === null) {
+    $baseUrl = '';
 }
+// Ensure baseUrl is a string and trimmed
+$baseUrl = rtrim((string)$baseUrl, '/');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -80,7 +42,7 @@ if (!isset($baseUrl)) {
     
     <!-- Admin Styles -->
     <?php 
-    // Ensure admin CSS path is always absolute (start with /)
+    // Ensure admin CSS path is always absolute (start with /) - same logic as admin_header.php
     $adminCssPath = ($baseUrl === '' || $baseUrl === '/') ? '/admin/assets/css/admin.css' : ($baseUrl . '/admin/assets/css/admin.css');
     if (substr($adminCssPath, 0, 1) !== '/') {
         $adminCssPath = '/' . ltrim($adminCssPath, '/');

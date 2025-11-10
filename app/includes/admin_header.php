@@ -3,7 +3,13 @@
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 require __DIR__ . '/../config.php';
-$baseUrl = app_url('');
+// baseUrl is set by config.php - ensure it's available and properly formatted
+// Don't use app_url('') which returns '/' for empty baseUrl
+if (!isset($baseUrl) || $baseUrl === null) {
+    $baseUrl = '';
+}
+// Ensure baseUrl is a string and trimmed
+$baseUrl = rtrim((string)$baseUrl, '/');
 
 // Check if user is logged in and is admin
 if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {

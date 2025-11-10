@@ -98,11 +98,13 @@ if (!$baseUrl) {
 	// Method 2: Extract from SCRIPT_NAME if it contains subdirectory
 	// SCRIPT_NAME might be /Livonto/index.php or /Livonto/admin/login.php
 	// Extract the first directory component if it exists
+	// IMPORTANT: Exclude route directories like /admin, /public, /app, /storage, /vendor, /sql
+	$excludedDirs = ['admin', 'public', 'app', 'storage', 'vendor', 'sql'];
 	if (empty($baseUrl) || $baseUrl === '/') {
 		if ($scriptDir !== '/' && $scriptDir !== '\\' && $scriptDir !== '.') {
 			// Extract first directory from scriptDir (e.g., /Livonto/admin -> /Livonto)
 			$scriptDirParts = explode('/', trim($scriptDir, '/'));
-			if (!empty($scriptDirParts[0])) {
+			if (!empty($scriptDirParts[0]) && !in_array(strtolower($scriptDirParts[0]), $excludedDirs)) {
 				$potentialBase = '/' . $scriptDirParts[0];
 				// Verify this directory exists and contains index.php (it's the project root)
 				if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
@@ -129,6 +131,13 @@ if (!$baseUrl) {
 		}
 	}
 }
+
+// Final safeguard: Never allow route directories to be baseUrl
+$excludedRouteDirs = ['/admin', '/public', '/app', '/storage', '/vendor', '/sql'];
+if (in_array($baseUrl, $excludedRouteDirs)) {
+	$baseUrl = '';
+}
+
 $baseUrl = rtrim($baseUrl, '/');
 
 // Expose a helper to build absolute URLs relative to base

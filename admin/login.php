@@ -9,7 +9,51 @@ if (!empty($_SESSION['user_id']) && $_SESSION['user_role'] === 'admin') {
     header('Location: ' . app_url('admin'));
     exit;
 }
-$baseUrl = app_url('');
+// Get baseUrl - ensure it's the actual value, not app_url('') which returns '/' for empty
+global $baseUrl;
+if (!isset($baseUrl)) {
+    $baseUrl = getenv('LIVONTO_BASE_URL') ?: '';
+    if (empty($baseUrl)) {
+        // Auto-detect baseUrl
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+        $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+        $projectRoot = dirname(__DIR__);
+        
+        $scriptDir = dirname($scriptName);
+        
+        // Check REQUEST_URI
+        if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
+            $potentialBase = '/' . $matches[1];
+            if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
+                $baseUrl = $potentialBase;
+            }
+        }
+        
+        // Calculate from project root
+        if (empty($baseUrl)) {
+            $relativePath = str_replace($documentRoot, '', $projectRoot);
+            $relativePath = str_replace('\\', '/', $relativePath);
+            $relativePath = trim($relativePath, '/');
+            $baseUrl = !empty($relativePath) ? '/' . $relativePath : '';
+        }
+        
+        // From SCRIPT_NAME
+        if (empty($baseUrl) || $baseUrl === '/') {
+            if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
+                $baseUrl = '';
+            } else {
+                $baseUrl = rtrim($scriptDir, '/');
+            }
+        }
+        
+        // Fallback
+        if (empty($baseUrl) && strpos($requestUri, '/Livonto/') !== false) {
+            $baseUrl = '/Livonto';
+        }
+    }
+    $baseUrl = rtrim($baseUrl, '/');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -19,8 +63,15 @@ $baseUrl = app_url('');
     <title>Admin Login - Livonto</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
-    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
+    <?php 
+    // Ensure favicon paths are always absolute
+    $faviconPath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/images/favicon.ico' : ($baseUrl . '/public/assets/images/favicon.ico');
+    if (substr($faviconPath, 0, 1) !== '/') {
+        $faviconPath = '/' . ltrim($faviconPath, '/');
+    }
+    ?>
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($faviconPath) ?>">
+    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($faviconPath) ?>">
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -28,20 +79,41 @@ $baseUrl = app_url('');
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
     <!-- Admin Styles -->
-    <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/admin/assets/css/admin.css') ?>">
+    <?php 
+    // Ensure admin CSS path is always absolute (start with /)
+    $adminCssPath = ($baseUrl === '' || $baseUrl === '/') ? '/admin/assets/css/admin.css' : ($baseUrl . '/admin/assets/css/admin.css');
+    if (substr($adminCssPath, 0, 1) !== '/') {
+        $adminCssPath = '/' . ltrim($adminCssPath, '/');
+    }
+    ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars($adminCssPath) ?>">
 </head>
 <body class="admin-login-page">
     <div class="login-container">
         <div class="login-card">
             <!-- Logo Section -->
             <div class="login-logo">
-                <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/logo-removebg.png') ?>" 
+                <?php 
+                // Ensure logo path is always absolute
+                $logoPath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/images/logo-removebg.png' : ($baseUrl . '/public/assets/images/logo-removebg.png');
+                if (substr($logoPath, 0, 1) !== '/') {
+                    $logoPath = '/' . ltrim($logoPath, '/');
+                }
+                ?>
+                <img src="<?= htmlspecialchars($logoPath) ?>" 
                      alt="Livonto" 
                      class="logo-img">
             </div>
 
             <!-- Login Form -->
-            <form id="adminLoginForm" method="POST" action="<?= htmlspecialchars($baseUrl) ?>/app/login_action.php" novalidate>
+            <?php 
+            // Ensure form action URL is correct
+            $loginActionUrl = ($baseUrl === '' || $baseUrl === '/') ? '/app/login_action.php' : ($baseUrl . '/app/login_action.php');
+            if (substr($loginActionUrl, 0, 1) !== '/') {
+                $loginActionUrl = '/' . ltrim($loginActionUrl, '/');
+            }
+            ?>
+            <form id="adminLoginForm" method="POST" action="<?= htmlspecialchars($loginActionUrl) ?>" novalidate>
                 <div id="loginAlert" class="mb-3"></div>
 
                 <div class="form-group mb-3">
@@ -99,7 +171,14 @@ $baseUrl = app_url('');
                 </button>
 
                 <div class="text-center">
-                    <a href="<?= htmlspecialchars($baseUrl . '/public/') ?>" class="back-link">
+                    <?php 
+                    // Ensure back link URL is correct
+                    $backLinkUrl = ($baseUrl === '' || $baseUrl === '/') ? '/' : ($baseUrl . '/');
+                    if (substr($backLinkUrl, 0, 1) !== '/') {
+                        $backLinkUrl = '/' . ltrim($backLinkUrl, '/');
+                    }
+                    ?>
+                    <a href="<?= htmlspecialchars($backLinkUrl) ?>" class="back-link">
                         <i class="bi bi-arrow-left me-1"></i>Back to Website
                     </a>
                 </div>

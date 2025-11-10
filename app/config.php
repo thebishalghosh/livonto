@@ -66,28 +66,48 @@ if (!$baseUrl) {
 	
 	// Method 1: Calculate from project root vs document root (PRIMARY METHOD)
 	// This is the most reliable - it finds where the project actually is
-	$relativePath = str_replace($documentRoot, '', $projectRoot);
-	$relativePath = str_replace('\\', '/', $relativePath);
-	$relativePath = trim($relativePath, '/');
+	// Normalize paths for comparison (handle Windows backslashes and case sensitivity)
+	$normalizedDocRoot = str_replace('\\', '/', rtrim($documentRoot, '/\\'));
+	$normalizedProjectRoot = str_replace('\\', '/', rtrim($projectRoot, '/\\'));
 	
-	if (!empty($relativePath)) {
-		$baseUrl = '/' . $relativePath;
+	// On Windows, paths might have different case, so compare case-insensitively
+	// But preserve the actual directory name for the baseUrl
+	if (stripos($normalizedProjectRoot, $normalizedDocRoot) === 0) {
+		// Project root is inside document root
+		$relativePath = substr($normalizedProjectRoot, strlen($normalizedDocRoot));
+		$relativePath = trim($relativePath, '/');
+		
+		if (!empty($relativePath)) {
+			// Get the actual directory name from project root (preserve case)
+			$projectDirName = basename($normalizedProjectRoot);
+			// Check if the relative path ends with this directory name
+			if (basename($relativePath) === $projectDirName) {
+				$baseUrl = '/' . $relativePath;
+			} else {
+				// Extract just the directory name
+				$baseUrl = '/' . $projectDirName;
+			}
+		} else {
+			$baseUrl = '';
+		}
 	} else {
+		// Project root is not inside document root (shouldn't happen, but handle it)
 		$baseUrl = '';
 	}
 	
-	// Method 2: Verify with SCRIPT_NAME if available
-	// Only use this if Method 1 didn't work
+	// Method 2: Extract from SCRIPT_NAME if it contains subdirectory
+	// SCRIPT_NAME might be /Livonto/index.php or /Livonto/admin/login.php
+	// Extract the first directory component if it exists
 	if (empty($baseUrl) || $baseUrl === '/') {
-		if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
-			$baseUrl = '';
-		} else {
-			// Only use scriptDir if it's not a route path (like /admin, /public)
-			// Check if it's actually the project root by looking for index.php
-			if (file_exists($documentRoot . $scriptDir . '/index.php')) {
-				$baseUrl = rtrim($scriptDir, '/');
-			} else {
-				$baseUrl = '';
+		if ($scriptDir !== '/' && $scriptDir !== '\\' && $scriptDir !== '.') {
+			// Extract first directory from scriptDir (e.g., /Livonto/admin -> /Livonto)
+			$scriptDirParts = explode('/', trim($scriptDir, '/'));
+			if (!empty($scriptDirParts[0])) {
+				$potentialBase = '/' . $scriptDirParts[0];
+				// Verify this directory exists and contains index.php (it's the project root)
+				if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
+					$baseUrl = $potentialBase;
+				}
 			}
 		}
 	}
@@ -98,7 +118,7 @@ if (!$baseUrl) {
 	if (empty($baseUrl)) {
 		$knownSubdirs = ['Livonto']; // Add other known subdirectory names here
 		foreach ($knownSubdirs as $subdir) {
-			if (strpos($requestUri, '/' . $subdir . '/') !== false) {
+			if (strpos($requestUri, '/' . $subdir . '/') !== false || $requestUri === '/' . $subdir || $requestUri === '/' . $subdir . '/') {
 				$potentialBase = '/' . $subdir;
 				// Verify this directory exists and contains index.php
 				if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {

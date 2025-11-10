@@ -64,41 +64,49 @@ if (!$baseUrl) {
 	// Get the directory of index.php relative to document root
 	$scriptDir = dirname($scriptName);
 	
-	// Method 1: Check if REQUEST_URI contains a subdirectory path (like /Livonto/)
-	if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
-		$potentialBase = '/' . $matches[1];
-		// Verify this directory exists in document root and contains index.php
-		if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
-			$baseUrl = $potentialBase;
-		}
+	// Method 1: Calculate from project root vs document root (PRIMARY METHOD)
+	// This is the most reliable - it finds where the project actually is
+	$relativePath = str_replace($documentRoot, '', $projectRoot);
+	$relativePath = str_replace('\\', '/', $relativePath);
+	$relativePath = trim($relativePath, '/');
+	
+	if (!empty($relativePath)) {
+		$baseUrl = '/' . $relativePath;
+	} else {
+		$baseUrl = '';
 	}
 	
-	// Method 2: Calculate from project root vs document root
-	if (empty($baseUrl)) {
-		// Get relative path from document root to project root
-		$relativePath = str_replace($documentRoot, '', $projectRoot);
-		$relativePath = str_replace('\\', '/', $relativePath);
-		$relativePath = trim($relativePath, '/');
-		
-		if (!empty($relativePath)) {
-			$baseUrl = '/' . $relativePath;
-		} else {
-			$baseUrl = '';
-		}
-	}
-	
-	// Method 3: If not detected, try from SCRIPT_NAME
+	// Method 2: Verify with SCRIPT_NAME if available
+	// Only use this if Method 1 didn't work
 	if (empty($baseUrl) || $baseUrl === '/') {
 		if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
 			$baseUrl = '';
 		} else {
-			$baseUrl = rtrim($scriptDir, '/');
+			// Only use scriptDir if it's not a route path (like /admin, /public)
+			// Check if it's actually the project root by looking for index.php
+			if (file_exists($documentRoot . $scriptDir . '/index.php')) {
+				$baseUrl = rtrim($scriptDir, '/');
+			} else {
+				$baseUrl = '';
+			}
 		}
 	}
 	
-	// Final fallback: check for known subdirectory in REQUEST_URI
-	if (empty($baseUrl) && strpos($requestUri, '/Livonto/') !== false) {
-		$baseUrl = '/Livonto';
+	// Method 3: Check REQUEST_URI for known subdirectory (like /Livonto/)
+	// Only use this as a fallback and only for known project directories
+	// Don't match route paths like /admin/, /public/, etc.
+	if (empty($baseUrl)) {
+		$knownSubdirs = ['Livonto']; // Add other known subdirectory names here
+		foreach ($knownSubdirs as $subdir) {
+			if (strpos($requestUri, '/' . $subdir . '/') !== false) {
+				$potentialBase = '/' . $subdir;
+				// Verify this directory exists and contains index.php
+				if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
+					$baseUrl = $potentialBase;
+					break;
+				}
+			}
+		}
 	}
 }
 $baseUrl = rtrim($baseUrl, '/');

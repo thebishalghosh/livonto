@@ -2,7 +2,53 @@
 // app/includes/footer.php
 // Ensure baseUrl is set (needed for asset paths)
 if (!isset($baseUrl)) {
-    $baseUrl = app_url('');
+    // Include config to get baseUrl (config.php sets $baseUrl)
+    require_once __DIR__ . '/../config.php';
+    // If baseUrl is still not set after including config, detect it
+    if (!isset($baseUrl)) {
+        // Get the actual baseUrl value, not app_url('') which returns '/' for empty
+        $baseUrl = getenv('LIVONTO_BASE_URL') ?: '';
+        if (empty($baseUrl)) {
+            // Use the same detection logic as config.php
+            $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+            $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+            $documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+            $projectRoot = dirname(__DIR__);
+            
+            $scriptDir = dirname($scriptName);
+            
+            // Check REQUEST_URI
+            if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
+                $potentialBase = '/' . $matches[1];
+                if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
+                    $baseUrl = $potentialBase;
+                }
+            }
+            
+            // Calculate from project root
+            if (empty($baseUrl)) {
+                $relativePath = str_replace($documentRoot, '', $projectRoot);
+                $relativePath = str_replace('\\', '/', $relativePath);
+                $relativePath = trim($relativePath, '/');
+                $baseUrl = !empty($relativePath) ? '/' . $relativePath : '';
+            }
+            
+            // From SCRIPT_NAME
+            if (empty($baseUrl) || $baseUrl === '/') {
+                if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
+                    $baseUrl = '';
+                } else {
+                    $baseUrl = rtrim($scriptDir, '/');
+                }
+            }
+            
+            // Fallback
+            if (empty($baseUrl) && strpos($requestUri, '/Livonto/') !== false) {
+                $baseUrl = '/Livonto';
+            }
+        }
+        $baseUrl = rtrim($baseUrl, '/');
+    }
 }
 // Load settings if functions.php is available
 if (function_exists('getSetting')) {

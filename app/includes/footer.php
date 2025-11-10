@@ -97,10 +97,22 @@ $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
       <!-- Column 1: About -->
       <div class="col-md-3 col-sm-6">
         <a href="<?= htmlspecialchars(app_url('')) ?>" class="d-inline-block mb-3">
-          <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/logo-white-removebg.png') ?>" 
+          <?php 
+          // Ensure path always starts with / for absolute path from domain root
+          // When baseUrl is empty (root server), path should be /public/assets/...
+          // When baseUrl is set (subdirectory), path should be /Livonto/public/assets/...
+          $logoPath = '/public/assets/images/logo-white-removebg.png';
+          $logoUrl = ($baseUrl === '' || $baseUrl === '/') ? $logoPath : ($baseUrl . $logoPath);
+          // Ensure it always starts with / (safety check)
+          if (substr($logoUrl, 0, 1) !== '/') {
+              $logoUrl = '/' . ltrim($logoUrl, '/');
+          }
+          ?>
+          <img src="<?= htmlspecialchars($logoUrl) ?>" 
                alt="<?= htmlspecialchars($siteName) ?>" 
                class="footer-logo" 
-               style="max-height: 50px; width: auto;">
+               style="max-height: 50px; width: auto;"
+               onerror="console.error('Logo failed to load. URL:', this.src, 'baseUrl:', '<?= htmlspecialchars($baseUrl) ?>');">
         </a>
         <p class="small text-white">
           <?= htmlspecialchars($siteTagline) ?>
@@ -215,17 +227,21 @@ $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
         crossorigin=""></script>
 
 <!-- Main JS -->
-<script src="<?= htmlspecialchars($baseUrl . '/public/assets/js/main.js') ?>"></script>
+<?php 
+// Ensure JS paths are always absolute (start with /)
+$jsBasePath = (empty($baseUrl) ? '' : $baseUrl) . '/public/assets/js/';
+?>
+<script src="<?= htmlspecialchars($jsBasePath . 'main.js') ?>"></script>
 
 <!-- Map JS (loaded conditionally) -->
 <script>
   // Set baseUrl for map.js
   const baseUrl = '<?= htmlspecialchars($baseUrl) ?>';
 </script>
-<script src="<?= htmlspecialchars($baseUrl . '/public/assets/js/map.js') ?>"></script>
+<script src="<?= htmlspecialchars($jsBasePath . 'map.js') ?>"></script>
 
 <!-- Autocomplete JS -->
-<script src="<?= htmlspecialchars($baseUrl . '/public/assets/js/autocomplete.js') ?>"></script>
+<script src="<?= htmlspecialchars($jsBasePath . 'autocomplete.js') ?>"></script>
 
 </body>
 </html>

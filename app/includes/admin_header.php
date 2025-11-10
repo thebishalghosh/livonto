@@ -156,9 +156,16 @@ try {
     <title><?= htmlspecialchars($pageTitle) ?> - Livonto Admin</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
-    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
-    <link rel="apple-touch-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
+    <?php 
+    // Ensure favicon paths are always absolute
+    $faviconPath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/images/favicon.ico' : ($baseUrl . '/public/assets/images/favicon.ico');
+    if (substr($faviconPath, 0, 1) !== '/') {
+        $faviconPath = '/' . ltrim($faviconPath, '/');
+    }
+    ?>
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($faviconPath) ?>">
+    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($faviconPath) ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars($faviconPath) ?>">
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -166,7 +173,14 @@ try {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
     <!-- Admin Styles -->
-    <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/admin/assets/css/admin.css') ?>">
+    <?php 
+    // Ensure admin CSS path is always absolute (start with /)
+    $adminCssPath = ($baseUrl === '' || $baseUrl === '/') ? '/admin/assets/css/admin.css' : ($baseUrl . '/admin/assets/css/admin.css');
+    if (substr($adminCssPath, 0, 1) !== '/') {
+        $adminCssPath = '/' . ltrim($adminCssPath, '/');
+    }
+    ?>
+    <link rel="stylesheet" href="<?= htmlspecialchars($adminCssPath) ?>">
     
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -184,7 +198,14 @@ try {
                     <i class="bi bi-list"></i>
                 </button>
                 <a href="<?= htmlspecialchars(app_url('admin')) ?>" class="admin-navbar-brand">
-                    <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/logo-removebg.png') ?>" 
+                    <?php 
+                    // Ensure admin logo path is always absolute
+                    $adminLogoPath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/images/logo-removebg.png' : ($baseUrl . '/public/assets/images/logo-removebg.png');
+                    if (substr($adminLogoPath, 0, 1) !== '/') {
+                        $adminLogoPath = '/' . ltrim($adminLogoPath, '/');
+                    }
+                    ?>
+                    <img src="<?= htmlspecialchars($adminLogoPath) ?>" 
                          alt="Livonto" 
                          class="admin-brand-logo">
                 </a>

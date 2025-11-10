@@ -32,8 +32,15 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
   <?php endif; ?>
   
   <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
-  <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
+  <?php 
+  // Ensure favicon paths are always absolute
+  $faviconPath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/images/favicon.ico' : ($baseUrl . '/public/assets/images/favicon.ico');
+  if (substr($faviconPath, 0, 1) !== '/') {
+      $faviconPath = '/' . ltrim($faviconPath, '/');
+  }
+  ?>
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($faviconPath) ?>">
+  <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($faviconPath) ?>">
 
   <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -44,7 +51,14 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
   <script>(function(){try{var k='pgfinder_theme';var d=document.documentElement;var s=localStorage.getItem(k);if(s==='dark'){d.setAttribute('data-theme','dark');}else if(s==='light'){d.removeAttribute('data-theme');}else{if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){d.setAttribute('data-theme','dark');}}}catch(e){}})();</script>
 
   <!-- Your styles -->
-  <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/public/assets/css/styles.css') ?>">
+  <?php 
+  // Ensure CSS paths are always absolute (start with /)
+  $cssBasePath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/css/' : ($baseUrl . '/public/assets/css/');
+  if (substr($cssBasePath, 0, 1) !== '/') {
+      $cssBasePath = '/' . ltrim($cssBasePath, '/');
+  }
+  ?>
+  <link rel="stylesheet" href="<?= htmlspecialchars($cssBasePath . 'styles.css') ?>">
   
   <!-- Leaflet CSS (for maps) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
@@ -52,17 +66,28 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
         crossorigin=""/>
   
   <!-- Map custom styles -->
-  <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/public/assets/css/map.css') ?>">
+  <link rel="stylesheet" href="<?= htmlspecialchars($cssBasePath . 'map.css') ?>">
   
   <!-- Autocomplete styles -->
-  <link rel="stylesheet" href="<?= htmlspecialchars($baseUrl . '/public/assets/css/autocomplete.css') ?>">
+  <link rel="stylesheet" href="<?= htmlspecialchars($cssBasePath . 'autocomplete.css') ?>">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
   <div class="container-xxl d-flex align-items-center">
     <a class="navbar-brand" href="<?= htmlspecialchars(app_url('')) ?>">
-      <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/logo-removebg.png') ?>" alt="PG Finder" class="brand-logo brand-logo-light">
-      <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/logo-white-removebg.png') ?>" alt="PG Finder" class="brand-logo brand-logo-dark">
+      <?php 
+      // Ensure logo paths are always absolute
+      $logoLightPath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/images/logo-removebg.png' : ($baseUrl . '/public/assets/images/logo-removebg.png');
+      $logoDarkPath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/images/logo-white-removebg.png' : ($baseUrl . '/public/assets/images/logo-white-removebg.png');
+      if (substr($logoLightPath, 0, 1) !== '/') {
+          $logoLightPath = '/' . ltrim($logoLightPath, '/');
+      }
+      if (substr($logoDarkPath, 0, 1) !== '/') {
+          $logoDarkPath = '/' . ltrim($logoDarkPath, '/');
+      }
+      ?>
+      <img src="<?= htmlspecialchars($logoLightPath) ?>" alt="PG Finder" class="brand-logo brand-logo-light">
+      <img src="<?= htmlspecialchars($logoDarkPath) ?>" alt="PG Finder" class="brand-logo brand-logo-dark">
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
       <span class="navbar-toggler-icon"></span>

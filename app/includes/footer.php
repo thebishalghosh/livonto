@@ -229,7 +229,10 @@ $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
 <!-- Main JS -->
 <?php 
 // Ensure JS paths are always absolute (start with /)
-$jsBasePath = (empty($baseUrl) ? '' : $baseUrl) . '/public/assets/js/';
+$jsBasePath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/js/' : ($baseUrl . '/public/assets/js/');
+if (substr($jsBasePath, 0, 1) !== '/') {
+    $jsBasePath = '/' . ltrim($jsBasePath, '/');
+}
 ?>
 <script src="<?= htmlspecialchars($jsBasePath . 'main.js') ?>"></script>
 

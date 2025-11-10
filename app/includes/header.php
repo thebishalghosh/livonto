@@ -2,6 +2,10 @@
 // app/includes/header.php
 if (session_status() === PHP_SESSION_NONE) session_start();
 $config = @include __DIR__ . '/../config.php';
+// Set baseUrl - ensure it's available before it's used in the header
+if (!isset($baseUrl)) {
+    $baseUrl = app_url('');
+}
 // Load functions if available to get site name
 if (file_exists(__DIR__ . '/../functions.php') && !function_exists('getSetting')) {
     require_once __DIR__ . '/../functions.php';

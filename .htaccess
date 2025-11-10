@@ -1,21 +1,8 @@
 # Enable Rewrite Engine
 RewriteEngine On
 
-# Base directory (adjust if your project is in a subdirectory)
-RewriteBase /Livonto/
-
-# Handle admin routes first - always route through index.php even if directory exists
-RewriteCond %{REQUEST_URI} ^/Livonto/admin/ [NC]
-RewriteCond %{REQUEST_URI} !^/Livonto/admin/assets/ [NC]
-RewriteCond %{REQUEST_URI} !^/Livonto/admin/.*\.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ [NC]
-RewriteRule ^admin/(.*)$ index.php?url=admin/$1 [QSA,L]
-
-# Allow direct access to actual files in app, storage, vendor, sql directories
-RewriteCond %{REQUEST_URI} ^/Livonto/(app|storage|vendor|sql)/ [NC]
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^ - [L]
-
 # Don't rewrite files and directories that exist (this handles CSS, JS, images, etc.)
+# This must come FIRST to allow direct access to assets
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
@@ -24,6 +11,18 @@ RewriteRule ^ - [L]
 
 # Don't rewrite assets by extension (backup check)
 RewriteCond %{REQUEST_URI} \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ [NC]
+RewriteRule ^ - [L]
+
+# Handle admin routes - always route through index.php even if directory exists
+# But exclude admin/assets directory and asset files
+RewriteCond %{REQUEST_URI} admin/ [NC]
+RewriteCond %{REQUEST_URI} !admin/assets/ [NC]
+RewriteCond %{REQUEST_URI} !admin/.*\.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot)$ [NC]
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+
+# Allow direct access to actual files in app, storage, vendor, sql directories
+RewriteCond %{REQUEST_URI} (app|storage|vendor|sql)/ [NC]
+RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
 # Route all other requests to index.php

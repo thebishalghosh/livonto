@@ -55,8 +55,51 @@ require_once __DIR__ . '/database.php';
 // Determine base URL
 $baseUrl = getenv('LIVONTO_BASE_URL');
 if (!$baseUrl) {
-	// fallback to default subdir name if running under xampp
-	$baseUrl = '/Livonto';
+	// Auto-detect base URL from document root
+	$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+	$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+	$documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
+	$projectRoot = dirname(__DIR__);
+	
+	// Get the directory of index.php relative to document root
+	$scriptDir = dirname($scriptName);
+	
+	// Method 1: Check if REQUEST_URI contains a subdirectory path (like /Livonto/)
+	if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
+		$potentialBase = '/' . $matches[1];
+		// Verify this directory exists in document root and contains index.php
+		if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
+			$baseUrl = $potentialBase;
+		}
+	}
+	
+	// Method 2: Calculate from project root vs document root
+	if (empty($baseUrl)) {
+		// Get relative path from document root to project root
+		$relativePath = str_replace($documentRoot, '', $projectRoot);
+		$relativePath = str_replace('\\', '/', $relativePath);
+		$relativePath = trim($relativePath, '/');
+		
+		if (!empty($relativePath)) {
+			$baseUrl = '/' . $relativePath;
+		} else {
+			$baseUrl = '';
+		}
+	}
+	
+	// Method 3: If not detected, try from SCRIPT_NAME
+	if (empty($baseUrl) || $baseUrl === '/') {
+		if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
+			$baseUrl = '';
+		} else {
+			$baseUrl = rtrim($scriptDir, '/');
+		}
+	}
+	
+	// Final fallback: check for known subdirectory in REQUEST_URI
+	if (empty($baseUrl) && strpos($requestUri, '/Livonto/') !== false) {
+		$baseUrl = '/Livonto';
+	}
 }
 $baseUrl = rtrim($baseUrl, '/');
 
@@ -71,7 +114,7 @@ if (!function_exists('app_url')) {
 		
 		// Handle empty path
 		if (empty($path) || $path === '/') {
-			return $base . '/';
+			return empty($base) ? '/' : $base . '/';
 		}
 		
 		// Separate path and query string
@@ -101,10 +144,10 @@ if (!function_exists('app_url')) {
 		
 		// Handle special cases
 		if (empty($path) || $path === 'index') {
-			return $base . '/' . $queryString;
+			return (empty($base) ? '/' : $base . '/') . $queryString;
 		}
 		
-		return $base . '/' . $path . $queryString;
+		return (empty($base) ? '/' : $base . '/') . $path . $queryString;
 	}
 }
 

@@ -156,9 +156,9 @@ try {
     <title><?= htmlspecialchars($pageTitle) ?> - Livonto Admin</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl) ?>/public/assets/images/favicon.ico">
-    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl) ?>/public/assets/images/favicon.ico">
-    <link rel="apple-touch-icon" href="<?= htmlspecialchars($baseUrl) ?>/public/assets/images/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
+    <link rel="shortcut icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars($baseUrl . '/public/assets/images/favicon.ico') ?>">
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">

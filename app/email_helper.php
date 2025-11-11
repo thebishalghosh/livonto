@@ -184,7 +184,7 @@ function sendEmailViaMail($to, $subject, $message, $fromEmail, $fromName) {
  * @param bool $attachPDF Whether to attach PDF invoice
  * @return bool True on success, false on failure
  */
-function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPDF = false) {
+function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPDF = true) {
     try {
         require_once __DIR__ . '/invoice_generator.php';
         
@@ -199,6 +199,17 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
         $siteName = getSetting('site_name', 'Livonto');
         $supportEmail = getSetting('support_email', 'support@livonto.com');
         $baseUrl = rtrim(app_url(''), '/');
+        
+        // Load logo as base64 for email
+        $logoPath = __DIR__ . '/../public/assets/images/logo-removebg.png';
+        $logoPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $logoPath);
+        $logoBase64 = '';
+        if (file_exists($logoPath)) {
+            $logoData = file_get_contents($logoPath);
+            $logoMime = mime_content_type($logoPath) ?: 'image/png';
+            $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
+        }
+        $logoImg = $logoBase64 ? "<img src='{$logoBase64}' alt='{$siteName} Logo' style='max-width: 200px; height: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;' />" : '';
         
         // Build email subject
         $subject = "Invoice #{$invoice['invoice_number']} - {$siteName}";
@@ -220,74 +231,113 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body { 
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    line-height: 1.7;
-                    color: #2d3748;
-                    background-color: #f7fafc;
+                    line-height: 1.6;
+                    color: #1a202c;
+                    background-color: #f0f4f8;
                     -webkit-font-smoothing: antialiased;
                     -moz-osx-font-smoothing: grayscale;
+                    padding: 20px 0;
                 }
-                .email-wrapper {
-                    max-width: 600px;
+                .email-container {
+                    max-width: 640px;
                     margin: 0 auto;
                     background-color: #ffffff;
+                    border-radius: 16px;
+                    overflow: hidden;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
                 }
                 .email-header {
                     background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%);
-                    padding: 40px 30px;
+                    padding: 50px 40px;
                     text-align: center;
-                    border-radius: 12px 12px 0 0;
+                    position: relative;
+                    overflow: hidden;
+                }
+                .logo-container {
+                    margin-bottom: 24px;
+                    position: relative;
+                    z-index: 1;
+                }
+                .logo-container img {
+                    max-width: 200px;
+                    height: auto;
+                    display: inline-block;
+                    filter: brightness(0) invert(1);
+                    opacity: 0.95;
                 }
                 .email-header h1 {
                     color: #ffffff;
-                    font-size: 28px;
+                    font-size: 32px;
                     font-weight: 700;
                     margin: 0;
-                    letter-spacing: -0.5px;
+                    letter-spacing: -0.8px;
+                    position: relative;
+                    z-index: 1;
+                    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
                 }
-                .email-header .icon {
-                    width: 64px;
-                    height: 64px;
-                    background: rgba(255, 255, 255, 0.2);
-                    border-radius: 50%;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-bottom: 16px;
-                    font-size: 32px;
+                .email-header .subtitle {
+                    color: rgba(255, 255, 255, 0.9);
+                    font-size: 16px;
+                    margin-top: 12px;
+                    font-weight: 400;
+                    position: relative;
+                    z-index: 1;
                 }
                 .email-body {
-                    padding: 40px 30px;
+                    padding: 50px 40px;
                     background-color: #ffffff;
                 }
                 .greeting {
-                    font-size: 16px;
+                    font-size: 18px;
                     color: #2d3748;
                     margin-bottom: 24px;
+                    font-weight: 500;
                 }
                 .greeting strong {
                     color: #1a202c;
-                    font-weight: 600;
+                    font-weight: 700;
                 }
                 .intro-text {
-                    font-size: 15px;
+                    font-size: 16px;
                     color: #4a5568;
-                    margin-bottom: 32px;
+                    margin-bottom: 40px;
                     line-height: 1.8;
                 }
                 .invoice-card {
-                    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-                    border-radius: 12px;
-                    padding: 28px;
-                    margin: 32px 0;
-                    border: 1px solid #e2e8f0;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+                    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+                    border-radius: 16px;
+                    padding: 32px;
+                    margin: 40px 0;
+                    border: 2px solid #e9ecef;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+                    position: relative;
+                    overflow: hidden;
+                }
+                .invoice-card::before {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 4px;
+                    height: 100%;
+                    background: linear-gradient(180deg, #8b6bd1 0%, #6f55b2 100%);
+                }
+                .invoice-title {
+                    font-size: 14px;
+                    color: #718096;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    font-weight: 600;
+                    margin-bottom: 24px;
+                    padding-bottom: 12px;
+                    border-bottom: 1px solid #e9ecef;
                 }
                 .invoice-row {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 14px 0;
-                    border-bottom: 1px solid #e2e8f0;
+                    padding: 16px 0;
+                    border-bottom: 1px solid #f1f3f5;
                 }
                 .invoice-row:last-child {
                     border-bottom: none;
@@ -297,77 +347,89 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                     padding-top: 0;
                 }
                 .invoice-label {
-                    font-size: 14px;
+                    font-size: 15px;
                     color: #718096;
                     font-weight: 500;
                 }
                 .invoice-value {
-                    font-size: 15px;
+                    font-size: 16px;
                     color: #2d3748;
                     font-weight: 600;
                     text-align: right;
                 }
                 .invoice-value.amount {
                     color: #8b6bd1;
-                    font-size: 18px;
+                    font-size: 24px;
+                    font-weight: 700;
                 }
                 .invoice-value.status {
-                    color: #48bb78;
-                    background: #c6f6d5;
-                    padding: 4px 12px;
-                    border-radius: 20px;
+                    color: #22543d;
+                    background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+                    padding: 6px 16px;
+                    border-radius: 24px;
                     font-size: 13px;
                     display: inline-block;
-                }
-                .cta-section {
-                    text-align: center;
-                    margin: 36px 0;
-                }
-                .cta-button {
-                    display: inline-block;
-                    padding: 16px 36px;
-                    background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%);
-                    color: #ffffff !important;
-                    text-decoration: none;
-                    border-radius: 8px;
                     font-weight: 600;
-                    font-size: 15px;
-                    box-shadow: 0 4px 12px rgba(139, 107, 209, 0.3);
-                    transition: all 0.3s ease;
-                }
-                .cta-button:hover {
-                    box-shadow: 0 6px 16px rgba(139, 107, 209, 0.4);
-                    transform: translateY(-2px);
+                    box-shadow: 0 2px 8px rgba(34, 84, 61, 0.15);
                 }
                 .info-note {
-                    background: #ebf8ff;
+                    background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
                     border-left: 4px solid #4299e1;
-                    padding: 16px 20px;
-                    border-radius: 6px;
-                    margin: 24px 0;
-                    font-size: 14px;
+                    padding: 20px 24px;
+                    border-radius: 8px;
+                    margin: 32px 0;
+                    font-size: 15px;
                     color: #2c5282;
+                    box-shadow: 0 2px 8px rgba(66, 153, 225, 0.1);
                 }
                 .info-note strong {
                     color: #2b6cb0;
+                    font-weight: 600;
+                }
+                .cta-section {
+                    text-align: center;
+                    margin: 40px 0;
+                }
+                .cta-button {
+                    display: inline-block;
+                    padding: 18px 48px;
+                    background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%);
+                    color: #ffffff !important;
+                    text-decoration: none;
+                    border-radius: 12px;
+                    font-weight: 600;
+                    font-size: 16px;
+                    box-shadow: 0 8px 24px rgba(139, 107, 209, 0.35);
+                    transition: all 0.3s ease;
+                    letter-spacing: 0.3px;
+                }
+                .cta-button:hover {
+                    box-shadow: 0 12px 32px rgba(139, 107, 209, 0.45);
+                    transform: translateY(-3px);
+                }
+                .divider {
+                    height: 1px;
+                    background: linear-gradient(90deg, transparent, #e2e8f0 50%, transparent);
+                    margin: 32px 0;
                 }
                 .closing {
                     margin-top: 32px;
-                    font-size: 15px;
+                    font-size: 16px;
                     color: #4a5568;
+                    line-height: 1.8;
                 }
                 .closing strong {
                     color: #2d3748;
+                    font-weight: 600;
                 }
                 .email-footer {
-                    background-color: #f7fafc;
-                    padding: 30px;
+                    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+                    padding: 40px;
                     text-align: center;
-                    border-top: 1px solid #e2e8f0;
-                    border-radius: 0 0 12px 12px;
+                    border-top: 2px solid #e9ecef;
                 }
                 .footer-text {
-                    font-size: 13px;
+                    font-size: 14px;
                     color: #718096;
                     line-height: 1.8;
                     margin-bottom: 12px;
@@ -378,97 +440,103 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                 .footer-link {
                     color: #8b6bd1;
                     text-decoration: none;
-                    font-weight: 500;
+                    font-weight: 600;
                 }
                 .footer-link:hover {
                     text-decoration: underline;
                 }
-                .divider {
-                    height: 1px;
-                    background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
-                    margin: 24px 0;
+                .footer-copyright {
+                    margin-top: 20px;
+                    padding-top: 20px;
+                    border-top: 1px solid #e2e8f0;
+                    color: #a0aec0;
+                    font-size: 13px;
                 }
                 @media only screen and (max-width: 600px) {
-                    .email-body { padding: 30px 20px; }
-                    .email-header { padding: 30px 20px; }
-                    .email-header h1 { font-size: 24px; }
-                    .invoice-card { padding: 20px; }
-                    .invoice-row { flex-direction: column; align-items: flex-start; }
-                    .invoice-value { text-align: left; margin-top: 4px; }
+                    body { padding: 10px; }
+                    .email-container { border-radius: 12px; }
+                    .email-body { padding: 30px 24px; }
+                    .email-header { padding: 40px 24px; }
+                    .email-header h1 { font-size: 26px; }
+                    .invoice-card { padding: 24px; }
+                    .invoice-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+                    .invoice-value { text-align: left; }
+                    .cta-button { padding: 16px 36px; font-size: 15px; }
+                    .email-footer { padding: 30px 24px; }
                 }
             </style>
         </head>
         <body>
-            <div style='padding: 20px 0;'>
-                <div class='email-wrapper'>
-                    <!-- Header -->
-                    <div class='email-header'>
-                        <div class='icon'>✓</div>
-                        <h1>Invoice Generated</h1>
+            <div class='email-container'>
+                <!-- Header -->
+                <div class='email-header'>
+                    " . ($logoImg ? "<div class='logo-container'>{$logoImg}</div>" : "") . "
+                    <h1>Invoice Generated</h1>
+                    <div class='subtitle'>Your payment has been confirmed</div>
+                </div>
+                
+                <!-- Body -->
+                <div class='email-body'>
+                    <div class='greeting'>
+                        Hello <strong>{$recipientName}</strong>,
                     </div>
                     
-                    <!-- Body -->
-                    <div class='email-body'>
-                        <div class='greeting'>
-                            Hello <strong>{$recipientName}</strong>,
+                    <div class='intro-text'>
+                        Thank you for your booking! We're excited to confirm that your invoice has been generated successfully. 
+                        Your payment has been processed and your booking is confirmed.
+                    </div>
+                    
+                    <!-- Invoice Details Card -->
+                    <div class='invoice-card'>
+                        <div class='invoice-title'>Invoice Details</div>
+                        
+                        <div class='invoice-row'>
+                            <span class='invoice-label'>Invoice Number</span>
+                            <span class='invoice-value'>{$invoice['invoice_number']}</span>
                         </div>
                         
-                        <div class='intro-text'>
-                            Thank you for your booking! We're excited to confirm that your invoice has been generated successfully. 
-                            Your payment has been processed and your booking is confirmed.
+                        <div class='invoice-row'>
+                            <span class='invoice-label'>Invoice Date</span>
+                            <span class='invoice-value'>{$invoiceDate}</span>
                         </div>
                         
-                        <!-- Invoice Details Card -->
-                        <div class='invoice-card'>
-                            <div class='invoice-row'>
-                                <span class='invoice-label'>Invoice Number</span>
-                                <span class='invoice-value'>{$invoice['invoice_number']}</span>
-                            </div>
-                            <div class='invoice-row'>
-                                <span class='invoice-label'>Invoice Date</span>
-                                <span class='invoice-value'>{$invoiceDate}</span>
-                            </div>
-                            <div class='invoice-row'>
-                                <span class='invoice-label'>Property</span>
-                                <span class='invoice-value'>{$invoice['listing_title']}</span>
-                            </div>
-                            <div class='invoice-row'>
-                                <span class='invoice-label'>Total Amount</span>
-                                <span class='invoice-value amount'>{$totalAmount}</span>
-                            </div>
-                            <div class='invoice-row'>
-                                <span class='invoice-label'>Payment Status</span>
-                                <span class='invoice-value status'>✓ Paid</span>
-                            </div>
+                        <div class='invoice-row'>
+                            <span class='invoice-label'>Property</span>
+                            <span class='invoice-value'>{$invoice['listing_title']}</span>
                         </div>
                         
-                        " . ($attachPDF ? "<div class='info-note'><strong>📎 Attachment:</strong> A PDF copy of your invoice is attached to this email for your records.</div>" : "") . "
-                        
-                        <!-- CTA Button -->
-                        <div class='cta-section'>
-                            <a href='{$invoiceUrl}' class='cta-button'>View & Download Invoice</a>
+                        <div class='invoice-row'>
+                            <span class='invoice-label'>Total Amount</span>
+                            <span class='invoice-value amount'>{$totalAmount}</span>
                         </div>
                         
-                        <div class='divider'></div>
-                        
-                        <div class='closing'>
-                            If you have any questions or need assistance, our support team is here to help.<br><br>
-                            Best regards,<br>
-                            <strong>The {$siteName} Team</strong>
+                        <div class='invoice-row'>
+                            <span class='invoice-label'>Payment Status</span>
+                            <span class='invoice-value status'>✓ Paid</span>
                         </div>
                     </div>
                     
-                    <!-- Footer -->
-                    <div class='email-footer'>
-                        <div class='footer-text'>
-                            This is an automated email. Please do not reply to this message.
-                        </div>
-                        <div class='footer-text'>
-                            Need help? Contact us at <a href='mailto:{$supportEmail}' class='footer-link'>{$supportEmail}</a>
-                        </div>
-                        <div class='footer-text' style='margin-top: 16px; color: #a0aec0;'>
-                            &copy; " . date('Y') . " {$siteName}. All rights reserved.
-                        </div>
+                    " . ($attachPDF ? "<div class='info-note'><strong>📎 Attachment:</strong> A PDF copy of your invoice is attached to this email for your records.</div>" : "") . "
+                    
+                    <div class='divider'></div>
+                    
+                    <div class='closing'>
+                        If you have any questions or need assistance, our support team is here to help.<br><br>
+                        Best regards,<br>
+                        <strong>The {$siteName} Team</strong>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class='email-footer'>
+                    <div class='footer-text'>
+                        This is an automated email. Please do not reply to this message.
+                    </div>
+                    <div class='footer-text'>
+                        Need help? Contact us at <a href='mailto:{$supportEmail}' class='footer-link'>{$supportEmail}</a>
+                    </div>
+                    <div class='footer-copyright'>
+                        &copy; " . date('Y') . " {$siteName}. All rights reserved.
                     </div>
                 </div>
             </div>

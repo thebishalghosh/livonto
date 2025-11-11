@@ -495,13 +495,24 @@ require __DIR__ . '/../app/includes/header.php';
                     <label class="form-label">Select Month for Booking *</label>
                     <input type="date" class="form-control" name="booking_start_date" 
                            id="bookingStartDate" min="<?= date('Y-m-01') ?>" required>
-                    <small class="text-muted">Booking will start on the 1st of the selected month and run for 1 month.</small>
+                    <small class="text-muted">Booking will start on the 1st of the selected month.</small>
+                </div>
+                
+                <div class="form-section">
+                    <label class="form-label">Duration (Number of Months) *</label>
+                    <select class="form-select" name="duration_months" id="durationMonths" required>
+                        <option value="">Select Duration</option>
+                        <?php for ($i = 1; $i <= 12; $i++): ?>
+                            <option value="<?= $i ?>"><?= $i ?> Month<?= $i > 1 ? 's' : '' ?></option>
+                        <?php endfor; ?>
+                    </select>
+                    <small class="text-muted">Select how many months you want to book the PG for.</small>
                 </div>
                 
                 <div class="form-section">
                     <label class="form-label">Select Room Type *</label>
                     <select class="form-select" name="room_config_id" id="roomConfigSelect" required>
-                        <option value="">Select a month first to see availability</option>
+                        <option value="">Select month and duration first to see availability</option>
                         <?php foreach ($roomConfigs as $room): ?>
                             <option value="<?= $room['id'] ?>" 
                                     data-price="<?= $room['rent_per_month'] ?>"
@@ -605,24 +616,25 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const monthlyRent = parseFloat(selectedOption.dataset.price) || 0;
         const selectedDate = new Date(bookingStartDate.value);
+        const durationMonths = document.getElementById('durationMonths');
+        const duration = durationMonths ? parseInt(durationMonths.value) || 1 : 1;
         
         if (selectedDate && !isNaN(selectedDate.getTime())) {
             // Booking starts on 1st of the selected month
             const actualStartDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-            // End date is 1st of next month
-            const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1);
+            // End date is calculated based on duration
+            const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + duration, 0);
             
             // Format dates for display
             const startDateStr = actualStartDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
             const endDateStr = endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
             
-            // For PG bookings, it's always 1 month
-            const months = 1;
-            const totalAmount = monthlyRent * months;
+            // Calculate total rent for the duration (for display only, not charged)
+            const totalRent = monthlyRent * duration;
             
-            document.getElementById('monthlyRent').textContent = '₹' + monthlyRent.toLocaleString('en-IN');
-            document.getElementById('duration').textContent = `1 month (${startDateStr} to ${endDateStr})`;
-            document.getElementById('totalAmount').textContent = '₹' + totalAmount.toLocaleString('en-IN');
+            document.getElementById('monthlyRent').textContent = '₹' + monthlyRent.toLocaleString('en-IN') + '/month × ' + duration;
+            document.getElementById('duration').textContent = `${duration} month${duration > 1 ? 's' : ''} (${startDateStr} to ${endDateStr})`;
+            document.getElementById('totalAmount').textContent = '₹' + totalRent.toLocaleString('en-IN') + ' (Security deposit will be charged separately)';
             priceSummary.style.display = 'block';
         } else {
             priceSummary.style.display = 'none';
@@ -630,21 +642,33 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (roomSelect) roomSelect.addEventListener('change', calculatePrice);
+    const durationMonths = document.getElementById('durationMonths');
     if (bookingStartDate) {
         bookingStartDate.addEventListener('change', function() {
             calculatePrice();
-            updateAvailabilityForMonth();
+            if (durationMonths && durationMonths.value) {
+                updateAvailabilityForMonth();
+            }
+        });
+    }
+    if (durationMonths) {
+        durationMonths.addEventListener('change', function() {
+            calculatePrice();
+            if (bookingStartDate && bookingStartDate.value) {
+                updateAvailabilityForMonth();
+            }
         });
     }
     
-    // Update room availability based on selected month
+    // Update room availability based on selected month and duration
     async function updateAvailabilityForMonth() {
         const bookingStartDate = document.getElementById('bookingStartDate');
+        const durationMonths = document.getElementById('durationMonths');
         const roomSelect = document.getElementById('roomConfigSelect');
         const availabilityNote = document.getElementById('availabilityNote');
         const listingId = document.querySelector('input[name="listing_id"]').value;
         
-        if (!bookingStartDate || !bookingStartDate.value || !roomSelect) return;
+        if (!bookingStartDate || !bookingStartDate.value || !durationMonths || !durationMonths.value || !roomSelect) return;
         
         // Show loading state
         roomSelect.disabled = true;
@@ -656,6 +680,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('action', 'check_availability');
             formData.append('listing_id', listingId);
             formData.append('booking_start_date', bookingStartDate.value);
+            formData.append('duration_months', durationMonths.value);
             
             const response = await fetch('<?= app_url("book-api") ?>', {
                 method: 'POST',
@@ -711,12 +736,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Update note
                 const monthName = new Date(bookingStartDate.value).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                const duration = durationMonths.value;
                 const availableRooms = rooms.filter(r => r.is_available).length;
                 if (availableRooms > 0) {
-                    availabilityNote.textContent = `Showing availability for ${monthName}`;
+                    availabilityNote.textContent = `Showing availability for ${duration} month${duration > 1 ? 's' : ''} starting from ${monthName}`;
                     availabilityNote.className = 'text-success';
                 } else {
-                    availabilityNote.textContent = `No rooms available for ${monthName}. Please select a different month.`;
+                    availabilityNote.textContent = `No rooms available for ${duration} month${duration > 1 ? 's' : ''} starting from ${monthName}. Please select a different month or duration.`;
                     availabilityNote.className = 'text-danger';
                 }
                 

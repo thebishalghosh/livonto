@@ -42,9 +42,18 @@ if (!isset($baseUrl)) {
                 }
             }
             
-            // Fallback
-            if (empty($baseUrl) && strpos($requestUri, '/Livonto/') !== false) {
-                $baseUrl = '/Livonto';
+            // Fallback: Extract from REQUEST_URI if it contains a valid project directory
+            if (empty($baseUrl)) {
+                $excludedDirs = ['admin', 'public', 'app', 'storage', 'vendor', 'sql'];
+                if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
+                    $potentialSubdir = $matches[1];
+                    if (!in_array(strtolower($potentialSubdir), array_map('strtolower', $excludedDirs))) {
+                        $potentialBase = '/' . $potentialSubdir;
+                        if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
+                            $baseUrl = $potentialBase;
+                        }
+                    }
+                }
             }
         }
         $baseUrl = rtrim($baseUrl, '/');
@@ -100,7 +109,7 @@ $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
           <?php 
           // Ensure path always starts with / for absolute path from domain root
           // When baseUrl is empty (root server), path should be /public/assets/...
-          // When baseUrl is set (subdirectory), path should be /Livonto/public/assets/...
+          // When baseUrl is set (subdirectory), path should be /{subdir}/public/assets/...
           $logoPath = '/public/assets/images/logo-white-removebg.png';
           $logoUrl = ($baseUrl === '' || $baseUrl === '/') ? $logoPath : ($baseUrl . $logoPath);
           // Ensure it always starts with / (safety check)

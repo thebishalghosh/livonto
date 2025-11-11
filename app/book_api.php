@@ -202,6 +202,7 @@ if ($action === 'submit_booking') {
     $listingId = intval($_POST['listing_id'] ?? 0);
     $roomConfigId = intval($_POST['room_config_id'] ?? 0);
     $bookingStartDate = trim($_POST['booking_start_date'] ?? '');
+    $durationMonths = intval($_POST['duration_months'] ?? 0);
     $specialRequests = trim($_POST['special_requests'] ?? '');
     $agreedToTnc = isset($_POST['agreed_to_tnc']) && $_POST['agreed_to_tnc'] === 'on';
     $kycId = intval($_POST['kyc_id'] ?? 0);
@@ -230,6 +231,10 @@ if ($action === 'submit_booking') {
         if ($selectedYearMonth < $currentYearMonth) {
             $errors['booking_start_date'] = 'Selected month cannot be in the past';
         }
+    }
+    
+    if ($durationMonths < 1 || $durationMonths > 12) {
+        $errors['duration_months'] = 'Duration must be between 1 and 12 months';
     }
     
     if (!$agreedToTnc) {
@@ -279,7 +284,18 @@ if ($action === 'submit_booking') {
     try {
         $db = db();
         
-        // Get room configuration to calculate price and check availability
+        // Get listing to get security deposit
+        $listing = $db->fetchOne(
+            "SELECT security_deposit_amount FROM listings WHERE id = ?",
+            [$listingId]
+        );
+        
+        if (!$listing) {
+            jsonError('Invalid listing', [], 400);
+            exit;
+        }
+        
+        // Get room configuration to check availability
         $roomConfig = $db->fetchOne(
             "SELECT rent_per_month, total_rooms FROM room_configurations WHERE id = ? AND listing_id = ?",
             [$roomConfigId, $listingId]
@@ -290,50 +306,74 @@ if ($action === 'submit_booking') {
             exit;
         }
         
-        // Check month-specific availability
-        // Count bookings for this room config for the selected month
-        // Only count confirmed or pending bookings (not cancelled or completed)
-        $bookedCount = $db->fetchOne(
-            "SELECT COUNT(*) as count 
-             FROM bookings 
-             WHERE room_config_id = ? 
-             AND DATE_FORMAT(booking_start_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
-             AND status IN ('pending', 'confirmed')",
-            [$roomConfigId, $bookingStartDate]
-        );
+        // Check availability for all months in the duration
+        $startDate = new DateTime($bookingStartDate);
+        for ($i = 0; $i < $durationMonths; $i++) {
+            $checkDate = clone $startDate;
+            $checkDate->modify("+{$i} months");
+            $checkMonth = $checkDate->format('Y-m-01');
+            
+            // Count bookings for this room config for this month
+            $bookedCount = $db->fetchOne(
+                "SELECT COUNT(*) as count 
+                 FROM bookings 
+                 WHERE room_config_id = ? 
+                 AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
+                 AND status IN ('pending', 'confirmed')",
+                [$roomConfigId, $checkMonth]
+            );
+            
+            $bookedCount = (int)($bookedCount['count'] ?? 0);
+            
+            // Check if rooms are available for this month
+            if ($bookedCount >= $roomConfig['total_rooms']) {
+                $monthName = $checkDate->format('F Y');
+                jsonError("No rooms available for this configuration in {$monthName}. All rooms are already booked.", [], 400);
+                exit;
+            }
+        }
         
-        $bookedCount = (int)($bookedCount['count'] ?? 0);
+        // Parse security deposit amount
+        $securityDepositAmount = 0;
+        $depositStr = trim($listing['security_deposit_amount'] ?? '');
+        if (!empty($depositStr) && strtolower($depositStr) !== 'no deposit') {
+            // Extract numeric value from string like "₹10,000" or "10000" or "₹ 10,000"
+            $depositStr = preg_replace('/[₹,\s]/', '', $depositStr);
+            $securityDepositAmount = floatval($depositStr);
+        }
         
-        // Check if rooms are available for this specific month
-        if ($bookedCount >= $roomConfig['total_rooms']) {
-            $monthName = date('F Y', strtotime($bookingStartDate));
-            jsonError("No rooms available for this configuration in {$monthName}. All rooms are already booked.", [], 400);
+        if ($securityDepositAmount <= 0) {
+            jsonError('Security deposit is required for this listing. Please contact support.', [], 400);
             exit;
         }
         
-        // Calculate total amount - PG bookings are always 1 month
-        $totalAmount = $roomConfig['rent_per_month'] * 1;
+        // Add duration_months column if it doesn't exist (for backward compatibility)
+        try {
+            $db->execute("ALTER TABLE bookings ADD COLUMN duration_months INT DEFAULT 1 AFTER booking_start_date");
+        } catch (Exception $e) {
+            // Column might already exist, ignore
+        }
         
-        // Create booking
+        // Create booking with duration
         $db->execute(
-            "INSERT INTO bookings (user_id, listing_id, room_config_id, booking_start_date, 
+            "INSERT INTO bookings (user_id, listing_id, room_config_id, booking_start_date, duration_months,
                                   total_amount, kyc_id, agreed_to_tnc, tnc_accepted_at, special_requests, status)
-             VALUES (?, ?, ?, ?, ?, ?, TRUE, NOW(), ?, 'pending')",
-            [$userId, $listingId, $roomConfigId, $bookingStartDate, $totalAmount, $kycId, $specialRequests]
+             VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, NOW(), ?, 'pending')",
+            [$userId, $listingId, $roomConfigId, $bookingStartDate, $durationMonths, $securityDepositAmount, $kycId, $specialRequests]
         );
         
         $bookingId = $db->lastInsertId();
         
-        // Create payment record
+        // Create payment record with security deposit amount
         $db->execute(
             "INSERT INTO payments (booking_id, amount, provider, status)
              VALUES (?, ?, 'razorpay', 'initiated')",
-            [$bookingId, $totalAmount]
+            [$bookingId, $securityDepositAmount]
         );
         
         jsonSuccess('Booking created successfully', [
             'booking_id' => $bookingId,
-            'amount' => $totalAmount,
+            'amount' => $securityDepositAmount,
             'redirect' => app_url('payment?booking_id=' . $bookingId)
         ]);
         
@@ -343,10 +383,11 @@ if ($action === 'submit_booking') {
     exit;
 }
 
-// Handle availability check for specific month
+// Handle availability check for specific month and duration
 if ($action === 'check_availability') {
     $listingId = intval($_POST['listing_id'] ?? 0);
     $bookingStartDate = trim($_POST['booking_start_date'] ?? '');
+    $durationMonths = intval($_POST['duration_months'] ?? 1);
     
     if ($listingId <= 0) {
         ob_end_clean();
@@ -357,6 +398,12 @@ if ($action === 'check_availability') {
     if (empty($bookingStartDate)) {
         ob_end_clean();
         jsonError('Booking start date is required', [], 400);
+        exit;
+    }
+    
+    if ($durationMonths < 1 || $durationMonths > 12) {
+        ob_end_clean();
+        jsonError('Duration must be between 1 and 12 months', [], 400);
         exit;
     }
     
@@ -378,27 +425,46 @@ if ($action === 'check_availability') {
         $availability = [];
         
         foreach ($roomConfigs as $room) {
-            // Count bookings for this room config for the selected month
-            $bookedCount = $db->fetchOne(
-                "SELECT COUNT(*) as count 
-                 FROM bookings 
-                 WHERE room_config_id = ? 
-                 AND DATE_FORMAT(booking_start_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
-                 AND status IN ('pending', 'confirmed')",
-                [$room['id'], $bookingStartDate]
-            );
+            // Check availability for all months in the duration
+            $isAvailable = true;
+            $maxBookedCount = 0;
             
-            $bookedCount = (int)($bookedCount['count'] ?? 0);
-            $availableCount = max(0, $room['total_rooms'] - $bookedCount);
+            $startDate = new DateTime($bookingStartDate);
+            for ($i = 0; $i < $durationMonths; $i++) {
+                $checkDate = clone $startDate;
+                $checkDate->modify("+{$i} months");
+                $checkMonth = $checkDate->format('Y-m-01');
+                
+                // Count bookings for this room config for this month
+                $bookedCount = $db->fetchOne(
+                    "SELECT COUNT(*) as count 
+                     FROM bookings 
+                     WHERE room_config_id = ? 
+                     AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
+                     AND status IN ('pending', 'confirmed')",
+                    [$room['id'], $checkMonth]
+                );
+                
+                $bookedCount = (int)($bookedCount['count'] ?? 0);
+                $maxBookedCount = max($maxBookedCount, $bookedCount);
+                
+                // If any month is fully booked, the room is not available
+                if ($bookedCount >= $room['total_rooms']) {
+                    $isAvailable = false;
+                    break;
+                }
+            }
+            
+            $availableCount = $isAvailable ? max(0, $room['total_rooms'] - $maxBookedCount) : 0;
             
             $availability[] = [
                 'id' => $room['id'],
                 'room_type' => $room['room_type'],
                 'rent_per_month' => $room['rent_per_month'],
                 'total_rooms' => $room['total_rooms'],
-                'booked_count' => $bookedCount,
+                'booked_count' => $maxBookedCount,
                 'available_count' => $availableCount,
-                'is_available' => $availableCount > 0
+                'is_available' => $isAvailable
             ];
         }
         

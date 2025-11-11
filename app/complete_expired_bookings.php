@@ -15,18 +15,19 @@ require_once __DIR__ . '/functions.php';
 try {
     $db = db();
     
-    // Booking is completed when the next month starts
-    // e.g., booking for January (2024-01-01) completes on February 1st (2024-02-01)
+    // Booking is completed when the booking period ends
     // Mark bookings as completed if:
     // 1. Status is 'confirmed'
-    // 2. Next month start date has arrived (booking_start_date + 1 month <= today)
+    // 2. Booking end date has passed (booking_start_date + duration_months months <= today)
+    // Note: duration_months defaults to 1 if not set (for backward compatibility)
     
     // Get bookings that need to be completed
+    // Use COALESCE to default duration_months to 1 if NULL
     $bookingsToComplete = $db->fetchAll(
         "SELECT id, room_config_id 
          FROM bookings 
          WHERE status = 'confirmed' 
-         AND DATE_ADD(booking_start_date, INTERVAL 1 MONTH) <= CURDATE()"
+         AND DATE_ADD(booking_start_date, INTERVAL COALESCE(duration_months, 1) MONTH) <= CURDATE()"
     );
     
     if (!empty($bookingsToComplete)) {
@@ -38,7 +39,7 @@ try {
                 "UPDATE bookings 
                  SET status = 'completed', updated_at = NOW()
                  WHERE status = 'confirmed' 
-                 AND DATE_ADD(booking_start_date, INTERVAL 1 MONTH) <= CURDATE()"
+                 AND DATE_ADD(booking_start_date, INTERVAL COALESCE(duration_months, 1) MONTH) <= CURDATE()"
             );
             
             // Increase available_rooms for each completed booking

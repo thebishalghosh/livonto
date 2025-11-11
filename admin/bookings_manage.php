@@ -170,19 +170,21 @@ try {
     $order = strtoupper($order) === 'ASC' ? 'ASC' : 'DESC';
     
     $bookings = $db->fetchAll(
-        "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, 
+        "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, b.duration_months,
                 b.total_amount, b.status, b.special_requests, b.created_at, b.updated_at,
                 u.name as user_name, u.email as user_email, u.phone as user_phone,
                 l.title as listing_title,
                 loc.city as listing_city, loc.pin_code as listing_pincode,
                 rc.room_type, rc.rent_per_month,
-                p.id as payment_id, p.status as payment_status, p.provider, p.provider_payment_id
+                p.id as payment_id, p.status as payment_status, p.provider, p.provider_payment_id,
+                i.id as invoice_id, i.invoice_number
          FROM bookings b
          LEFT JOIN users u ON b.user_id = u.id
          LEFT JOIN listings l ON b.listing_id = l.id
          LEFT JOIN listing_locations loc ON l.id = loc.listing_id
          LEFT JOIN room_configurations rc ON b.room_config_id = rc.id
          LEFT JOIN payments p ON b.id = p.booking_id
+         LEFT JOIN invoices i ON b.id = i.booking_id AND p.id = i.payment_id
          {$whereClause}
          ORDER BY {$sort} {$order}
          LIMIT ? OFFSET ?",
@@ -222,8 +224,7 @@ try {
 }
 
 // Auto-complete expired bookings (run on page load)
-// Booking is completed when the next month starts
-// e.g., booking for January (2024-01-01) completes on February 1st (2024-02-01)
+// Booking is completed when the booking period ends (based on duration_months)
 if (empty($_GET['action']) && empty($_GET['id'])) {
     try {
         $db = db();
@@ -231,7 +232,7 @@ if (empty($_GET['action']) && empty($_GET['id'])) {
             "UPDATE bookings 
              SET status = 'completed', updated_at = NOW()
              WHERE status = 'confirmed' 
-             AND DATE_ADD(booking_start_date, INTERVAL 1 MONTH) <= CURDATE()"
+             AND DATE_ADD(booking_start_date, INTERVAL COALESCE(duration_months, 1) MONTH) <= CURDATE()"
         );
     } catch (Exception $e) {
         // Silently fail - don't interrupt page load
@@ -417,9 +418,11 @@ $flashMessage = getFlashMessage();
                     <tbody>
                         <?php foreach ($bookings as $booking): ?>
                             <?php
+                            $durationMonths = isset($booking['duration_months']) ? (int)$booking['duration_months'] : 1;
+                            if ($durationMonths < 1) $durationMonths = 1;
                             $startDate = new DateTime($booking['booking_start_date']);
                             $endDate = clone $startDate;
-                            $endDate->modify('+1 month');
+                            $endDate->modify("+{$durationMonths} months");
                             $endDate->modify('-1 day');
                             ?>
                             <tr>
@@ -501,6 +504,14 @@ $flashMessage = getFlashMessage();
                                                 data-bs-target="#viewModal<?= $booking['id'] ?>">
                                             <i class="bi bi-eye"></i>
                                         </button>
+                                        <?php if (!empty($booking['invoice_id'])): ?>
+                                            <a href="<?= app_url('invoice?id=' . $booking['invoice_id']) ?>" 
+                                               class="btn btn-outline-success" 
+                                               target="_blank"
+                                               title="View Invoice">
+                                                <i class="bi bi-receipt"></i>
+                                            </a>
+                                        <?php endif; ?>
                                         <button type="button" class="btn btn-outline-secondary" 
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#statusModal<?= $booking['id'] ?>">
@@ -517,9 +528,11 @@ $flashMessage = getFlashMessage();
             <div class="d-lg-none">
                 <?php foreach ($bookings as $booking): ?>
                     <?php
+                    $durationMonths = isset($booking['duration_months']) ? (int)$booking['duration_months'] : 1;
+                    if ($durationMonths < 1) $durationMonths = 1;
                     $startDate = new DateTime($booking['booking_start_date']);
                     $endDate = clone $startDate;
-                    $endDate->modify('+1 month');
+                    $endDate->modify("+{$durationMonths} months");
                     $endDate->modify('-1 day');
                     ?>
                     <div class="card mb-3 border-0 shadow-sm">
@@ -569,6 +582,13 @@ $flashMessage = getFlashMessage();
                                         data-bs-target="#viewModal<?= $booking['id'] ?>">
                                     <i class="bi bi-eye"></i> View
                                 </button>
+                                <?php if (!empty($booking['invoice_id'])): ?>
+                                    <a href="<?= app_url('invoice?id=' . $booking['invoice_id']) ?>" 
+                                       class="btn btn-sm btn-outline-success flex-fill" 
+                                       target="_blank">
+                                        <i class="bi bi-receipt"></i> Invoice
+                                    </a>
+                                <?php endif; ?>
                                 <button type="button" class="btn btn-sm btn-outline-secondary flex-fill" 
                                         data-bs-toggle="modal" 
                                         data-bs-target="#statusModal<?= $booking['id'] ?>">
@@ -606,9 +626,11 @@ $flashMessage = getFlashMessage();
 <!-- View Detail Modals -->
 <?php foreach ($bookings as $booking): ?>
     <?php
+    $durationMonths = isset($booking['duration_months']) ? (int)$booking['duration_months'] : 1;
+    if ($durationMonths < 1) $durationMonths = 1;
     $startDate = new DateTime($booking['booking_start_date']);
     $endDate = clone $startDate;
-    $endDate->modify('+1 month');
+    $endDate->modify("+{$durationMonths} months");
     $endDate->modify('-1 day');
     ?>
     <div class="modal fade" id="viewModal<?= $booking['id'] ?>" tabindex="-1">
@@ -645,8 +667,9 @@ $flashMessage = getFlashMessage();
                             <h6 class="text-muted mb-2">Booking Details</h6>
                             <p class="mb-1"><strong>Start Date:</strong> <?= date('F 1, Y', strtotime($booking['booking_start_date'])) ?></p>
                             <p class="mb-1"><strong>End Date:</strong> <?= $endDate->format('F d, Y') ?></p>
+                            <p class="mb-1"><strong>Duration:</strong> <?= $durationMonths ?> Month<?= $durationMonths > 1 ? 's' : '' ?></p>
                             <p class="mb-1"><strong>Room Type:</strong> <?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?></p>
-                            <p class="mb-1"><strong>Amount:</strong> ₹<?= number_format($booking['total_amount'], 2) ?></p>
+                            <p class="mb-1"><strong>Amount (Security Deposit):</strong> ₹<?= number_format($booking['total_amount'], 2) ?></p>
                             <p class="mb-1">
                                 <strong>Status:</strong> 
                                 <?php
@@ -673,6 +696,17 @@ $flashMessage = getFlashMessage();
                                 <?php endif; ?>
                                 <?php if ($booking['provider_payment_id']): ?>
                                     <p class="mb-1"><strong>Transaction ID:</strong> <?= htmlspecialchars($booking['provider_payment_id']) ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($booking['invoice_id'])): ?>
+                                    <p class="mb-1">
+                                        <strong>Invoice:</strong> 
+                                        <a href="<?= app_url('invoice?id=' . $booking['invoice_id']) ?>" 
+                                           target="_blank" 
+                                           class="text-decoration-none">
+                                            <?= htmlspecialchars($booking['invoice_number']) ?>
+                                            <i class="bi bi-box-arrow-up-right ms-1"></i>
+                                        </a>
+                                    </p>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <p class="mb-1 text-muted">No payment record found</p>

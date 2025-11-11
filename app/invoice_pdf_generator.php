@@ -120,9 +120,14 @@ function generateInvoiceHTML($invoice, $baseUrl, $logoBase64 = '') {
     $status = strtoupper($invoice['status'] ?? 'PAID');
     $statusClass = ($status === 'PAID') ? 'status-paid' : '';
     
+    // Get duration from invoice (default to 1 if not set)
+    $durationMonths = isset($invoice['duration_months']) ? (int)$invoice['duration_months'] : 1;
+    if ($durationMonths < 1) $durationMonths = 1;
+    
     $startDate = new DateTime($invoice['booking_start_date']);
     $endDate = clone $startDate;
-    $endDate->modify('+1 month -1 day');
+    $endDate->modify("+{$durationMonths} months");
+    $endDate->modify('-1 day'); // Last day of the last month
     $bookingEndDate = $endDate->format('F d, Y');
     $bookingStartDate = date('F d, Y', strtotime($invoice['booking_start_date']));
     
@@ -476,7 +481,7 @@ function generateInvoiceHTML($invoice, $baseUrl, $logoBase64 = '') {
     <div class="totals-section">
       <table class="totals-table">
         <tr>
-          <td>Subtotal:</td>
+          <td>Security Deposit:</td>
           <td>&#8377;' . number_format($invoice['total_amount'], 2) . '</td>
         </tr>
         <tr>
@@ -484,10 +489,13 @@ function generateInvoiceHTML($invoice, $baseUrl, $logoBase64 = '') {
           <td>&#8377;0.00</td>
         </tr>
         <tr class="total-row">
-          <td>Total Amount:</td>
+          <td>Total Amount Paid (Security Deposit):</td>
           <td>&#8377;' . number_format($invoice['total_amount'], 2) . '</td>
         </tr>
       </table>
+      <p style="margin-top: 10px; font-size: 10px; color: #666; font-style: italic;">
+        <strong>Note:</strong> This invoice is for security deposit payment only. Monthly rent will be collected separately as per the booking agreement.
+      </p>
     </div>
 
     <!-- Payment Information -->
@@ -495,6 +503,7 @@ function generateInvoiceHTML($invoice, $baseUrl, $logoBase64 = '') {
       <p><strong>Payment Method:</strong> ' . htmlspecialchars(strtoupper($invoice['provider'] ?? 'Razorpay')) . '</p>
       <p><strong>Transaction ID:</strong> ' . htmlspecialchars($invoice['provider_payment_id'] ?? 'N/A') . '</p>
       <p><strong>Payment Date:</strong> ' . (!empty($invoice['payment_date']) ? date('F d, Y h:i A', strtotime($invoice['payment_date'])) : 'N/A') . '</p>
+      <p><strong>Payment Type:</strong> Security Deposit</p>
     </div>
 
     <!-- Footer -->
@@ -524,6 +533,9 @@ function getInvoicePDFPath($invoiceId) {
         }
         
         $invoiceDir = __DIR__ . '/../storage/invoices/';
+        $invoiceDir = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $invoiceDir);
+        $invoiceDir = rtrim($invoiceDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        
         if (!is_dir($invoiceDir)) {
             return null;
         }
@@ -535,7 +547,21 @@ function getInvoicePDFPath($invoiceId) {
             usort($files, function($a, $b) {
                 return filemtime($b) - filemtime($a);
             });
-            $relativePath = str_replace(__DIR__ . '/../', '', $files[0]);
+            
+            // Get project root directory
+            $projectRoot = dirname(__DIR__);
+            $projectRoot = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $projectRoot);
+            $projectRoot = rtrim($projectRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+            
+            // Convert absolute path to relative path from project root
+            $filePath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $files[0]);
+            if (strpos($filePath, $projectRoot) === 0) {
+                $relativePath = substr($filePath, strlen($projectRoot));
+            } else {
+                // Fallback: extract just the filename and directory structure
+                $relativePath = 'storage/invoices/' . basename($files[0]);
+            }
+            
             return str_replace('\\', '/', $relativePath);
         }
         

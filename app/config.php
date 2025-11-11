@@ -96,13 +96,12 @@ if (!$baseUrl) {
 	}
 	
 	// Method 2: Extract from SCRIPT_NAME if it contains subdirectory
-	// SCRIPT_NAME might be /Livonto/index.php or /Livonto/admin/login.php
 	// Extract the first directory component if it exists
 	// IMPORTANT: Exclude route directories like /admin, /public, /app, /storage, /vendor, /sql
 	$excludedDirs = ['admin', 'public', 'app', 'storage', 'vendor', 'sql'];
 	if (empty($baseUrl) || $baseUrl === '/') {
 		if ($scriptDir !== '/' && $scriptDir !== '\\' && $scriptDir !== '.') {
-			// Extract first directory from scriptDir (e.g., /Livonto/admin -> /Livonto)
+			// Extract first directory from scriptDir
 			$scriptDirParts = explode('/', trim($scriptDir, '/'));
 			if (!empty($scriptDirParts[0]) && !in_array(strtolower($scriptDirParts[0]), $excludedDirs)) {
 				$potentialBase = '/' . $scriptDirParts[0];
@@ -114,18 +113,20 @@ if (!$baseUrl) {
 		}
 	}
 	
-	// Method 3: Check REQUEST_URI for known subdirectory (like /Livonto/)
-	// Only use this as a fallback and only for known project directories
+	// Method 3: Check REQUEST_URI for project subdirectory
+	// Only use this as a fallback - extract from REQUEST_URI if it contains a valid project directory
 	// Don't match route paths like /admin/, /public/, etc.
 	if (empty($baseUrl)) {
-		$knownSubdirs = ['Livonto']; // Add other known subdirectory names here
-		foreach ($knownSubdirs as $subdir) {
-			if (strpos($requestUri, '/' . $subdir . '/') !== false || $requestUri === '/' . $subdir || $requestUri === '/' . $subdir . '/') {
-				$potentialBase = '/' . $subdir;
+		$excludedDirs = ['admin', 'public', 'app', 'storage', 'vendor', 'sql'];
+		// Extract first directory from REQUEST_URI if it exists
+		if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
+			$potentialSubdir = $matches[1];
+			// Only consider if it's not an excluded directory
+			if (!in_array(strtolower($potentialSubdir), array_map('strtolower', $excludedDirs))) {
+				$potentialBase = '/' . $potentialSubdir;
 				// Verify this directory exists and contains index.php
 				if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
 					$baseUrl = $potentialBase;
-					break;
 				}
 			}
 		}

@@ -96,11 +96,15 @@ function createInvoice($bookingId, $paymentId) {
         // Generate invoice number
         $invoiceNumber = generateInvoiceNumber($db);
         
-        // Calculate booking end date (1 month from start date)
+        // Get duration from booking (default to 1 if not set)
+        $durationMonths = isset($booking['duration_months']) ? (int)$booking['duration_months'] : 1;
+        if ($durationMonths < 1) $durationMonths = 1;
+        
+        // Calculate booking end date based on duration
         $startDate = new DateTime($booking['booking_start_date']);
         $endDate = clone $startDate;
-        $endDate->modify('+1 month');
-        $endDate->modify('-1 day'); // Last day of the month
+        $endDate->modify("+{$durationMonths} months");
+        $endDate->modify('-1 day'); // Last day of the last month
         
         // Create invoice
         $db->execute(
@@ -159,7 +163,7 @@ function getInvoiceData($invoiceId, $userId = null) {
         $db = db();
         
         $sql = "SELECT i.*,
-                       b.booking_start_date, b.special_requests,
+                       b.booking_start_date, b.duration_months, b.special_requests,
                        u.name as user_name, u.email as user_email, u.phone as user_phone,
                        u.address as user_address, u.city as user_city, u.state as user_state, u.pincode as user_pincode,
                        l.title as listing_title, l.owner_name,
@@ -189,14 +193,18 @@ function getInvoiceData($invoiceId, $userId = null) {
             return null;
         }
         
-        // Calculate booking end date
+        // Get duration from booking (default to 1 if not set)
+        $durationMonths = isset($invoice['duration_months']) ? (int)$invoice['duration_months'] : 1;
+        if ($durationMonths < 1) $durationMonths = 1;
+        
+        // Calculate booking end date based on duration
         $startDate = new DateTime($invoice['booking_start_date']);
         $endDate = clone $startDate;
-        $endDate->modify('+1 month');
+        $endDate->modify("+{$durationMonths} months");
         $endDate->modify('-1 day');
         
         $invoice['booking_end_date'] = $endDate->format('Y-m-d');
-        $invoice['duration_months'] = 1;
+        $invoice['duration_months'] = $durationMonths;
         
         return $invoice;
         

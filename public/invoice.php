@@ -14,6 +14,7 @@ if (!isLoggedIn()) {
 }
 
 $userId = getCurrentUserId();
+$isAdmin = isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
 $invoiceId = intval($_GET['id'] ?? 0);
 
 if ($invoiceId <= 0) {
@@ -21,7 +22,8 @@ if ($invoiceId <= 0) {
     exit;
 }
 
-$invoice = getInvoiceData($invoiceId, $userId);
+// For admins, allow viewing any invoice; for regular users, only their own
+$invoice = getInvoiceData($invoiceId, $isAdmin ? null : $userId);
 
 if (!$invoice) {
     header('Location: ' . app_url('profile'));
@@ -421,7 +423,7 @@ $baseUrl = rtrim(app_url(''), '/');
     <div class="totals-section">
       <table class="totals-table">
         <tr>
-          <td>Subtotal:</td>
+          <td>Security Deposit:</td>
           <td>₹<?= number_format($invoice['total_amount'], 2) ?></td>
         </tr>
         <tr>
@@ -429,10 +431,13 @@ $baseUrl = rtrim(app_url(''), '/');
           <td>₹0.00</td>
         </tr>
         <tr class="total-row">
-          <td>Total Amount:</td>
+          <td>Total Amount Paid (Security Deposit):</td>
           <td>₹<?= number_format($invoice['total_amount'], 2) ?></td>
         </tr>
       </table>
+      <p style="margin-top: 10px; font-size: 10px; color: #666; font-style: italic;">
+        <strong>Note:</strong> This invoice is for security deposit payment only. Monthly rent will be collected separately as per the booking agreement.
+      </p>
     </div>
 
     <!-- Payment Information -->
@@ -440,6 +445,7 @@ $baseUrl = rtrim(app_url(''), '/');
       <p><strong>Payment Method:</strong> <?= htmlspecialchars(strtoupper($invoice['provider'] ?? 'Razorpay')) ?></p>
       <p><strong>Transaction ID:</strong> <?= htmlspecialchars($invoice['provider_payment_id'] ?? 'N/A') ?></p>
       <p><strong>Payment Date:</strong> <?= !empty($invoice['payment_date']) ? date('F d, Y h:i A', strtotime($invoice['payment_date'])) : 'N/A' ?></p>
+      <p><strong>Payment Type:</strong> Security Deposit</p>
     </div>
 
     <!-- Footer -->

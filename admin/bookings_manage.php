@@ -135,6 +135,16 @@ $offset = ($page - 1) * $perPage;
 try {
     $db = db();
     
+    // Check if duration_months column exists
+    $hasDurationMonths = false;
+    try {
+        $db->fetchValue("SELECT duration_months FROM bookings LIMIT 1");
+        $hasDurationMonths = true;
+    } catch (Exception $e) {
+        // Column doesn't exist, will use default value
+        $hasDurationMonths = false;
+    }
+    
     $where = [];
     $params = [];
     
@@ -169,8 +179,11 @@ try {
     $sort = in_array($sort, $allowedSorts) ? $sort : 'b.created_at';
     $order = strtoupper($order) === 'ASC' ? 'ASC' : 'DESC';
     
+    // Build SELECT clause with conditional duration_months
+    $durationField = $hasDurationMonths ? 'b.duration_months,' : '1 as duration_months,';
+    
     $bookings = $db->fetchAll(
-        "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, b.duration_months,
+        "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, {$durationField}
                 b.total_amount, b.status, b.special_requests, b.created_at, b.updated_at,
                 u.name as user_name, u.email as user_email, u.phone as user_phone,
                 l.title as listing_title,
@@ -215,6 +228,7 @@ try {
     ];
     
 } catch (Exception $e) {
+    error_log("Error in bookings_manage.php: " . $e->getMessage());
     $bookings = [];
     $stats = ['total' => 0, 'pending' => 0, 'confirmed' => 0, 'completed' => 0, 'cancelled' => 0, 'today' => 0, 'this_month' => 0, 'total_revenue' => 0];
     $totalBookings = 0;
@@ -228,12 +242,32 @@ try {
 if (empty($_GET['action']) && empty($_GET['id'])) {
     try {
         $db = db();
-        $db->execute(
-            "UPDATE bookings 
-             SET status = 'completed', updated_at = NOW()
-             WHERE status = 'confirmed' 
-             AND DATE_ADD(booking_start_date, INTERVAL COALESCE(duration_months, 1) MONTH) <= CURDATE()"
-        );
+        // Check if duration_months column exists before using it
+        $hasDurationMonths = false;
+        try {
+            $db->fetchValue("SELECT duration_months FROM bookings LIMIT 1");
+            $hasDurationMonths = true;
+        } catch (Exception $e) {
+            $hasDurationMonths = false;
+        }
+        
+        if ($hasDurationMonths) {
+            // Column exists, use it
+            $db->execute(
+                "UPDATE bookings 
+                 SET status = 'completed', updated_at = NOW()
+                 WHERE status = 'confirmed' 
+                 AND DATE_ADD(booking_start_date, INTERVAL COALESCE(duration_months, 1) MONTH) <= CURDATE()"
+            );
+        } else {
+            // Column doesn't exist, use default 1 month
+            $db->execute(
+                "UPDATE bookings 
+                 SET status = 'completed', updated_at = NOW()
+                 WHERE status = 'confirmed' 
+                 AND DATE_ADD(booking_start_date, INTERVAL 1 MONTH) <= CURDATE()"
+            );
+        }
     } catch (Exception $e) {
         // Silently fail - don't interrupt page load
     }

@@ -18,6 +18,7 @@ ini_set('display_errors', 0);
 require __DIR__ . '/config.php';
 require __DIR__ . '/functions.php';
 require __DIR__ . '/invoice_generator.php';
+require __DIR__ . '/email_helper.php';
 
 ob_clean();
 

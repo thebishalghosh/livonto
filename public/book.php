@@ -492,12 +492,20 @@ require __DIR__ . '/../app/includes/header.php';
                 
                 <?php if (!empty($roomConfigs)): ?>
                 <div class="form-section">
+                    <label class="form-label">Select Month for Booking *</label>
+                    <input type="date" class="form-control" name="booking_start_date" 
+                           id="bookingStartDate" min="<?= date('Y-m-01') ?>" required>
+                    <small class="text-muted">Booking will start on the 1st of the selected month and run for 1 month.</small>
+                </div>
+                
+                <div class="form-section">
                     <label class="form-label">Select Room Type *</label>
                     <select class="form-select" name="room_config_id" id="roomConfigSelect" required>
-                        <option value="">Select Room Type</option>
+                        <option value="">Select a month first to see availability</option>
                         <?php foreach ($roomConfigs as $room): ?>
                             <option value="<?= $room['id'] ?>" 
-                                    data-price="<?= $room['rent_per_month'] ?>">
+                                    data-price="<?= $room['rent_per_month'] ?>"
+                                    data-room-id="<?= $room['id'] ?>">
                                 <?= htmlspecialchars(ucfirst($room['room_type'])) ?> - 
                                 ₹<?= number_format($room['rent_per_month']) ?>/month
                                 <?php if ($room['available_rooms'] > 0): ?>
@@ -508,15 +516,9 @@ require __DIR__ . '/../app/includes/header.php';
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <small class="text-muted" id="availabilityNote"></small>
                 </div>
                 <?php endif; ?>
-                
-                <div class="form-section">
-                    <label class="form-label">Select Month for Booking *</label>
-                    <input type="date" class="form-control" name="booking_start_date" 
-                           id="bookingStartDate" min="<?= date('Y-m-01') ?>" required>
-                    <small class="text-muted">Booking will start on the 1st of the selected month and run for 1 month.</small>
-                </div>
                 
                 <div class="form-section">
                     <label class="form-label">Special Requests (Optional)</label>
@@ -628,7 +630,107 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     if (roomSelect) roomSelect.addEventListener('change', calculatePrice);
-    if (bookingStartDate) bookingStartDate.addEventListener('change', calculatePrice);
+    if (bookingStartDate) {
+        bookingStartDate.addEventListener('change', function() {
+            calculatePrice();
+            updateAvailabilityForMonth();
+        });
+    }
+    
+    // Update room availability based on selected month
+    async function updateAvailabilityForMonth() {
+        const bookingStartDate = document.getElementById('bookingStartDate');
+        const roomSelect = document.getElementById('roomConfigSelect');
+        const availabilityNote = document.getElementById('availabilityNote');
+        const listingId = document.querySelector('input[name="listing_id"]').value;
+        
+        if (!bookingStartDate || !bookingStartDate.value || !roomSelect) return;
+        
+        // Show loading state
+        roomSelect.disabled = true;
+        availabilityNote.textContent = 'Checking availability...';
+        availabilityNote.className = 'text-muted';
+        
+        try {
+            const formData = new FormData();
+            formData.append('action', 'check_availability');
+            formData.append('listing_id', listingId);
+            formData.append('booking_start_date', bookingStartDate.value);
+            
+            const response = await fetch('<?= app_url("book-api") ?>', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success' && data.data && data.data.rooms) {
+                const rooms = data.data.rooms;
+                const selectedValue = roomSelect.value;
+                
+                // Clear existing options except the first one
+                roomSelect.innerHTML = '<option value="">Select Room Type</option>';
+                
+                // Add updated options with month-specific availability
+                rooms.forEach(room => {
+                    const option = document.createElement('option');
+                    option.value = room.id;
+                    option.setAttribute('data-price', room.rent_per_month);
+                    option.setAttribute('data-room-id', room.id);
+                    
+                    const roomTypeFormatted = room.room_type.split(' ').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ');
+                    let text = `${roomTypeFormatted} - ₹${parseFloat(room.rent_per_month).toLocaleString('en-IN')}/month`;
+                    
+                    if (room.is_available) {
+                        text += ` (${room.available_count} available)`;
+                        option.disabled = false;
+                    } else {
+                        text += ' (Fully booked)';
+                        option.disabled = true;
+                    }
+                    
+                    option.textContent = text;
+                    roomSelect.appendChild(option);
+                });
+                
+                // Restore selection if it still exists and is available
+                if (selectedValue) {
+                    const selectedOption = Array.from(roomSelect.options).find(opt => opt.value === selectedValue && !opt.disabled);
+                    if (selectedOption) {
+                        roomSelect.value = selectedValue;
+                    } else {
+                        roomSelect.value = '';
+                    }
+                }
+                
+                // Update note
+                const monthName = new Date(bookingStartDate.value).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                const availableRooms = rooms.filter(r => r.is_available).length;
+                if (availableRooms > 0) {
+                    availabilityNote.textContent = `Showing availability for ${monthName}`;
+                    availabilityNote.className = 'text-success';
+                } else {
+                    availabilityNote.textContent = `No rooms available for ${monthName}. Please select a different month.`;
+                    availabilityNote.className = 'text-danger';
+                }
+                
+                calculatePrice();
+            } else {
+                throw new Error(data.message || 'Failed to check availability');
+            }
+        } catch (error) {
+            availabilityNote.textContent = 'Error checking availability. Please try again.';
+            availabilityNote.className = 'text-danger';
+        } finally {
+            roomSelect.disabled = false;
+        }
+    }
     
     // KYC Form Submission
     const kycForm = document.getElementById('kycForm');
@@ -645,7 +747,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             try {
                 const apiUrl = '<?= app_url("book-api") ?>';
-                console.log('Submitting to:', apiUrl);
                 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -656,15 +757,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     credentials: 'same-origin'
                 });
                 
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
-                
                 const responseText = await response.text();
-                console.log('Response text:', responseText);
                 
                 if (!response.ok) {
-                    console.error('HTTP error! status:', response.status);
-                    console.error('Response body:', responseText);
                     throw new Error('HTTP error! status: ' + response.status);
                 }
                 
@@ -672,8 +767,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 try {
                     data = JSON.parse(responseText);
                 } catch (e) {
-                    console.error('JSON parse error:', e);
-                    console.error('Response was not valid JSON:', responseText);
                     throw new Error('Invalid JSON response from server');
                 }
                 
@@ -687,18 +780,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     let errorMsg = data.message || 'Error submitting KYC. Please try again.';
                     if (data.errors) {
-                        const errorList = Object.values(data.errors).join('\n');
-                        errorMsg += '\n\n' + errorList;
-                    }
-                    if (data.errors && data.errors.debug) {
-                        console.error('Debug error:', data.errors.debug);
+                        const errorList = Object.values(data.errors).filter(err => err !== 'debug').join('\n');
+                        if (errorList) {
+                            errorMsg += '\n\n' + errorList;
+                        }
                     }
                     alert(errorMsg);
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalText;
                 }
             } catch (error) {
-                console.error('Error:', error);
                 alert('Network error. Please try again.');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
@@ -721,7 +812,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             try {
                 const apiUrl = '<?= app_url("book-api") ?>';
-                console.log('Submitting booking to:', apiUrl);
                 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
@@ -732,17 +822,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     credentials: 'same-origin'
                 });
                 
-                console.log('Response status:', response.status);
-                
                 const responseText = await response.text();
-                console.log('Response text:', responseText);
                 
                 let data;
                 try {
                     data = JSON.parse(responseText);
                 } catch (e) {
-                    console.error('JSON parse error:', e);
-                    console.error('Response was not valid JSON:', responseText);
                     if (!response.ok) {
                         throw new Error('HTTP error! status: ' + response.status);
                     }
@@ -750,7 +835,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 if (!response.ok) {
-                    // Even if response is not ok, try to parse JSON for error details
                     if (data && data.status === 'error') {
                         let errorMsg = data.message || 'Error creating booking.';
                         if (data.errors) {
@@ -768,15 +852,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 if (data.status === 'success') {
-                    console.log('Booking success response:', data);
                     if (data.data && data.data.redirect) {
-                        console.log('Redirecting to payment page:', data.data.redirect);
-                        // Store in sessionStorage so we can check it even after redirect
-                        sessionStorage.setItem('lastBookingRedirect', data.data.redirect);
-                        sessionStorage.setItem('lastBookingData', JSON.stringify(data));
                         window.location.href = data.data.redirect;
                     } else {
-                        console.log('No redirect URL, going to profile');
                         alert('Booking created successfully!');
                         window.location.href = '<?= app_url("profile") ?>';
                     }
@@ -793,15 +871,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitBtn.innerHTML = originalText;
                 }
             } catch (error) {
-                console.error('Error details:', error);
-                console.error('Error message:', error.message);
-                console.error('Error stack:', error.stack);
-                
-                let errorMsg = 'Network error. Please try again.';
-                if (error.message) {
-                    errorMsg += '\n\nError: ' + error.message;
-                }
-                alert(errorMsg);
+                alert('Network error. Please try again.');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
             }

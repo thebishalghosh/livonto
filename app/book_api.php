@@ -189,17 +189,8 @@ if ($action === 'submit_kyc') {
         ]);
         
     } catch (Exception $e) {
-        $errorMessage = $e->getMessage();
-        error_log("Error submitting KYC: " . $errorMessage);
-        error_log("Stack trace: " . $e->getTraceAsString());
-        
-        // Return more detailed error in development
-        $message = 'Failed to submit KYC. Please try again.';
-        if (defined('DEBUG') && DEBUG) {
-            $message .= ' Error: ' . $errorMessage;
-        }
-        
-        jsonError($message, ['debug' => $errorMessage], 500);
+        error_log("Error submitting KYC: " . $e->getMessage());
+        jsonError('Failed to submit KYC. Please try again.', [], 500);
     }
     exit;
 }
@@ -261,7 +252,6 @@ if ($action === 'submit_booking') {
                 $errors['kyc'] = 'KYC submission is required. Please submit KYC first.';
             }
         } catch (Exception $e) {
-            error_log("Error fetching KYC: " . $e->getMessage());
             $errors['kyc'] = 'Unable to verify KYC status';
         }
     } else {
@@ -277,7 +267,6 @@ if ($action === 'submit_booking') {
                 $errors['kyc'] = 'Invalid KYC record';
             }
         } catch (Exception $e) {
-            error_log("Error verifying KYC: " . $e->getMessage());
             $errors['kyc'] = 'Unable to verify KYC status';
         }
     }
@@ -292,7 +281,7 @@ if ($action === 'submit_booking') {
         
         // Get room configuration to calculate price and check availability
         $roomConfig = $db->fetchOne(
-            "SELECT rent_per_month, available_rooms FROM room_configurations WHERE id = ? AND listing_id = ?",
+            "SELECT rent_per_month, total_rooms FROM room_configurations WHERE id = ? AND listing_id = ?",
             [$roomConfigId, $listingId]
         );
         
@@ -301,9 +290,24 @@ if ($action === 'submit_booking') {
             exit;
         }
         
-        // Check if room is available
-        if ($roomConfig['available_rooms'] <= 0) {
-            jsonError('No rooms available for this configuration', [], 400);
+        // Check month-specific availability
+        // Count bookings for this room config for the selected month
+        // Only count confirmed or pending bookings (not cancelled or completed)
+        $bookedCount = $db->fetchOne(
+            "SELECT COUNT(*) as count 
+             FROM bookings 
+             WHERE room_config_id = ? 
+             AND DATE_FORMAT(booking_start_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
+             AND status IN ('pending', 'confirmed')",
+            [$roomConfigId, $bookingStartDate]
+        );
+        
+        $bookedCount = (int)($bookedCount['count'] ?? 0);
+        
+        // Check if rooms are available for this specific month
+        if ($bookedCount >= $roomConfig['total_rooms']) {
+            $monthName = date('F Y', strtotime($bookingStartDate));
+            jsonError("No rooms available for this configuration in {$monthName}. All rooms are already booked.", [], 400);
             exit;
         }
         
@@ -334,10 +338,79 @@ if ($action === 'submit_booking') {
         ]);
         
     } catch (Exception $e) {
-        error_log("Error creating booking: " . $e->getMessage());
         jsonError('Failed to create booking. Please try again.', [], 500);
     }
     exit;
+}
+
+// Handle availability check for specific month
+if ($action === 'check_availability') {
+    $listingId = intval($_POST['listing_id'] ?? 0);
+    $bookingStartDate = trim($_POST['booking_start_date'] ?? '');
+    
+    if ($listingId <= 0) {
+        ob_end_clean();
+        jsonError('Invalid listing ID', [], 400);
+        exit;
+    }
+    
+    if (empty($bookingStartDate)) {
+        ob_end_clean();
+        jsonError('Booking start date is required', [], 400);
+        exit;
+    }
+    
+    // Convert selected date to 1st of that month
+    $selectedDate = new DateTime($bookingStartDate);
+    $bookingStartDate = $selectedDate->format('Y-m-01');
+    
+    try {
+        $db = db();
+        
+        // Get all room configurations for this listing
+        $roomConfigs = $db->fetchAll(
+            "SELECT id, room_type, rent_per_month, total_rooms 
+             FROM room_configurations 
+             WHERE listing_id = ?",
+            [$listingId]
+        );
+        
+        $availability = [];
+        
+        foreach ($roomConfigs as $room) {
+            // Count bookings for this room config for the selected month
+            $bookedCount = $db->fetchOne(
+                "SELECT COUNT(*) as count 
+                 FROM bookings 
+                 WHERE room_config_id = ? 
+                 AND DATE_FORMAT(booking_start_date, '%Y-%m') = DATE_FORMAT(?, '%Y-%m')
+                 AND status IN ('pending', 'confirmed')",
+                [$room['id'], $bookingStartDate]
+            );
+            
+            $bookedCount = (int)($bookedCount['count'] ?? 0);
+            $availableCount = max(0, $room['total_rooms'] - $bookedCount);
+            
+            $availability[] = [
+                'id' => $room['id'],
+                'room_type' => $room['room_type'],
+                'rent_per_month' => $room['rent_per_month'],
+                'total_rooms' => $room['total_rooms'],
+                'booked_count' => $bookedCount,
+                'available_count' => $availableCount,
+                'is_available' => $availableCount > 0
+            ];
+        }
+        
+        ob_end_clean();
+        jsonSuccess('Availability checked', ['rooms' => $availability]);
+        exit;
+        
+    } catch (Exception $e) {
+        ob_end_clean();
+        jsonError('Failed to check availability', [], 500);
+        exit;
+    }
 }
 
 jsonError('Invalid action', [], 400);

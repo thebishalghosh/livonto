@@ -38,6 +38,7 @@ $baseUrl = rtrim(app_url(''), '/');
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= htmlspecialchars($pageTitle) ?> - Livonto</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="<?= htmlspecialchars($baseUrl . '/public/assets/js/invoice-pdf.js') ?>"></script>
   
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -333,9 +334,9 @@ $baseUrl = rtrim(app_url(''), '/');
         <button onclick="window.print()" class="btn btn-outline">
           <i class="bi bi-printer"></i> Print
         </button>
-        <a href="<?= app_url('invoice?id=' . $invoiceId . '&download=1') ?>" class="btn btn-primary">
+        <button id="downloadPdfBtn" class="btn btn-primary">
           <i class="bi bi-download"></i> Download PDF
-        </a>
+        </button>
       </div>
     </div>
 

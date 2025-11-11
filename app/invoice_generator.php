@@ -115,7 +115,36 @@ function createInvoice($bookingId, $paymentId) {
             ]
         );
         
-        return $db->lastInsertId();
+        $invoiceId = $db->lastInsertId();
+        
+        // Generate and save PDF to storage
+        try {
+            require_once __DIR__ . '/invoice_pdf_generator.php';
+            $pdfPath = generateInvoicePDF($invoiceId);
+            if ($pdfPath) {
+                error_log("Invoice PDF saved to storage: {$pdfPath}");
+            } else {
+                error_log("Invoice PDF generation returned null for invoice ID: {$invoiceId}. Check error logs above for details.");
+            }
+        } catch (Exception $e) {
+            // Log error but don't fail invoice creation
+            error_log("Failed to generate invoice PDF for invoice ID {$invoiceId}: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+        } catch (Error $e) {
+            // Catch fatal errors too
+            error_log("Fatal error generating invoice PDF for invoice ID {$invoiceId}: " . $e->getMessage());
+        }
+        
+        // Send email notification
+        try {
+            require_once __DIR__ . '/email_helper.php';
+            sendInvoiceEmail($invoiceId, $booking['user_email'], $booking['user_name']);
+        } catch (Exception $e) {
+            // Log error but don't fail invoice creation
+            error_log("Failed to send invoice email notification: " . $e->getMessage());
+        }
+        
+        return $invoiceId;
         
     } catch (Exception $e) {
         throw $e;

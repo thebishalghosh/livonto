@@ -198,10 +198,16 @@ $googleClientSecret = getenv('GOOGLE_CLIENT_SECRET') ?: '';
 $razorpayKeyId = getenv('RAZORPAY_KEY_ID') ?: '';
 $razorpayKeySecret = getenv('RAZORPAY_KEY_SECRET') ?: '';
 
+// Email Configuration
+$smtpFromEmail = getenv('SMTP_FROM_EMAIL') ?: 'noreply@livonto.com';
+$smtpFromName = getenv('SMTP_FROM_NAME') ?: 'Livonto';
+
 return [
 	'base_url' => $baseUrl,
 	'google_client_id' => $googleClientId,
 	'google_client_secret' => $googleClientSecret,
 	'razorpay_key_id' => $razorpayKeyId,
 	'razorpay_key_secret' => $razorpayKeySecret,
+	'smtp_from_email' => $smtpFromEmail,
+	'smtp_from_name' => $smtpFromName,
 ];

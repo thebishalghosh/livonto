@@ -1,90 +1,203 @@
-# Email Notification Setup Guide
+# Email Setup Guide
 
 ## Overview
-The invoice email notification system has been implemented. When an invoice is generated, an email is automatically sent to the user with invoice details and a link to view/download the invoice.
+The email system uses PHPMailer with SMTP support for reliable email delivery. It automatically falls back to PHP's `mail()` function if SMTP is not configured.
+
+## Installation
+
+1. **Install PHPMailer via Composer**:
+   ```bash
+   composer install
+   ```
+   This will install PHPMailer along with other dependencies.
 
 ## Configuration
 
 ### Environment Variables
 Add these to your `.env` file:
 
+#### Basic Email Configuration (Required)
 ```env
 # Email Configuration
 SMTP_FROM_EMAIL=noreply@livonto.com
 SMTP_FROM_NAME=Livonto
 ```
 
-### PHP mail() Function
-The current implementation uses PHP's built-in `mail()` function. For production environments, you may want to:
+#### SMTP Configuration (Optional - for production)
+If SMTP is configured, PHPMailer will be used. Otherwise, it falls back to PHP `mail()`.
 
-1. **Use PHPMailer** (Recommended for production):
-   - Install via Composer: `composer require phpmailer/phpmailer`
-   - Update `app/email_helper.php` to use PHPMailer instead of `mail()`
+```env
+# SMTP Configuration
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_ENCRYPTION=tls
+```
 
-2. **Configure SMTP** (if using PHPMailer):
-   ```env
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587
-   SMTP_USERNAME=your-email@gmail.com
-   SMTP_PASSWORD=your-app-password
-   SMTP_ENCRYPTION=tls
-   ```
+### Common SMTP Providers
 
-3. **Test Email Configuration**:
-   - Check server logs: `storage/logs/`
-   - Verify email delivery in spam/junk folders
-   - Test with a real email address
+#### Gmail
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_ENCRYPTION=tls
+```
+**Note:** For Gmail, you need to use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password.
+
+#### Outlook/Hotmail
+```env
+SMTP_HOST=smtp-mail.outlook.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@outlook.com
+SMTP_PASSWORD=your-password
+SMTP_ENCRYPTION=tls
+```
+
+#### Custom SMTP Server (Your Server Mail)
+```env
+# Example for a custom mail server on your domain
+SMTP_HOST=mail.yourdomain.com
+SMTP_PORT=587
+SMTP_USERNAME=noreply@yourdomain.com
+SMTP_PASSWORD=your-password
+SMTP_ENCRYPTION=tls
+
+# OR if your server uses SSL instead of TLS
+SMTP_HOST=mail.yourdomain.com
+SMTP_PORT=465
+SMTP_USERNAME=noreply@yourdomain.com
+SMTP_PASSWORD=your-password
+SMTP_ENCRYPTION=ssl
+```
+
+**Note:** Common ports:
+- **587** - TLS (STARTTLS)
+- **465** - SSL
+- **25** - Usually blocked by ISPs, not recommended
 
 ## Features
 
-### PDF Download
-- Uses `html2pdf.js` library (loaded from CDN)
-- Generates PDF exactly as the invoice appears on screen
-- Preserves all styling, colors, and formatting
-- Downloads automatically with filename: `Invoice-INV-YYYYMMDD-XXXX.pdf`
+### Automatic Method Selection
+- **SMTP (PHPMailer)**: Used if SMTP credentials are configured
+- **PHP mail()**: Fallback if SMTP is not configured
 
-### Email Notification
-- Sent automatically when invoice is created
-- Includes invoice number, date, amount, and property details
-- Contains a direct link to view the invoice
-- HTML formatted email with professional styling
+### Email Types
+
+1. **Invoice Emails**
+   - Sent automatically when invoice is created
+   - Includes invoice details and link to view invoice
+   - Can optionally attach PDF invoice
+
+2. **General Emails**
+   - Support for HTML emails
+   - Attachment support (when using SMTP)
+   - UTF-8 character encoding
 
 ## Testing
 
-1. **Test PDF Download**:
-   - Go to any invoice page
-   - Click "Download PDF" button
-   - Verify PDF is generated correctly
+### Test Email Configuration
 
-2. **Test Email Notification**:
-   - Complete a booking payment
-   - Check user's email inbox
-   - Verify email contains correct invoice details
+1. **Check if PHPMailer is installed**:
+   ```bash
+   composer show phpmailer/phpmailer
+   ```
+
+2. **Enable debug mode** (in `.env`):
+   ```env
+   APP_DEBUG=true
+   ```
+   This will show detailed SMTP debug information in error logs.
+
+3. **Check error logs**:
+   - Server error logs
+   - Application logs: `storage/logs/` (if configured)
+
+4. **Test email sending**:
+   - Complete a booking to trigger invoice email
+   - Check recipient's inbox (and spam folder)
+   - Verify email contains correct information
 
 ## Troubleshooting
 
-### PDF Not Downloading
-- Check browser console for errors
-- Verify `html2pdf.js` is loading from CDN
-- Check internet connection (CDN requires internet)
-
 ### Emails Not Sending
-- Check PHP `mail()` function is enabled on server
-- Verify email addresses are valid
-- Check server error logs: `storage/logs/`
-- For production, use PHPMailer with SMTP
+
+1. **Check SMTP Configuration**:
+   - Verify all SMTP variables are set correctly
+   - Test SMTP credentials with an email client
+   - Check if SMTP port is not blocked by firewall
+
+2. **Check PHP mail() Function** (if using fallback):
+   - Verify `mail()` function is enabled in PHP
+   - Check server mail configuration
+   - Review server error logs
+
+3. **Check Error Logs**:
+   - PHP error log
+   - Application error log
+   - SMTP debug output (if `APP_DEBUG=true`)
 
 ### Email Going to Spam
-- Configure SPF/DKIM records for your domain
-- Use a proper "From" email address
-- Avoid spam trigger words in subject/body
 
-## Future Enhancements
+1. **Configure SPF Record**:
+   - Add SPF record to your domain DNS
+   - Example: `v=spf1 include:_spf.google.com ~all`
 
-Consider implementing:
-- Email queue system for better reliability
-- PDF attachment in email (requires PHPMailer)
-- Email templates system
-- Email delivery tracking
-- Retry mechanism for failed emails
+2. **Configure DKIM**:
+   - Set up DKIM signing for your domain
+   - This helps with email authentication
 
+3. **Use Proper From Address**:
+   - Use an email address from your domain
+   - Avoid generic addresses like `noreply@`
+
+4. **Email Content**:
+   - Avoid spam trigger words
+   - Include proper HTML structure
+   - Add unsubscribe link if sending marketing emails
+
+### Common SMTP Errors
+
+1. **"SMTP connect() failed"**:
+   - Check SMTP host and port
+   - Verify firewall allows SMTP connections
+   - Check if SSL/TLS is required
+
+2. **"Authentication failed"**:
+   - Verify username and password
+   - For Gmail, use App Password, not regular password
+   - Check if account has 2FA enabled (requires App Password)
+
+3. **"Connection timeout"**:
+   - Check network connectivity
+   - Verify SMTP host is correct
+   - Check if port is blocked
+
+## Advanced Features
+
+### PDF Attachment
+To attach PDF invoice to email:
+```php
+sendInvoiceEmail($invoiceId, $email, $name, $attachPDF = true);
+```
+
+### Custom Email Templates
+You can create custom email templates by modifying the HTML in `sendInvoiceEmail()` function or creating new functions in `email_helper.php`.
+
+## Security Notes
+
+1. **Never commit `.env` file** to version control
+2. **Use App Passwords** for Gmail instead of regular passwords
+3. **Keep SMTP credentials secure**
+4. **Use TLS/SSL encryption** for SMTP connections
+5. **Validate email addresses** before sending
+
+## Production Recommendations
+
+1. **Use SMTP** instead of PHP `mail()` for better deliverability
+2. **Set up SPF/DKIM records** for your domain
+3. **Monitor email delivery rates**
+4. **Implement email queue** for high-volume sending
+5. **Use dedicated email service** (SendGrid, Mailgun, etc.) for better reliability

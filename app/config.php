@@ -202,6 +202,11 @@ $razorpayKeySecret = getenv('RAZORPAY_KEY_SECRET') ?: '';
 // Email Configuration
 $smtpFromEmail = getenv('SMTP_FROM_EMAIL') ?: 'noreply@livonto.com';
 $smtpFromName = getenv('SMTP_FROM_NAME') ?: 'Livonto';
+$smtpHost = getenv('SMTP_HOST') ?: '';
+$smtpPort = getenv('SMTP_PORT') ?: '587';
+$smtpUsername = getenv('SMTP_USERNAME') ?: '';
+$smtpPassword = getenv('SMTP_PASSWORD') ?: '';
+$smtpEncryption = getenv('SMTP_ENCRYPTION') ?: 'tls';
 
 return [
 	'base_url' => $baseUrl,
@@ -211,4 +216,9 @@ return [
 	'razorpay_key_secret' => $razorpayKeySecret,
 	'smtp_from_email' => $smtpFromEmail,
 	'smtp_from_name' => $smtpFromName,
+	'smtp_host' => $smtpHost,
+	'smtp_port' => $smtpPort,
+	'smtp_username' => $smtpUsername,
+	'smtp_password' => $smtpPassword,
+	'smtp_encryption' => $smtpEncryption,
 ];

@@ -1,12 +1,20 @@
 <?php
 /**
  * Email Helper Functions
- * Handles email sending functionality
+ * Handles email sending functionality using PHPMailer with SMTP support
  */
 
+// Load PHPMailer if available
+$phpmailerLoaded = false;
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+    if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+        $phpmailerLoaded = true;
+    }
+}
+
 /**
- * Send email using PHP mail() function
- * For production, consider using PHPMailer or similar library
+ * Send email using PHPMailer (SMTP) or PHP mail() as fallback
  * 
  * @param string $to Recipient email address
  * @param string $subject Email subject
@@ -33,31 +41,19 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null,
             return false;
         }
         
-        // Prepare headers
-        $headers = [];
-        $headers[] = "MIME-Version: 1.0";
-        $headers[] = "Content-Type: text/html; charset=UTF-8";
-        $headers[] = "From: {$fromName} <{$fromEmail}>";
-        $headers[] = "Reply-To: {$fromEmail}";
-        $headers[] = "X-Mailer: PHP/" . phpversion();
+        // Check if SMTP is configured
+        $smtpHost = getenv('SMTP_HOST');
+        $smtpUser = getenv('SMTP_USERNAME');
+        $smtpPass = getenv('SMTP_PASSWORD');
+        $useSMTP = !empty($smtpHost) && !empty($smtpUser) && !empty($smtpPass);
         
-        // If attachments are provided, use multipart message
-        if (!empty($attachments)) {
-            // For attachments, we'd need to use PHPMailer or similar
-            // For now, log that attachments were requested
-            error_log("Email attachments requested but not implemented. Use PHPMailer for attachment support.");
+        // Use PHPMailer if available and SMTP is configured
+        if ($phpmailerLoaded && $useSMTP) {
+            return sendEmailViaPHPMailer($to, $subject, $message, $fromEmail, $fromName, $attachments);
         }
         
-        // Send email
-        $result = mail($to, $subject, $message, implode("\r\n", $headers));
-        
-        if ($result) {
-            error_log("Email sent successfully to: {$to}, Subject: {$subject}");
-        } else {
-            error_log("Failed to send email to: {$to}, Subject: {$subject}");
-        }
-        
-        return $result;
+        // Fallback to PHP mail() function
+        return sendEmailViaMail($to, $subject, $message, $fromEmail, $fromName);
         
     } catch (Exception $e) {
         error_log("Error sending email: " . $e->getMessage());
@@ -66,14 +62,126 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null,
 }
 
 /**
+ * Send email using PHPMailer with SMTP
+ * 
+ * @param string $to Recipient email address
+ * @param string $subject Email subject
+ * @param string $message Email body (HTML)
+ * @param string $fromEmail Sender email address
+ * @param string $fromName Sender name
+ * @param array $attachments Array of file paths to attach
+ * @return bool True on success, false on failure
+ */
+function sendEmailViaPHPMailer($to, $subject, $message, $fromEmail, $fromName, $attachments = []) {
+    try {
+        if (!$phpmailerLoaded) {
+            error_log("PHPMailer not loaded, cannot send email via SMTP");
+            return false;
+        }
+        
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        
+        // SMTP Configuration
+        $mail->isSMTP();
+        $mail->Host = getenv('SMTP_HOST') ?: 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = getenv('SMTP_USERNAME');
+        $mail->Password = getenv('SMTP_PASSWORD');
+        $encryption = getenv('SMTP_ENCRYPTION') ?: 'tls';
+        if ($encryption === 'ssl') {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        }
+        $mail->Port = intval(getenv('SMTP_PORT') ?: 587);
+        $mail->CharSet = 'UTF-8';
+        
+        // Enable verbose debug output (only in debug mode)
+        if (getenv('APP_DEBUG') === 'true') {
+            $mail->SMTPDebug = 2;
+            $mail->Debugoutput = function($str, $level) {
+                error_log("PHPMailer: $str");
+            };
+        }
+        
+        // Sender
+        $mail->setFrom($fromEmail, $fromName);
+        $mail->addReplyTo($fromEmail, $fromName);
+        
+        // Recipient
+        $mail->addAddress($to);
+        
+        // Attachments
+        if (!empty($attachments)) {
+            foreach ($attachments as $attachment) {
+                if (file_exists($attachment)) {
+                    $mail->addAttachment($attachment);
+                }
+            }
+        }
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body = $message;
+        $mail->AltBody = strip_tags($message);
+        
+        // Send email
+        $result = $mail->send();
+        
+        if ($result) {
+            error_log("Email sent successfully via SMTP to: {$to}, Subject: {$subject}");
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log("PHPMailer Error: " . $mail->ErrorInfo);
+        return false;
+    }
+}
+
+/**
+ * Send email using PHP mail() function (fallback)
+ * 
+ * @param string $to Recipient email address
+ * @param string $subject Email subject
+ * @param string $message Email body (HTML)
+ * @param string $fromEmail Sender email address
+ * @param string $fromName Sender name
+ * @return bool True on success, false on failure
+ */
+function sendEmailViaMail($to, $subject, $message, $fromEmail, $fromName) {
+    // Prepare headers
+    $headers = [];
+    $headers[] = "MIME-Version: 1.0";
+    $headers[] = "Content-Type: text/html; charset=UTF-8";
+    $headers[] = "From: {$fromName} <{$fromEmail}>";
+    $headers[] = "Reply-To: {$fromEmail}";
+    $headers[] = "X-Mailer: PHP/" . phpversion();
+    
+    // Send email
+    $result = mail($to, $subject, $message, implode("\r\n", $headers));
+    
+    if ($result) {
+        error_log("Email sent successfully via mail() to: {$to}, Subject: {$subject}");
+    } else {
+        error_log("Failed to send email via mail() to: {$to}, Subject: {$subject}");
+    }
+    
+    return $result;
+}
+
+/**
  * Send invoice email notification
  * 
  * @param int $invoiceId Invoice ID
  * @param string $recipientEmail Recipient email address
  * @param string $recipientName Recipient name
+ * @param bool $attachPDF Whether to attach PDF invoice
  * @return bool True on success, false on failure
  */
-function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
+function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPDF = false) {
     try {
         require_once __DIR__ . '/invoice_generator.php';
         
@@ -138,6 +246,8 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
                         <a href='{$invoiceUrl}' class='button'>View Invoice</a>
                     </div>
                     
+                    " . ($attachPDF ? "<p>A PDF copy of your invoice is attached to this email.</p>" : "") . "
+                    
                     <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
                     
                     <p>Best regards,<br>
@@ -153,8 +263,18 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
         </html>
         ";
         
+        // Prepare attachments
+        $attachments = [];
+        if ($attachPDF && $phpmailerLoaded) {
+            require_once __DIR__ . '/invoice_pdf_generator.php';
+            $pdfPath = getInvoicePDFPath($invoiceId);
+            if ($pdfPath && file_exists(__DIR__ . '/../' . $pdfPath)) {
+                $attachments[] = __DIR__ . '/../' . $pdfPath;
+            }
+        }
+        
         // Send email
-        $result = sendEmail($recipientEmail, $subject, $message);
+        $result = sendEmail($recipientEmail, $subject, $message, null, null, $attachments);
         
         return $result;
         
@@ -163,4 +283,3 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
         return false;
     }
 }
-

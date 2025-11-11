@@ -4,6 +4,9 @@
  * Handles email sending functionality using PHPMailer with SMTP support
  */
 
+// Load logger
+require_once __DIR__ . '/logger.php';
+
 // Load PHPMailer if available
 $phpmailerLoaded = false;
 if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
@@ -32,12 +35,12 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null,
         
         // Validate email
         if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            error_log("Invalid recipient email: {$to}");
+            Logger::error("Invalid recipient email", ['email' => $to]);
             return false;
         }
         
         if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
-            error_log("Invalid sender email: {$fromEmail}");
+            Logger::error("Invalid sender email", ['email' => $fromEmail]);
             return false;
         }
         
@@ -56,7 +59,7 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null,
         return sendEmailViaMail($to, $subject, $message, $fromEmail, $fromName);
         
     } catch (Exception $e) {
-        error_log("Error sending email: " . $e->getMessage());
+        Logger::error("Error sending email", ['error' => $e->getMessage(), 'to' => $to, 'subject' => $subject]);
         return false;
     }
 }
@@ -75,7 +78,7 @@ function sendEmail($to, $subject, $message, $fromEmail = null, $fromName = null,
 function sendEmailViaPHPMailer($to, $subject, $message, $fromEmail, $fromName, $attachments = []) {
     try {
         if (!$phpmailerLoaded) {
-            error_log("PHPMailer not loaded, cannot send email via SMTP");
+            Logger::error("PHPMailer not loaded, cannot send email via SMTP");
             return false;
         }
         
@@ -100,7 +103,7 @@ function sendEmailViaPHPMailer($to, $subject, $message, $fromEmail, $fromName, $
         if (getenv('APP_DEBUG') === 'true') {
             $mail->SMTPDebug = 2;
             $mail->Debugoutput = function($str, $level) {
-                error_log("PHPMailer: $str");
+                Logger::debug("PHPMailer: $str");
             };
         }
         
@@ -130,13 +133,13 @@ function sendEmailViaPHPMailer($to, $subject, $message, $fromEmail, $fromName, $
         $result = $mail->send();
         
         if ($result) {
-            error_log("Email sent successfully via SMTP to: {$to}, Subject: {$subject}");
+            Logger::info("Email sent successfully via SMTP", ['to' => $to, 'subject' => $subject]);
         }
         
         return $result;
         
     } catch (Exception $e) {
-        error_log("PHPMailer Error: " . $mail->ErrorInfo);
+        Logger::error("PHPMailer Error", ['error' => $mail->ErrorInfo, 'to' => $to, 'subject' => $subject]);
         return false;
     }
 }
@@ -164,9 +167,9 @@ function sendEmailViaMail($to, $subject, $message, $fromEmail, $fromName) {
     $result = mail($to, $subject, $message, implode("\r\n", $headers));
     
     if ($result) {
-        error_log("Email sent successfully via mail() to: {$to}, Subject: {$subject}");
+        Logger::info("Email sent successfully via mail()", ['to' => $to, 'subject' => $subject]);
     } else {
-        error_log("Failed to send email via mail() to: {$to}, Subject: {$subject}");
+        Logger::warning("Failed to send email via mail()", ['to' => $to, 'subject' => $subject]);
     }
     
     return $result;
@@ -188,7 +191,7 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
         // Get invoice data
         $invoice = getInvoiceData($invoiceId);
         if (!$invoice) {
-            error_log("Invoice not found: {$invoiceId}");
+            Logger::error("Invoice not found", ['invoice_id' => $invoiceId]);
             return false;
         }
         
@@ -207,56 +210,266 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
         
         $message = "
         <!DOCTYPE html>
-        <html>
+        <html lang='en'>
         <head>
             <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+            <title>Invoice #{$invoice['invoice_number']}</title>
             <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-                .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #8b6bd1; }
-                .invoice-details p { margin: 8px 0; }
-                .invoice-details strong { color: #8b6bd1; }
-                .button { display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: 600; }
-                .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    line-height: 1.7;
+                    color: #2d3748;
+                    background-color: #f7fafc;
+                    -webkit-font-smoothing: antialiased;
+                    -moz-osx-font-smoothing: grayscale;
+                }
+                .email-wrapper {
+                    max-width: 600px;
+                    margin: 0 auto;
+                    background-color: #ffffff;
+                }
+                .email-header {
+                    background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%);
+                    padding: 40px 30px;
+                    text-align: center;
+                    border-radius: 12px 12px 0 0;
+                }
+                .email-header h1 {
+                    color: #ffffff;
+                    font-size: 28px;
+                    font-weight: 700;
+                    margin: 0;
+                    letter-spacing: -0.5px;
+                }
+                .email-header .icon {
+                    width: 64px;
+                    height: 64px;
+                    background: rgba(255, 255, 255, 0.2);
+                    border-radius: 50%;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin-bottom: 16px;
+                    font-size: 32px;
+                }
+                .email-body {
+                    padding: 40px 30px;
+                    background-color: #ffffff;
+                }
+                .greeting {
+                    font-size: 16px;
+                    color: #2d3748;
+                    margin-bottom: 24px;
+                }
+                .greeting strong {
+                    color: #1a202c;
+                    font-weight: 600;
+                }
+                .intro-text {
+                    font-size: 15px;
+                    color: #4a5568;
+                    margin-bottom: 32px;
+                    line-height: 1.8;
+                }
+                .invoice-card {
+                    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+                    border-radius: 12px;
+                    padding: 28px;
+                    margin: 32px 0;
+                    border: 1px solid #e2e8f0;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+                }
+                .invoice-row {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 14px 0;
+                    border-bottom: 1px solid #e2e8f0;
+                }
+                .invoice-row:last-child {
+                    border-bottom: none;
+                    padding-bottom: 0;
+                }
+                .invoice-row:first-child {
+                    padding-top: 0;
+                }
+                .invoice-label {
+                    font-size: 14px;
+                    color: #718096;
+                    font-weight: 500;
+                }
+                .invoice-value {
+                    font-size: 15px;
+                    color: #2d3748;
+                    font-weight: 600;
+                    text-align: right;
+                }
+                .invoice-value.amount {
+                    color: #8b6bd1;
+                    font-size: 18px;
+                }
+                .invoice-value.status {
+                    color: #48bb78;
+                    background: #c6f6d5;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 13px;
+                    display: inline-block;
+                }
+                .cta-section {
+                    text-align: center;
+                    margin: 36px 0;
+                }
+                .cta-button {
+                    display: inline-block;
+                    padding: 16px 36px;
+                    background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%);
+                    color: #ffffff !important;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 15px;
+                    box-shadow: 0 4px 12px rgba(139, 107, 209, 0.3);
+                    transition: all 0.3s ease;
+                }
+                .cta-button:hover {
+                    box-shadow: 0 6px 16px rgba(139, 107, 209, 0.4);
+                    transform: translateY(-2px);
+                }
+                .info-note {
+                    background: #ebf8ff;
+                    border-left: 4px solid #4299e1;
+                    padding: 16px 20px;
+                    border-radius: 6px;
+                    margin: 24px 0;
+                    font-size: 14px;
+                    color: #2c5282;
+                }
+                .info-note strong {
+                    color: #2b6cb0;
+                }
+                .closing {
+                    margin-top: 32px;
+                    font-size: 15px;
+                    color: #4a5568;
+                }
+                .closing strong {
+                    color: #2d3748;
+                }
+                .email-footer {
+                    background-color: #f7fafc;
+                    padding: 30px;
+                    text-align: center;
+                    border-top: 1px solid #e2e8f0;
+                    border-radius: 0 0 12px 12px;
+                }
+                .footer-text {
+                    font-size: 13px;
+                    color: #718096;
+                    line-height: 1.8;
+                    margin-bottom: 12px;
+                }
+                .footer-text:last-child {
+                    margin-bottom: 0;
+                }
+                .footer-link {
+                    color: #8b6bd1;
+                    text-decoration: none;
+                    font-weight: 500;
+                }
+                .footer-link:hover {
+                    text-decoration: underline;
+                }
+                .divider {
+                    height: 1px;
+                    background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+                    margin: 24px 0;
+                }
+                @media only screen and (max-width: 600px) {
+                    .email-body { padding: 30px 20px; }
+                    .email-header { padding: 30px 20px; }
+                    .email-header h1 { font-size: 24px; }
+                    .invoice-card { padding: 20px; }
+                    .invoice-row { flex-direction: column; align-items: flex-start; }
+                    .invoice-value { text-align: left; margin-top: 4px; }
+                }
             </style>
         </head>
         <body>
-            <div class='container'>
-                <div class='header'>
-                    <h1 style='margin: 0;'>Invoice Generated</h1>
-                </div>
-                <div class='content'>
-                    <p>Dear {$recipientName},</p>
-                    
-                    <p>Thank you for your booking! Your invoice has been generated successfully.</p>
-                    
-                    <div class='invoice-details'>
-                        <p><strong>Invoice Number:</strong> {$invoice['invoice_number']}</p>
-                        <p><strong>Invoice Date:</strong> {$invoiceDate}</p>
-                        <p><strong>Total Amount:</strong> {$totalAmount}</p>
-                        <p><strong>Property:</strong> {$invoice['listing_title']}</p>
-                        <p><strong>Payment Status:</strong> Paid</p>
+            <div style='padding: 20px 0;'>
+                <div class='email-wrapper'>
+                    <!-- Header -->
+                    <div class='email-header'>
+                        <div class='icon'>✓</div>
+                        <h1>Invoice Generated</h1>
                     </div>
                     
-                    <p>You can view and download your invoice by clicking the button below:</p>
-                    
-                    <div style='text-align: center;'>
-                        <a href='{$invoiceUrl}' class='button'>View Invoice</a>
+                    <!-- Body -->
+                    <div class='email-body'>
+                        <div class='greeting'>
+                            Hello <strong>{$recipientName}</strong>,
+                        </div>
+                        
+                        <div class='intro-text'>
+                            Thank you for your booking! We're excited to confirm that your invoice has been generated successfully. 
+                            Your payment has been processed and your booking is confirmed.
+                        </div>
+                        
+                        <!-- Invoice Details Card -->
+                        <div class='invoice-card'>
+                            <div class='invoice-row'>
+                                <span class='invoice-label'>Invoice Number</span>
+                                <span class='invoice-value'>{$invoice['invoice_number']}</span>
+                            </div>
+                            <div class='invoice-row'>
+                                <span class='invoice-label'>Invoice Date</span>
+                                <span class='invoice-value'>{$invoiceDate}</span>
+                            </div>
+                            <div class='invoice-row'>
+                                <span class='invoice-label'>Property</span>
+                                <span class='invoice-value'>{$invoice['listing_title']}</span>
+                            </div>
+                            <div class='invoice-row'>
+                                <span class='invoice-label'>Total Amount</span>
+                                <span class='invoice-value amount'>{$totalAmount}</span>
+                            </div>
+                            <div class='invoice-row'>
+                                <span class='invoice-label'>Payment Status</span>
+                                <span class='invoice-value status'>✓ Paid</span>
+                            </div>
+                        </div>
+                        
+                        " . ($attachPDF ? "<div class='info-note'><strong>📎 Attachment:</strong> A PDF copy of your invoice is attached to this email for your records.</div>" : "") . "
+                        
+                        <!-- CTA Button -->
+                        <div class='cta-section'>
+                            <a href='{$invoiceUrl}' class='cta-button'>View & Download Invoice</a>
+                        </div>
+                        
+                        <div class='divider'></div>
+                        
+                        <div class='closing'>
+                            If you have any questions or need assistance, our support team is here to help.<br><br>
+                            Best regards,<br>
+                            <strong>The {$siteName} Team</strong>
+                        </div>
                     </div>
                     
-                    " . ($attachPDF ? "<p>A PDF copy of your invoice is attached to this email.</p>" : "") . "
-                    
-                    <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
-                    
-                    <p>Best regards,<br>
-                    <strong>{$siteName} Team</strong></p>
-                </div>
-                <div class='footer'>
-                    <p>This is an automated email. Please do not reply to this message.</p>
-                    <p>For support, contact: <a href='mailto:{$supportEmail}' style='color: #8b6bd1;'>{$supportEmail}</a></p>
-                    <p>&copy; " . date('Y') . " {$siteName}. All rights reserved.</p>
+                    <!-- Footer -->
+                    <div class='email-footer'>
+                        <div class='footer-text'>
+                            This is an automated email. Please do not reply to this message.
+                        </div>
+                        <div class='footer-text'>
+                            Need help? Contact us at <a href='mailto:{$supportEmail}' class='footer-link'>{$supportEmail}</a>
+                        </div>
+                        <div class='footer-text' style='margin-top: 16px; color: #a0aec0;'>
+                            &copy; " . date('Y') . " {$siteName}. All rights reserved.
+                        </div>
+                    </div>
                 </div>
             </div>
         </body>
@@ -279,7 +492,7 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
         return $result;
         
     } catch (Exception $e) {
-        error_log("Error sending invoice email: " . $e->getMessage());
+        Logger::error("Error sending invoice email", ['error' => $e->getMessage(), 'invoice_id' => $invoiceId]);
         return false;
     }
 }

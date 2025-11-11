@@ -29,6 +29,9 @@ $projectRoot = dirname(__DIR__);
 $envFile = $projectRoot . DIRECTORY_SEPARATOR . '.env';
 app_load_env($envFile);
 
+// Load logger (after .env is loaded)
+require_once __DIR__ . '/logger.php';
+
 // Configure secure session settings (before any session_start())
 if (session_status() === PHP_SESSION_NONE) {
     // Set secure session parameters

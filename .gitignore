@@ -18,3 +18,5 @@ node_modules/
 # Cache / logs
 *.log
 *.cache
+storage/logs/*.log
+!storage/logs/.gitkeep

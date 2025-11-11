@@ -122,7 +122,12 @@ $baseUrl = app_url('');
           <div class="card pg h-100 text-center team-card">
             <div class="card-body">
               <div>
-                <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/Ayushman.jpg') ?>"
+                <?php
+                $ayushmanImagePath = ($baseUrl === '' || $baseUrl === '/') 
+                    ? '/public/assets/images/Ayushman.jpg' 
+                    : ($baseUrl . '/public/assets/images/Ayushman.jpg');
+                ?>
+                <img src="<?= htmlspecialchars($ayushmanImagePath) ?>"
                      alt="Ayushman Agarwal"
                      class="img-fluid rounded-circle"
                      style="width: 180px; height: 180px; object-fit: cover; border: 4px solid var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -136,7 +141,12 @@ $baseUrl = app_url('');
           <div class="card pg h-100 text-center team-card">
             <div class="card-body">
               <div>
-                <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/Aditya.jpg') ?>"
+                <?php
+                $adityaImagePath = ($baseUrl === '' || $baseUrl === '/') 
+                    ? '/public/assets/images/Aditya.jpg' 
+                    : ($baseUrl . '/public/assets/images/Aditya.jpg');
+                ?>
+                <img src="<?= htmlspecialchars($adityaImagePath) ?>"
                      alt="Aditya Agarwal"
                      class="img-fluid rounded-circle"
                      style="width: 180px; height: 180px; object-fit: cover; border: 4px solid var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.1);">

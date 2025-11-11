@@ -182,7 +182,12 @@ try {
 
   <div class="col-md-5 text-center">
     <div id="mapPlaceholder" style="display: block;">
-      <img src="<?= htmlspecialchars($baseUrl . '/public/assets/images/livonto-image.jpg') ?>" alt="Livonto" class="img-fluid" style="max-height:260px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+      <?php
+      $imagePath = ($baseUrl === '' || $baseUrl === '/') 
+          ? '/public/assets/images/livonto-image.jpg' 
+          : ($baseUrl . '/public/assets/images/livonto-image.jpg');
+      ?>
+      <img src="<?= htmlspecialchars($imagePath) ?>" alt="Livonto" class="img-fluid" style="max-height:260px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
     </div>
   </div>
 </div>

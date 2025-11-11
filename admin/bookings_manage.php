@@ -261,12 +261,12 @@ if (empty($_GET['action']) && empty($_GET['id'])) {
             );
         } else {
             // Column doesn't exist, use default 1 month
-            $db->execute(
-                "UPDATE bookings 
-                 SET status = 'completed', updated_at = NOW()
-                 WHERE status = 'confirmed' 
-                 AND DATE_ADD(booking_start_date, INTERVAL 1 MONTH) <= CURDATE()"
-            );
+        $db->execute(
+            "UPDATE bookings 
+             SET status = 'completed', updated_at = NOW()
+             WHERE status = 'confirmed' 
+             AND DATE_ADD(booking_start_date, INTERVAL 1 MONTH) <= CURDATE()"
+        );
         }
     } catch (Exception $e) {
         // Silently fail - don't interrupt page load

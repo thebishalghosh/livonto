@@ -176,6 +176,88 @@ function sendEmailViaMail($to, $subject, $message, $fromEmail, $fromName) {
 }
 
 /**
+ * Send invoice email using PHPMailer with embedded logo
+ * 
+ * @param string $to Recipient email address
+ * @param string $subject Email subject
+ * @param string $message Email body (HTML)
+ * @param string $logoPath Path to logo file
+ * @param int $invoiceId Invoice ID for logging
+ * @return bool True on success, false on failure
+ */
+function sendInvoiceEmailViaPHPMailer($to, $subject, $message, $logoPath, $invoiceId) {
+    try {
+        if (!$phpmailerLoaded) {
+            Logger::error("PHPMailer not loaded, cannot send invoice email via SMTP");
+            return false;
+        }
+        
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        
+        // SMTP Configuration
+        $mail->isSMTP();
+        $mail->Host = getenv('SMTP_HOST') ?: 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = getenv('SMTP_USERNAME');
+        $mail->Password = getenv('SMTP_PASSWORD');
+        $encryption = getenv('SMTP_ENCRYPTION') ?: 'tls';
+        if ($encryption === 'ssl') {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        }
+        $mail->Port = intval(getenv('SMTP_PORT') ?: 587);
+        $mail->CharSet = 'UTF-8';
+        
+        // Enable verbose debug output (only in debug mode)
+        if (getenv('APP_DEBUG') === 'true') {
+            $mail->SMTPDebug = 2;
+            $mail->Debugoutput = function($str, $level) {
+                Logger::debug("PHPMailer: $str");
+            };
+        }
+        
+        // Get email settings
+        $fromEmail = getenv('SMTP_FROM_EMAIL') ?: 'noreply@livonto.com';
+        $fromName = getenv('SMTP_FROM_NAME') ?: 'Livonto';
+        
+        // Sender
+        $mail->setFrom($fromEmail, $fromName);
+        $mail->addReplyTo($fromEmail, $fromName);
+        
+        // Recipient
+        $mail->addAddress($to);
+        
+        // Embed logo as CID attachment
+        if (file_exists($logoPath)) {
+            $mail->addEmbeddedImage($logoPath, 'logo');
+            Logger::debug("Logo embedded in invoice email", ['logo_path' => $logoPath, 'cid' => 'logo']);
+        } else {
+            Logger::warning("Logo file not found for invoice email", ['logo_path' => $logoPath]);
+        }
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body = $message;
+        $mail->AltBody = strip_tags($message);
+        
+        // Send email
+        $result = $mail->send();
+        
+        if ($result) {
+            Logger::info("Invoice email sent successfully via SMTP", ['to' => $to, 'subject' => $subject, 'invoice_id' => $invoiceId]);
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        Logger::error("PHPMailer Error sending invoice email", ['error' => isset($mail) ? $mail->ErrorInfo : $e->getMessage(), 'to' => $to, 'subject' => $subject, 'invoice_id' => $invoiceId]);
+        return false;
+    }
+}
+
+/**
  * Send invoice email notification
  * 
  * @param int $invoiceId Invoice ID
@@ -199,16 +281,10 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
         $supportEmail = getSetting('support_email', 'support@livonto.com');
         $baseUrl = rtrim(app_url(''), '/');
         
-        // Load logo as base64 for email
+        // Check if logo file exists
         $logoPath = __DIR__ . '/../public/assets/images/logo-removebg.png';
         $logoPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $logoPath);
-        $logoBase64 = '';
-        if (file_exists($logoPath)) {
-            $logoData = file_get_contents($logoPath);
-            $logoMime = mime_content_type($logoPath) ?: 'image/png';
-            $logoBase64 = 'data:' . $logoMime . ';base64,' . base64_encode($logoData);
-        }
-        $logoImg = $logoBase64 ? "<img src='{$logoBase64}' alt='{$siteName} Logo' style='max-width: 200px; height: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;' />" : '';
+        $hasLogo = file_exists($logoPath);
         
         // Build email subject
         $subject = "Invoice #{$invoice['invoice_number']} - {$siteName}";
@@ -217,6 +293,22 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
         $invoiceUrl = app_url('invoice?id=' . $invoiceId);
         $invoiceDate = date('F d, Y', strtotime($invoice['invoice_date']));
         $totalAmount = '₹' . number_format($invoice['total_amount'], 2);
+        
+        // Use CID for logo if PHPMailer is available, otherwise try hosted URL or base64
+        $logoImg = '';
+        if ($hasLogo) {
+            if ($phpmailerLoaded) {
+                // Use CID reference (will be embedded by PHPMailer)
+                $logoImg = "<img src='cid:logo' alt='{$siteName} Logo' style='max-width: 200px; height: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;' />";
+            } else {
+                // Fallback: try hosted URL
+                $logoUrl = rtrim($baseUrl, '/') . '/public/assets/images/logo-removebg.png';
+                if (substr($logoUrl, 0, 1) !== '/') {
+                    $logoUrl = '/' . ltrim($logoUrl, '/');
+                }
+                $logoImg = "<img src='{$logoUrl}' alt='{$siteName} Logo' style='max-width: 200px; height: auto; display: inline-block; filter: brightness(0) invert(1); opacity: 0.95;' />";
+            }
+        }
         
         $message = "
         <!DOCTYPE html>
@@ -538,10 +630,15 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
         </html>
         ";
         
-        // Send email
-        $result = sendEmail($recipientEmail, $subject, $message, null, null, []);
-        
-        return $result;
+        // Send email with embedded logo if using PHPMailer
+        if ($phpmailerLoaded && $hasLogo) {
+            // Use PHPMailer directly to embed logo as CID
+            return sendInvoiceEmailViaPHPMailer($recipientEmail, $subject, $message, $logoPath, $invoiceId);
+        } else {
+            // Use regular sendEmail function
+            $result = sendEmail($recipientEmail, $subject, $message, null, null, []);
+            return $result;
+        }
         
     } catch (Exception $e) {
         Logger::error("Error sending invoice email", ['error' => $e->getMessage(), 'invoice_id' => $invoiceId]);

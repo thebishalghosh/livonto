@@ -181,10 +181,9 @@ function sendEmailViaMail($to, $subject, $message, $fromEmail, $fromName) {
  * @param int $invoiceId Invoice ID
  * @param string $recipientEmail Recipient email address
  * @param string $recipientName Recipient name
- * @param bool $attachPDF Whether to attach PDF invoice
  * @return bool True on success, false on failure
  */
-function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPDF = true) {
+function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
     try {
         require_once __DIR__ . '/invoice_generator.php';
         
@@ -332,19 +331,26 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                     padding-bottom: 12px;
                     border-bottom: 1px solid #e9ecef;
                 }
-                .invoice-row {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 16px 0;
+                .invoice-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                .invoice-table tr {
                     border-bottom: 1px solid #f1f3f5;
                 }
-                .invoice-row:last-child {
+                .invoice-table tr:last-child {
                     border-bottom: none;
-                    padding-bottom: 0;
                 }
-                .invoice-row:first-child {
-                    padding-top: 0;
+                .invoice-table td {
+                    padding: 16px 0;
+                    vertical-align: middle;
+                }
+                .invoice-table td:first-child {
+                    padding-right: 20px;
+                }
+                .invoice-table td:last-child {
+                    text-align: right;
+                    padding-left: 20px;
                 }
                 .invoice-label {
                     font-size: 15px;
@@ -355,7 +361,6 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                     font-size: 16px;
                     color: #2d3748;
                     font-weight: 600;
-                    text-align: right;
                 }
                 .invoice-value.amount {
                     color: #8b6bd1;
@@ -385,27 +390,6 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                 .info-note strong {
                     color: #2b6cb0;
                     font-weight: 600;
-                }
-                .cta-section {
-                    text-align: center;
-                    margin: 40px 0;
-                }
-                .cta-button {
-                    display: inline-block;
-                    padding: 18px 48px;
-                    background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%);
-                    color: #ffffff !important;
-                    text-decoration: none;
-                    border-radius: 12px;
-                    font-weight: 600;
-                    font-size: 16px;
-                    box-shadow: 0 8px 24px rgba(139, 107, 209, 0.35);
-                    transition: all 0.3s ease;
-                    letter-spacing: 0.3px;
-                }
-                .cta-button:hover {
-                    box-shadow: 0 12px 32px rgba(139, 107, 209, 0.45);
-                    transform: translateY(-3px);
                 }
                 .divider {
                     height: 1px;
@@ -459,9 +443,19 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                     .email-header { padding: 40px 24px; }
                     .email-header h1 { font-size: 26px; }
                     .invoice-card { padding: 24px; }
-                    .invoice-row { flex-direction: column; align-items: flex-start; gap: 8px; }
-                    .invoice-value { text-align: left; }
-                    .cta-button { padding: 16px 36px; font-size: 15px; }
+                    .invoice-table td {
+                        display: block;
+                        padding: 12px 0;
+                        text-align: left !important;
+                    }
+                    .invoice-table td:first-child {
+                        padding-right: 0;
+                        padding-bottom: 4px;
+                    }
+                    .invoice-table td:last-child {
+                        padding-left: 0;
+                        padding-top: 0;
+                    }
                     .email-footer { padding: 30px 24px; }
                 }
             </style>
@@ -490,33 +484,33 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
                     <div class='invoice-card'>
                         <div class='invoice-title'>Invoice Details</div>
                         
-                        <div class='invoice-row'>
-                            <span class='invoice-label'>Invoice Number</span>
-                            <span class='invoice-value'>{$invoice['invoice_number']}</span>
-                        </div>
-                        
-                        <div class='invoice-row'>
-                            <span class='invoice-label'>Invoice Date</span>
-                            <span class='invoice-value'>{$invoiceDate}</span>
-                        </div>
-                        
-                        <div class='invoice-row'>
-                            <span class='invoice-label'>Property</span>
-                            <span class='invoice-value'>{$invoice['listing_title']}</span>
-                        </div>
-                        
-                        <div class='invoice-row'>
-                            <span class='invoice-label'>Total Amount</span>
-                            <span class='invoice-value amount'>{$totalAmount}</span>
-                        </div>
-                        
-                        <div class='invoice-row'>
-                            <span class='invoice-label'>Payment Status</span>
-                            <span class='invoice-value status'>✓ Paid</span>
-                        </div>
+                        <table class='invoice-table'>
+                            <tr>
+                                <td class='invoice-label'>Invoice Number</td>
+                                <td class='invoice-value'>{$invoice['invoice_number']}</td>
+                            </tr>
+                            <tr>
+                                <td class='invoice-label'>Invoice Date</td>
+                                <td class='invoice-value'>{$invoiceDate}</td>
+                            </tr>
+                            <tr>
+                                <td class='invoice-label'>Property</td>
+                                <td class='invoice-value'>{$invoice['listing_title']}</td>
+                            </tr>
+                            <tr>
+                                <td class='invoice-label'>Total Amount</td>
+                                <td class='invoice-value amount'>{$totalAmount}</td>
+                            </tr>
+                            <tr>
+                                <td class='invoice-label'>Payment Status</td>
+                                <td class='invoice-value status'>✓ Paid</td>
+                            </tr>
+                        </table>
                     </div>
                     
-                    " . ($attachPDF ? "<div class='info-note'><strong>📎 Attachment:</strong> A PDF copy of your invoice is attached to this email for your records.</div>" : "") . "
+                    <div class='info-note'>
+                        <strong>📄 Download Invoice:</strong> You can view and download your invoice PDF from your profile page.
+                    </div>
                     
                     <div class='divider'></div>
                     
@@ -544,18 +538,8 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName, $attachPD
         </html>
         ";
         
-        // Prepare attachments
-        $attachments = [];
-        if ($attachPDF && $phpmailerLoaded) {
-            require_once __DIR__ . '/invoice_pdf_generator.php';
-            $pdfPath = getInvoicePDFPath($invoiceId);
-            if ($pdfPath && file_exists(__DIR__ . '/../' . $pdfPath)) {
-                $attachments[] = __DIR__ . '/../' . $pdfPath;
-            }
-        }
-        
         // Send email
-        $result = sendEmail($recipientEmail, $subject, $message, null, null, $attachments);
+        $result = sendEmail($recipientEmail, $subject, $message, null, null, []);
         
         return $result;
         

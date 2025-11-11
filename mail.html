@@ -164,21 +164,31 @@
             border-bottom: 1px solid #e9ecef;
         }
         
-        .invoice-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 0;
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .invoice-table tr {
             border-bottom: 1px solid #f1f3f5;
         }
         
-        .invoice-row:last-child {
+        .invoice-table tr:last-child {
             border-bottom: none;
-            padding-bottom: 0;
         }
         
-        .invoice-row:first-child {
-            padding-top: 0;
+        .invoice-table td {
+            padding: 16px 0;
+            vertical-align: middle;
+        }
+        
+        .invoice-table td:first-child {
+            padding-right: 20px;
+        }
+        
+        .invoice-table td:last-child {
+            text-align: right;
+            padding-left: 20px;
         }
         
         .invoice-label {
@@ -191,7 +201,6 @@
             font-size: 16px;
             color: #2d3748;
             font-weight: 600;
-            text-align: right;
         }
         
         .invoice-value.amount {
@@ -342,19 +351,20 @@
                 padding: 24px;
             }
             
-            .invoice-row {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
+            .invoice-table td {
+                display: block;
+                padding: 12px 0;
+                text-align: left !important;
             }
             
-            .invoice-value {
-                text-align: left;
+            .invoice-table td:first-child {
+                padding-right: 0;
+                padding-bottom: 4px;
             }
             
-            .cta-button {
-                padding: 16px 36px;
-                font-size: 15px;
+            .invoice-table td:last-child {
+                padding-left: 0;
+                padding-top: 0;
             }
             
             .email-footer {
@@ -389,35 +399,33 @@
             <div class="invoice-card">
                 <div class="invoice-title">Invoice Details</div>
                 
-                <div class="invoice-row">
-                    <span class="invoice-label">Invoice Number</span>
-                    <span class="invoice-value">INV-20250111-0001</span>
-                </div>
-                
-                <div class="invoice-row">
-                    <span class="invoice-label">Invoice Date</span>
-                    <span class="invoice-value">January 11, 2025</span>
-                </div>
-                
-                <div class="invoice-row">
-                    <span class="invoice-label">Property</span>
-                    <span class="invoice-value">Premium PG Near IIT</span>
-                </div>
-                
-                <div class="invoice-row">
-                    <span class="invoice-label">Total Amount</span>
-                    <span class="invoice-value amount">₹10,000.00</span>
-                </div>
-                
-                <div class="invoice-row">
-                    <span class="invoice-label">Payment Status</span>
-                    <span class="invoice-value status">✓ Paid</span>
-                </div>
+                <table class="invoice-table">
+                    <tr>
+                        <td class="invoice-label">Invoice Number</td>
+                        <td class="invoice-value">INV-20250111-0001</td>
+                    </tr>
+                    <tr>
+                        <td class="invoice-label">Invoice Date</td>
+                        <td class="invoice-value">January 11, 2025</td>
+                    </tr>
+                    <tr>
+                        <td class="invoice-label">Property</td>
+                        <td class="invoice-value">Premium PG Near IIT</td>
+                    </tr>
+                    <tr>
+                        <td class="invoice-label">Total Amount</td>
+                        <td class="invoice-value amount">₹10,000.00</td>
+                    </tr>
+                    <tr>
+                        <td class="invoice-label">Payment Status</td>
+                        <td class="invoice-value status">✓ Paid</td>
+                    </tr>
+                </table>
             </div>
             
-            <!-- PDF Attachment Note -->
+            <!-- Download Invoice Note -->
             <div class="info-note">
-                <strong>📎 Attachment:</strong> A PDF copy of your invoice is attached to this email for your records.
+                <strong>📄 Download Invoice:</strong> You can view and download your invoice PDF from your profile page.
             </div>
             
             <div class="divider"></div>

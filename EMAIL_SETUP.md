@@ -88,8 +88,8 @@ SMTP_ENCRYPTION=ssl
 
 1. **Invoice Emails**
    - Sent automatically when invoice is created
-   - Includes invoice details and link to view invoice
-   - Can optionally attach PDF invoice
+   - Includes invoice details
+   - Users can download invoice PDF from their profile page
 
 2. **General Emails**
    - Support for HTML emails
@@ -177,11 +177,13 @@ SMTP_ENCRYPTION=ssl
 
 ## Advanced Features
 
-### PDF Attachment
-To attach PDF invoice to email:
+### Invoice Email
+To send invoice email notification:
 ```php
-sendInvoiceEmail($invoiceId, $email, $name, $attachPDF = true);
+sendInvoiceEmail($invoiceId, $email, $name);
 ```
+
+**Note:** Invoice PDFs are not attached to emails. Users can download their invoice PDF from their profile page.
 
 ### Custom Email Templates
 You can create custom email templates by modifying the HTML in `sendInvoiceEmail()` function or creating new functions in `email_helper.php`.

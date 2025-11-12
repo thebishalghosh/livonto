@@ -112,18 +112,45 @@ try {
          GROUP BY status"
     );
     
-    // User Growth (last 6 months)
-    // Note: Host count is now based on owner_name, not linked to users, so we show 0 for host_count in growth chart
-    $userGrowthData = $db->fetchAll(
-        "SELECT DATE_FORMAT(u.created_at, '%Y-%m') as month,
-                COUNT(*) as user_count,
-                0 as host_count
-         FROM users u
-         WHERE u.role != 'admin'
-         AND u.created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
-         GROUP BY DATE_FORMAT(u.created_at, '%Y-%m')
+    // Visit vs Booking Comparison (last 6 months)
+    $visitVsBookingData = $db->fetchAll(
+        "SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as month,
+            'visit' as type,
+            COUNT(*) as count
+         FROM visit_bookings
+         WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+         GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+         UNION ALL
+         SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as month,
+            'booking' as type,
+            COUNT(*) as count
+         FROM bookings
+         WHERE created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 6 MONTH)
+         GROUP BY DATE_FORMAT(created_at, '%Y-%m')
          ORDER BY month ASC"
     );
+    
+    // Process the data to combine visits and bookings by month
+    $visitVsBookingChart = [];
+    foreach ($visitVsBookingData as $row) {
+        $month = $row['month'];
+        if (!isset($visitVsBookingChart[$month])) {
+            $visitVsBookingChart[$month] = [
+                'month' => $month,
+                'visits' => 0,
+                'bookings' => 0
+            ];
+        }
+        if ($row['type'] === 'visit') {
+            $visitVsBookingChart[$month]['visits'] = (int)$row['count'];
+        } else {
+            $visitVsBookingChart[$month]['bookings'] = (int)$row['count'];
+        }
+    }
+    // Convert to indexed array
+    $visitVsBookingChart = array_values($visitVsBookingChart);
     
     // Listings by City
     $listingsByCity = $db->fetchAll(
@@ -137,7 +164,6 @@ try {
     );
     
 } catch (Exception $e) {
-    error_log("Error loading dashboard data: " . $e->getMessage());
     // Fallback to empty data
     $stats = [
         'total_users' => 0,
@@ -158,7 +184,7 @@ try {
     $recentBookings = [];
     $revenueData = [];
     $bookingsByStatus = [];
-    $userGrowthData = [];
+    $visitVsBookingChart = [];
     $listingsByCity = [];
 }
 ?>
@@ -384,16 +410,42 @@ try {
 
 <!-- Additional Charts Row -->
 <div class="row g-4 mb-4">
-    <!-- User Growth -->
+    <!-- Visit vs Booking Comparison -->
     <div class="col-xl-6">
         <div class="admin-card">
             <div class="admin-card-header">
                 <h5 class="admin-card-title">
-                    <i class="bi bi-people me-2"></i>User Growth
+                    <i class="bi bi-bar-chart me-2"></i>Visit vs Booking Conversion
                 </h5>
             </div>
             <div class="admin-card-body">
-                <div id="userGrowthChart" style="height: 280px;"></div>
+                <div id="visitVsBookingChart" style="height: 280px;"></div>
+                <div class="mt-3 text-center">
+                    <?php
+                    // Calculate overall conversion ratio
+                    $totalVisits = 0;
+                    $totalBookings = 0;
+                    if (!empty($visitVsBookingChart)) {
+                        $totalVisits = array_sum(array_column($visitVsBookingChart, 'visits'));
+                        $totalBookings = array_sum(array_column($visitVsBookingChart, 'bookings'));
+                    }
+                    $conversionRate = $totalVisits > 0 ? round(($totalBookings / $totalVisits) * 100, 1) : 0;
+                    ?>
+                    <div class="d-flex justify-content-center gap-4 flex-wrap">
+                        <div>
+                            <div class="text-muted small">Total Visits</div>
+                            <div class="h5 mb-0"><?= number_format($totalVisits) ?></div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Total Bookings</div>
+                            <div class="h5 mb-0"><?= number_format($totalBookings) ?></div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Conversion Rate</div>
+                            <div class="h5 mb-0 text-primary"><?= $conversionRate ?>%</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -521,7 +573,7 @@ try {
     function drawCharts() {
         drawRevenueChart();
         drawBookingsPieChart();
-        drawUserGrowthChart();
+        drawVisitVsBookingChart();
         drawListingsCityChart();
     }
 
@@ -641,19 +693,23 @@ try {
         chart.draw(data, options);
     }
 
-    // User Growth (Area Chart)
-    function drawUserGrowthChart() {
-        var growthData = <?= json_encode($userGrowthData) ?>;
-        var chartData = [['Month', 'Users']];
+    // Visit vs Booking Comparison (Column Chart)
+    function drawVisitVsBookingChart() {
+        var comparisonData = <?= json_encode($visitVsBookingChart) ?>;
+        var chartData = [['Month', 'Visits', 'Bookings']];
         
-        if (growthData.length > 0) {
-            growthData.forEach(function(item) {
+        if (comparisonData.length > 0) {
+            comparisonData.forEach(function(item) {
                 var date = new Date(item.month + '-01');
-                chartData.push([date.toLocaleDateString('en-US', { month: 'short' }), parseInt(item.user_count)]);
+                chartData.push([
+                    date.toLocaleDateString('en-US', { month: 'short' }), 
+                    parseInt(item.visits || 0), 
+                    parseInt(item.bookings || 0)
+                ]);
             });
         } else {
             // Show placeholder if no data
-            chartData.push(['No Data', 0]);
+            chartData.push(['No Data', 0, 0]);
         }
         
         var data = google.visualization.arrayToDataTable(chartData);
@@ -670,7 +726,7 @@ try {
                 textStyle: { color: '#757095' },
                 titleTextStyle: { color: '#757095' }
             },
-            colors: ['#8B6BD1'],
+            colors: ['#4facfe', '#8B6BD1'],
             backgroundColor: 'transparent',
             chartArea: {
                 left: 60,
@@ -692,7 +748,7 @@ try {
             isStacked: false
         };
 
-        var chart = new google.visualization.AreaChart(document.getElementById('userGrowthChart'));
+        var chart = new google.visualization.ColumnChart(document.getElementById('visitVsBookingChart'));
         chart.draw(data, options);
     }
 

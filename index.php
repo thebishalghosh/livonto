@@ -45,6 +45,7 @@ $routes = [
     'contact' => 'public/contact.php',
     'profile' => 'public/profile.php',
     'login' => 'public/login.php',
+    'login-action' => 'app/login_action.php',
     'logout' => 'public/logout.php',
     'register' => 'public/register.php',
     'forgot-password' => 'public/forgot-password.php',

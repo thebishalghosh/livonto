@@ -358,9 +358,38 @@ try {
         $_SESSION['user_profile_image'] = null;
     }
     
+    // Get redirect URL from request (if provided)
+    $redirect = null;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $redirect = $input['redirect'] ?? null;
+    } else {
+        $redirect = $_GET['redirect'] ?? null;
+    }
+    
+    // Determine redirect URL
+    if ($redirect) {
+        // Validate redirect URL to prevent open redirects
+        $redirectUrl = filter_var($redirect, FILTER_SANITIZE_URL);
+        // Only allow relative URLs or same domain
+        if (strpos($redirectUrl, 'http://') === 0 || strpos($redirectUrl, 'https://') === 0) {
+            // Check if it's the same domain
+            $parsedRedirect = parse_url($redirectUrl);
+            $parsedCurrent = parse_url(app_url(''));
+            if ($parsedRedirect['host'] !== $parsedCurrent['host']) {
+                $redirectUrl = app_url('profile');
+            }
+        } else {
+            // Relative URL - make it absolute
+            $redirectUrl = app_url(ltrim($redirect, '/'));
+        }
+    } else {
+        $redirectUrl = app_url('profile');
+    }
+    
     // Return success response
     jsonSuccess('Login successful!', [
-        'redirect' => app_url('profile'),
+        'redirect' => $redirectUrl,
         'user' => [
             'id' => $user['id'],
             'name' => $user['name'],

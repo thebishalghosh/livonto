@@ -41,13 +41,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Generate reset token
                 $resetToken = bin2hex(random_bytes(32));
-                $resetExpires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                // Use UTC timezone for expiration to avoid timezone issues
+                $resetExpires = gmdate('Y-m-d H:i:s', strtotime('+1 hour'));
                 
                 // Save token to database
                 $db->execute(
                     "UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?",
                     [$resetToken, $resetExpires, $user['id']]
                 );
+                
+                // Log token generation for debugging (remove in production)
+                error_log("Password reset token generated for user {$user['id']} ({$user['email']}): expires at {$resetExpires}");
                 
                 // Generate full absolute URL for email
                 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';

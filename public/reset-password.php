@@ -12,7 +12,8 @@ $pageTitle = "Reset Password";
 $baseUrl = app_url('');
 $error = '';
 $success = '';
-$token = trim($_GET['token'] ?? '');
+// Get token from GET or POST (POST is used when form is submitted)
+$token = trim($_GET['token'] ?? $_POST['token'] ?? '');
 
 // Check if token is provided
 if (empty($token)) {
@@ -21,44 +22,87 @@ if (empty($token)) {
     try {
         $db = db();
         
-        // Find user with valid token
-        $user = $db->fetchOne(
+        // First, check if token exists (without expiration check) for debugging
+        $tokenCheck = $db->fetchOne(
             "SELECT id, email, password_reset_token, password_reset_expires 
              FROM users 
              WHERE password_reset_token = ? 
-             AND password_reset_expires > NOW() 
              LIMIT 1",
             [$token]
         );
         
+        // Find user with valid token (with expiration check)
+        // Use UTC_TIMESTAMP() to match the UTC timezone used when storing
+        $user = $db->fetchOne(
+            "SELECT id, email, password_reset_token, password_reset_expires 
+             FROM users 
+             WHERE password_reset_token = ? 
+             AND password_reset_expires > UTC_TIMESTAMP() 
+             LIMIT 1",
+            [$token]
+        );
+        
+        // Log token validation attempt for debugging (remove in production)
+        if ($tokenCheck) {
+            error_log("Token validation: Token exists for user {$tokenCheck['id']}, expires at {$tokenCheck['password_reset_expires']}, current UTC: " . gmdate('Y-m-d H:i:s'));
+        } else {
+            error_log("Token validation: Token not found in database: " . substr($token, 0, 20) . "...");
+        }
+        
         if (!$user) {
-            $error = 'Invalid or expired reset token. Please request a new password reset link.';
+            if ($tokenCheck) {
+                // Token exists but expired
+                $error = 'This reset link has expired. Please request a new password reset link.';
+            } else {
+                // Token doesn't exist
+                $error = 'Invalid reset token. Please request a new password reset link.';
+            }
         } else {
             // Handle password reset form submission
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $newPassword = $_POST['password'] ?? '';
-                $confirmPassword = $_POST['confirm_password'] ?? '';
-                
-                if (empty($newPassword)) {
-                    $error = 'Please enter a new password';
-                } elseif (strlen($newPassword) < 8) {
-                    $error = 'Password must be at least 8 characters long';
-                } elseif ($newPassword !== $confirmPassword) {
-                    $error = 'Passwords do not match';
+                // Re-validate token on POST to prevent token reuse
+                $postToken = trim($_POST['token'] ?? '');
+                if (empty($postToken) || $postToken !== $token) {
+                    $error = 'Invalid token. Please request a new password reset link.';
                 } else {
-                    // Update password and clear reset token
-                    $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
-                    $db->execute(
-                        "UPDATE users 
-                         SET password_hash = ?, 
-                             password_reset_token = NULL, 
-                             password_reset_expires = NULL 
-                         WHERE id = ?",
-                        [$passwordHash, $user['id']]
+                    // Re-verify token is still valid (use UTC_TIMESTAMP to match storage)
+                    $userCheck = $db->fetchOne(
+                        "SELECT id FROM users 
+                         WHERE password_reset_token = ? 
+                         AND password_reset_expires > UTC_TIMESTAMP() 
+                         LIMIT 1",
+                        [$postToken]
                     );
                     
-                    $success = 'Password reset successfully! You can now login with your new password.';
-                    $token = ''; // Clear token to prevent reuse
+                    if (!$userCheck || $userCheck['id'] != $user['id']) {
+                        $error = 'This reset link has expired. Please request a new password reset link.';
+                    } else {
+                        $newPassword = $_POST['password'] ?? '';
+                        $confirmPassword = $_POST['confirm_password'] ?? '';
+                        
+                        if (empty($newPassword)) {
+                            $error = 'Please enter a new password';
+                        } elseif (strlen($newPassword) < 8) {
+                            $error = 'Password must be at least 8 characters long';
+                        } elseif ($newPassword !== $confirmPassword) {
+                            $error = 'Passwords do not match';
+                        } else {
+                            // Update password and clear reset token
+                            $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+                            $db->execute(
+                                "UPDATE users 
+                                 SET password_hash = ?, 
+                                     password_reset_token = NULL, 
+                                     password_reset_expires = NULL 
+                                 WHERE id = ? AND password_reset_token = ?",
+                                [$passwordHash, $user['id'], $postToken]
+                            );
+                            
+                            $success = 'Password reset successfully! You can now login with your new password.';
+                            $token = ''; // Clear token to prevent reuse
+                            $user = null; // Clear user to prevent form display
+                        }
+                    }
                 }
             }
         }
@@ -99,7 +143,8 @@ require __DIR__ . '/../app/includes/header.php';
                             </a>
                         </div>
                     <?php elseif (!empty($token) && !$error): ?>
-                        <form method="POST" action="">
+                        <form method="POST" action="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>">
+                            <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
                             <div class="mb-3">
                                 <label for="password" class="form-label">New Password</label>
                                 <input type="password" 

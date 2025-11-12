@@ -22,7 +22,7 @@ if (empty($token)) {
     try {
         $db = db();
         
-        // First, check if token exists (without expiration check) for debugging
+        // Check if token exists (without expiration check) to provide better error messages
         $tokenCheck = $db->fetchOne(
             "SELECT id, email, password_reset_token, password_reset_expires 
              FROM users 
@@ -41,13 +41,6 @@ if (empty($token)) {
              LIMIT 1",
             [$token]
         );
-        
-        // Log token validation attempt for debugging (remove in production)
-        if ($tokenCheck) {
-            error_log("Token validation: Token exists for user {$tokenCheck['id']}, expires at {$tokenCheck['password_reset_expires']}, current UTC: " . gmdate('Y-m-d H:i:s'));
-        } else {
-            error_log("Token validation: Token not found in database: " . substr($token, 0, 20) . "...");
-        }
         
         if (!$user) {
             if ($tokenCheck) {
@@ -173,7 +166,7 @@ require __DIR__ . '/../app/includes/header.php';
                         </form>
                         
                         <div class="text-center mt-4">
-                            <a href="<?= htmlspecialchars(app_url('login')) ?>" class="text-decoration-none">
+                            <a href="<?= htmlspecialchars(app_url('index')) ?>" class="text-decoration-none">
                                 <i class="bi bi-arrow-left me-1"></i>Back to Login
                             </a>
                         </div>

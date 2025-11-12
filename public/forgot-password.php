@@ -50,9 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     [$resetToken, $resetExpires, $user['id']]
                 );
                 
-                // Log token generation for debugging (remove in production)
-                error_log("Password reset token generated for user {$user['id']} ({$user['email']}): expires at {$resetExpires}");
-                
                 // Generate full absolute URL for email
                 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
                 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';

@@ -103,12 +103,6 @@ try {
     
     $listings = $db->fetchAll($sql, $params);
     
-    // Log for debugging
-    error_log("Map API: Found " . count($listings) . " listings from query");
-    if (count($listings) > 0) {
-        error_log("Map API: First listing sample: " . json_encode($listings[0]));
-    }
-    
     // Format listings for map
     $mapListings = [];
     foreach ($listings as $listing) {
@@ -128,9 +122,6 @@ try {
         } elseif (isset($listing['lng']) && $listing['lng'] !== null) {
             $lngVal = floatval($listing['lng']);
         }
-        
-        // Log coordinate values for debugging
-        error_log("Map API: Listing ID {$listing['id']} - lat={$latVal}, lng={$lngVal} (raw: latitude=" . ($listing['latitude'] ?? 'null') . ", longitude=" . ($listing['longitude'] ?? 'null') . ")");
         
         // Validate coordinates are within valid ranges
         // Use abs() to check for non-zero values (handles negative coordinates)
@@ -153,13 +144,8 @@ try {
                 'url' => app_url('listings/' . $listing['id']),
                 'distance' => isset($listing['distance']) ? round($listing['distance'], 2) : null
             ];
-            error_log("Map API: Added listing ID {$listing['id']} to mapListings with coordinates [{$latVal}, {$lngVal}]");
-        } else {
-            error_log("Map API: Skipping listing ID {$listing['id']} - invalid coordinates: lat={$latVal}, lng={$lngVal}");
         }
     }
-    
-    error_log("Map API: Returning " . count($mapListings) . " valid listings with coordinates");
     
     // Calculate center point
     $centerLat = null;
@@ -196,7 +182,6 @@ try {
     ]);
     
 } catch (Exception $e) {
-    error_log("Error in listings_map_api.php: " . $e->getMessage());
     jsonError('Error loading listings', [], 500);
 }
 

@@ -247,7 +247,7 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
               <input type="checkbox" id="remember" name="remember"> <label for="remember" class="small">Remember me</label>
             </div>
             <div>
-              <a href="<?= htmlspecialchars(app_url('password-reset')) ?>" class="small">Forgot password?</a>
+              <a href="<?= htmlspecialchars(app_url('forgot-password')) ?>" class="small">Forgot password?</a>
             </div>
           </div>
         </div>

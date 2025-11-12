@@ -47,7 +47,9 @@ $routes = [
     'login' => 'public/login.php',
     'logout' => 'public/logout.php',
     'register' => 'public/register.php',
-    'password-reset' => 'public/password_reset.php',
+    'forgot-password' => 'public/forgot-password.php',
+    'reset-password' => 'public/reset-password.php',
+    'password-reset' => 'public/password_reset.php', // Keep for backward compatibility
     'refer' => 'public/refer.php',
     'visit-book' => 'public/visit_book.php',
     'visit-book-api' => 'app/visit_book_api.php',
@@ -59,6 +61,7 @@ $routes = [
     'google-auth-callback' => 'app/google_auth_callback.php',
     'invoice' => 'public/invoice.php',
     'invoice-api' => 'app/invoice_api.php',
+    'change-password-api' => 'app/change_password_api.php',
 ];
 
 // Owner routes

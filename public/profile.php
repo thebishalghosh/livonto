@@ -28,7 +28,7 @@ try {
     // Get user data
     $user = $db->fetchOne(
         "SELECT id, name, email, phone, gender, profile_image, address, city, state, pincode, 
-                referral_code, created_at, updated_at, google_id
+                referral_code, created_at, updated_at, google_id, password_hash
          FROM users 
          WHERE id = ?",
         [$userId]
@@ -501,6 +501,62 @@ require __DIR__ . '/../app/includes/header.php';
                     </div>
                 </div>
             </div>
+
+            <?php 
+            // Only show password change section if user has a password (not Google-only account)
+            $hasPassword = !empty($user['password_hash']);
+            if ($hasPassword): 
+            ?>
+            <!-- Change Password -->
+            <div class="card pg mb-4">
+                <div class="card-header profile-section-header">
+                    <h5 class="mb-0 profile-section-title">
+                        <i class="bi bi-key me-2"></i>Change Password
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="changePasswordForm">
+                        <div id="passwordAlert"></div>
+                        
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" name="current_password" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" name="new_password" required minlength="8">
+                            <small class="text-muted">Must be at least 8 characters long</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmNewPassword" name="confirm_new_password" required minlength="8">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="changePasswordBtn">
+                            <span id="changePasswordSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                            <i class="bi bi-key me-2"></i>Change Password
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <?php else: ?>
+            <!-- Google Login Notice -->
+            <div class="card pg mb-4">
+                <div class="card-header profile-section-header">
+                    <h5 class="mb-0 profile-section-title">
+                        <i class="bi bi-google me-2"></i>Account Security
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Google Account:</strong> Your account is linked to Google. To change your password, please update it in your Google account settings.
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- Recent Bookings -->
             <div class="card pg mb-4">
@@ -975,6 +1031,81 @@ function removeProfileImage() {
                 submitBtn.disabled = false;
                 spinner.classList.add('d-none');
             }
+        });
+    }
+})();
+
+// Change Password Form
+(function() {
+    const form = document.getElementById('changePasswordForm');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('changePasswordBtn');
+            const spinner = document.getElementById('changePasswordSpinner');
+            const alertDiv = document.getElementById('passwordAlert');
+            
+            // Clear previous alerts
+            alertDiv.innerHTML = '';
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('<?= htmlspecialchars(app_url('change-password-api')) ?>', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'ok' || data.status === 'success') {
+                    alertDiv.innerHTML = '<div class="alert alert-success alert-dismissible fade show" role="alert">' +
+                        data.message +
+                        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+                    form.reset();
+                } else {
+                    let errorHtml = '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
+                        '<strong>Error:</strong> ' + (data.message || 'An error occurred') +
+                        '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+                    
+                    if (data.errors) {
+                        errorHtml += '<ul class="mb-0 mt-2">';
+                        for (const [field, message] of Object.entries(data.errors)) {
+                            errorHtml += '<li>' + message + '</li>';
+                            const input = form.querySelector('[name="' + field + '"]');
+                            if (input) {
+                                input.classList.add('is-invalid');
+                            }
+                        }
+                        errorHtml += '</ul>';
+                    }
+                    
+                    alertDiv.innerHTML = errorHtml;
+                }
+            } catch (error) {
+                alertDiv.innerHTML = '<div class="alert alert-danger alert-dismissible fade show" role="alert">' +
+                    'An error occurred. Please try again later.' +
+                    '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            } finally {
+                submitBtn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        });
+        
+        // Clear validation on input
+        form.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('is-invalid');
+            });
         });
     }
 })();

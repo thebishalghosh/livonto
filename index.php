@@ -176,6 +176,10 @@ if (file_exists($publicFile)) {
 
 // 404 - Page not found
 http_response_code(404);
+// Prevent any output buffering issues
+if (ob_get_level()) {
+    ob_end_clean();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -184,15 +188,35 @@ http_response_code(404);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>404 - Page Not Found</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-container {
+            background: white;
+            border-radius: 15px;
+            padding: 3rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
-        <div class="text-center">
-            <h1 class="display-1">404</h1>
-            <p class="lead">Page not found</p>
-            <a href="<?= htmlspecialchars($baseUrl) ?>" class="btn btn-primary">Go Home</a>
-        </div>
+    <div class="error-container">
+        <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 4rem;"></i>
+        <h1 class="display-1 fw-bold mt-3">404</h1>
+        <p class="lead text-muted mb-4">Page not found</p>
+        <p class="text-muted mb-4">The page you're looking for doesn't exist or has been moved.</p>
+        <a href="<?= htmlspecialchars($baseUrl ?: '/') ?>" class="btn btn-primary btn-lg">
+            <i class="bi bi-house-door me-2"></i>Go Home
+        </a>
     </div>
 </body>
 </html>
+<?php exit; ?>
 

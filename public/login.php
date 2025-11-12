@@ -28,8 +28,23 @@ if (isLoggedIn()) {
                 $redirectUrl = app_url('profile');
             }
         } else {
-            // Relative URL - make it absolute
-            $redirectUrl = app_url(ltrim($redirect, '/'));
+            // Relative URL - decode and validate
+            $redirectUrl = urldecode($redirect);
+            // Remove leading slash and validate it's a valid route
+            $cleanPath = ltrim($redirectUrl, '/');
+            $pathParts = explode('?', $cleanPath);
+            $routePath = $pathParts[0];
+            
+            // Validate route exists (basic check for common routes)
+            $validRoutes = ['book', 'profile', 'listings', 'index', 'about', 'contact', 'visit-book', 'payment', 'invoice'];
+            $isValidRoute = in_array($routePath, $validRoutes) || strpos($routePath, 'listings/') === 0;
+            
+            if ($isValidRoute) {
+                $redirectUrl = app_url($cleanPath);
+            } else {
+                // Invalid route - redirect to profile instead
+                $redirectUrl = app_url('profile');
+            }
         }
         header('Location: ' . $redirectUrl);
     } else {
@@ -38,44 +53,46 @@ if (isLoggedIn()) {
     exit;
 }
 
+// Don't include the container-xxl from header since this is a standalone page
+$skipHeaderContainer = true;
 require __DIR__ . '/../app/includes/header.php';
 ?>
 
-<div class="container my-5">
+<div class="container my-5" style="min-height: 60vh; padding-top: 2rem; padding-bottom: 2rem;">
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
             <div class="card shadow">
                 <div class="card-body p-4">
                     <h2 class="card-title text-center mb-4">Login</h2>
                     
-                    <div id="loginAlert"></div>
+                    <div id="loginPageAlert"></div>
                     
-                    <form id="loginForm" method="POST" action="<?= app_url('login-action') ?>">
+                    <form id="loginPageForm" method="POST" action="<?= app_url('login-action') ?>">
                         <input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>">
                         
                         <div class="mb-3">
-                            <label for="loginEmail" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="loginEmail" name="email" required>
-                            <div class="invalid-feedback" id="loginEmailError"></div>
+                            <label for="loginPageEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="loginPageEmail" name="email" required>
+                            <div class="invalid-feedback" id="loginPageEmailError"></div>
                         </div>
                         
                         <div class="mb-3">
-                            <label for="loginPassword" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="loginPassword" name="password" required>
-                            <div class="invalid-feedback" id="loginPasswordError"></div>
+                            <label for="loginPagePassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="loginPagePassword" name="password" required>
+                            <div class="invalid-feedback" id="loginPagePasswordError"></div>
                         </div>
                         
                         <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="remember" name="remember" value="1">
-                            <label class="form-check-label" for="remember">Remember me</label>
+                            <input type="checkbox" class="form-check-input" id="loginPageRemember" name="remember" value="1">
+                            <label class="form-check-label" for="loginPageRemember">Remember me</label>
                         </div>
                         
                         <div class="mb-3">
                             <a href="<?= app_url('forgot-password') ?>" class="text-decoration-none">Forgot password?</a>
                         </div>
                         
-                        <button type="submit" class="btn btn-primary w-100 mb-3" id="loginSubmit">
-                            <span id="loginSpinner" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                        <button type="submit" class="btn btn-primary w-100 mb-3" id="loginPageSubmit">
+                            <span id="loginPageSpinner" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
                             <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
                         </button>
                         
@@ -112,35 +129,41 @@ require __DIR__ . '/../app/includes/header.php';
 </div>
 
 <script>
-// Login form AJAX submission
+// Login form AJAX submission (standalone page - different IDs to avoid conflicts with modal)
 (function(){
-    const loginForm = document.getElementById('loginForm');
-    const loginSubmit = document.getElementById('loginSubmit');
-    const loginSpinner = document.getElementById('loginSpinner');
-    const loginAlert = document.getElementById('loginAlert');
+    const loginPageForm = document.getElementById('loginPageForm');
+    const loginPageSubmit = document.getElementById('loginPageSubmit');
+    const loginPageSpinner = document.getElementById('loginPageSpinner');
+    const loginPageAlert = document.getElementById('loginPageAlert');
     
     function showAlert(message, type = 'danger') {
-        loginAlert.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
-            message +
-            '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+        if (loginPageAlert) {
+            loginPageAlert.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' +
+                message +
+                '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+        }
     }
     
     function clearErrors() {
-        document.getElementById('loginEmail').classList.remove('is-invalid');
-        document.getElementById('loginPassword').classList.remove('is-invalid');
-        document.getElementById('loginEmailError').textContent = '';
-        document.getElementById('loginPasswordError').textContent = '';
+        const emailEl = document.getElementById('loginPageEmail');
+        const passwordEl = document.getElementById('loginPagePassword');
+        if (emailEl) emailEl.classList.remove('is-invalid');
+        if (passwordEl) passwordEl.classList.remove('is-invalid');
+        const emailError = document.getElementById('loginPageEmailError');
+        const passwordError = document.getElementById('loginPagePasswordError');
+        if (emailError) emailError.textContent = '';
+        if (passwordError) passwordError.textContent = '';
     }
     
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e){
+    if (loginPageForm) {
+        loginPageForm.addEventListener('submit', async function(e){
             e.preventDefault();
             clearErrors();
             
-            if (loginSubmit) loginSubmit.disabled = true;
-            if (loginSpinner) loginSpinner.classList.remove('d-none');
+            if (loginPageSubmit) loginPageSubmit.disabled = true;
+            if (loginPageSpinner) loginPageSpinner.classList.remove('d-none');
             
-            const formData = new FormData(loginForm);
+            const formData = new FormData(loginPageForm);
             
             try {
                 const response = await fetch('<?= app_url('login-action') ?>', {
@@ -150,6 +173,10 @@ require __DIR__ . '/../app/includes/header.php';
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
                 
                 const data = await response.json();
                 
@@ -165,23 +192,26 @@ require __DIR__ . '/../app/includes/header.php';
                     }, 500);
                 } else {
                     if (data.errors) {
-                        if (data.errors.email) {
-                            document.getElementById('loginEmail').classList.add('is-invalid');
-                            document.getElementById('loginEmailError').textContent = data.errors.email;
+                        const emailEl = document.getElementById('loginPageEmail');
+                        const passwordEl = document.getElementById('loginPagePassword');
+                        if (data.errors.email && emailEl) {
+                            emailEl.classList.add('is-invalid');
+                            const emailError = document.getElementById('loginPageEmailError');
+                            if (emailError) emailError.textContent = data.errors.email;
                         }
-                        if (data.errors.password) {
-                            document.getElementById('loginPassword').classList.add('is-invalid');
-                            document.getElementById('loginPasswordError').textContent = data.errors.password;
+                        if (data.errors.password && passwordEl) {
+                            passwordEl.classList.add('is-invalid');
+                            const passwordError = document.getElementById('loginPagePasswordError');
+                            if (passwordError) passwordError.textContent = data.errors.password;
                         }
                     }
                     showAlert(data.message || 'Login failed. Please check your credentials.');
                 }
             } catch (err) {
-                console.error('Login error:', err);
                 showAlert('Server error. Please try again later.');
             } finally {
-                if (loginSubmit) loginSubmit.disabled = false;
-                if (loginSpinner) loginSpinner.classList.add('d-none');
+                if (loginPageSubmit) loginPageSubmit.disabled = false;
+                if (loginPageSpinner) loginPageSpinner.classList.add('d-none');
             }
         });
     }
@@ -240,12 +270,10 @@ require __DIR__ . '/../app/includes/header.php';
                                             }
                                         })
                                         .catch(err => {
-                                            console.error('Google auth error:', err);
                                             showAlert('Failed to sign in with Google. Please try again.');
                                         });
                                     })
                                     .catch(err => {
-                                        console.error('Google OAuth error:', err);
                                         showAlert('Failed to sign in with Google. Please try again.');
                                     });
                             }

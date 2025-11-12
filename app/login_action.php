@@ -118,7 +118,37 @@ try {
     
     // Determine redirect URL
     if ($redirect) {
-        $redirectUrl = $redirect;
+        // Validate redirect URL to prevent open redirects and invalid routes
+        $redirectUrl = filter_var($redirect, FILTER_SANITIZE_URL);
+        
+        // Decode URL-encoded redirect
+        $decodedRedirect = urldecode($redirectUrl);
+        
+        // Check if it's an absolute URL
+        if (strpos($redirectUrl, 'http://') === 0 || strpos($redirectUrl, 'https://') === 0) {
+            // Check if it's the same domain
+            $parsedRedirect = parse_url($redirectUrl);
+            $parsedCurrent = parse_url(app_url(''));
+            if ($parsedRedirect['host'] !== $parsedCurrent['host']) {
+                $redirectUrl = $isAdminLogin ? app_url('admin') : app_url('profile');
+            }
+        } else {
+            // Relative URL - validate route
+            $cleanPath = ltrim($decodedRedirect, '/');
+            $pathParts = explode('?', $cleanPath);
+            $routePath = $pathParts[0];
+            
+            // Validate route exists (basic check for common routes)
+            $validRoutes = ['book', 'profile', 'listings', 'index', 'about', 'contact', 'visit-book', 'payment', 'invoice'];
+            $isValidRoute = in_array($routePath, $validRoutes) || strpos($routePath, 'listings/') === 0;
+            
+            if ($isValidRoute) {
+                $redirectUrl = app_url($cleanPath);
+            } else {
+                // Invalid route - redirect to profile instead
+                $redirectUrl = $isAdminLogin ? app_url('admin') : app_url('profile');
+            }
+        }
     } elseif ($isAdminLogin) {
         $redirectUrl = app_url('admin');
     } else {

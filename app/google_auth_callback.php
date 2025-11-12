@@ -68,7 +68,6 @@ function downloadGoogleProfileImage($googleImageUrl, $userId) {
         
         // Check for errors
         if ($imageData === false || !empty($error) || $httpCode !== 200) {
-            // Log error for debugging (remove in production if needed)
             if ($httpCode === 429) {
                 // Rate limited - will retry on next login
             }

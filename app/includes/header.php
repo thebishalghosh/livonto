@@ -198,7 +198,9 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
   </div>
 </nav>
 
+<?php if (!isset($skipHeaderContainer) || !$skipHeaderContainer): ?>
 <div class="container-xxl py-4">
+<?php endif; ?>
 
 <!-- LOGIN MODAL -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">

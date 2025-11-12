@@ -96,7 +96,9 @@ if (function_exists('getSetting')) {
 // Parse booking enquiry phone numbers
 $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
 ?>
-</div> <!-- /container -->
+<?php if (!isset($skipHeaderContainer) || !$skipHeaderContainer): ?>
+</div> <!-- /container-xxl from header -->
+<?php endif; ?>
 
 <footer class="bg-dark text-light mt-5 pt-5 pb-3">
   <div class="container-xxl">

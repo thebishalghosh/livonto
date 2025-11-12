@@ -72,6 +72,7 @@ $adminRoutes = [
     'admin/listings/view' => 'admin/listing_view.php',
     'admin/listings/delete' => 'admin/listing_delete.php',
     'admin/users' => 'admin/users_manage.php',
+    'admin/users/view' => 'admin/user_view.php',
     'admin/amenities' => 'admin/amenities_manage.php',
     'admin/house-rules' => 'admin/house_rules_manage.php',
     'admin/referrals' => 'admin/referrals_manage.php',

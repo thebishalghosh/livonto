@@ -9,9 +9,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Get base URL before destroying session
+// Load config before destroying session
 require __DIR__ . '/../app/config.php';
-$baseUrl = app_url('');
 
 // Check if user was admin before destroying session
 $wasAdmin = !empty($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
@@ -46,7 +45,7 @@ session_destroy();
 if ($wasAdmin) {
     header('Location: ' . app_url('admin/login'));
 } else {
-    header('Location: ' . $baseUrl . '/');
+    header('Location: ' . app_url('index'));
 }
 exit;
 

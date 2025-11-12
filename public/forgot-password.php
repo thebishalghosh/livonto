@@ -49,8 +49,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     [$resetToken, $resetExpires, $user['id']]
                 );
                 
-                // Send reset email
-                $resetLink = app_url("reset-password?token={$resetToken}");
+                // Generate full absolute URL for email
+                $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+                $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                $basePath = app_url('');
+                $resetPath = app_url("reset-password?token={$resetToken}");
+                
+                // Build full absolute URL
+                if (strpos($resetPath, 'http://') === 0 || strpos($resetPath, 'https://') === 0) {
+                    $resetLink = $resetPath;
+                } else {
+                    $resetLink = $protocol . $host . $resetPath;
+                }
+                
                 $siteName = function_exists('getSetting') ? getSetting('site_name', 'Livonto') : 'Livonto';
                 
                 $emailSubject = "Password Reset Request - {$siteName}";
@@ -59,12 +70,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <html>
                 <head>
                     <meta charset='UTF-8'>
+                    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
                     <style>
-                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
                         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
                         .header { background: linear-gradient(90deg, #8b6bd1 0%, #6f55b2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
                         .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px; }
-                        .button { display: inline-block; background: linear-gradient(90deg, #8b6bd1 0%, #6f55b2 100%); color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+                        .button { 
+                            display: inline-block; 
+                            background: #8b6bd1 !important; 
+                            background: linear-gradient(90deg, #8b6bd1 0%, #6f55b2 100%) !important; 
+                            color: white !important; 
+                            padding: 12px 30px; 
+                            text-decoration: none !important; 
+                            border-radius: 6px; 
+                            margin: 20px 0; 
+                            font-weight: bold;
+                            border: none;
+                        }
+                        .button:hover {
+                            background: #6f55b2 !important;
+                        }
                         .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
                     </style>
                 </head>
@@ -77,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <p>Hello " . htmlspecialchars($user['name']) . ",</p>
                             <p>We received a request to reset your password. Click the button below to reset it:</p>
                             <p style='text-align: center;'>
-                                <a href='" . htmlspecialchars($resetLink) . "' class='button'>Reset Password</a>
+                                <a href='" . htmlspecialchars($resetLink) . "' class='button' style='background: #8b6bd1 !important; color: white !important; text-decoration: none !important; display: inline-block; padding: 12px 30px; border-radius: 6px; font-weight: bold;'>Reset Password</a>
                             </p>
                             <p>Or copy and paste this link into your browser:</p>
                             <p style='word-break: break-all; color: #8b6bd1;'>" . htmlspecialchars($resetLink) . "</p>

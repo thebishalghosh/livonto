@@ -70,6 +70,8 @@ $ownerRoutes = [
     'owner/logout' => 'owner/logout.php',
     'owner/dashboard' => 'owner/dashboard.php',
     'owner/listings/edit' => 'owner/listings/edit.php',
+    'owner/forgot-password' => 'owner/forgot-password.php',
+    'owner/reset-password' => 'owner/reset-password.php',
 ];
 
 // Admin routes

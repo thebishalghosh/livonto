@@ -38,8 +38,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
         if ($action === 'update_status' && isset($_POST['new_status'])) {
             $newStatus = $_POST['new_status'];
             if (in_array($newStatus, ['pending', 'confirmed', 'cancelled', 'completed'])) {
+                // Get user email before updating status
+                $bookingData = $db->fetchOne(
+                    "SELECT u.email as user_email 
+                     FROM visit_bookings vb
+                     LEFT JOIN users u ON vb.user_id = u.id
+                     WHERE vb.id = ?",
+                    [$bookingId]
+                );
+                
+                // Update booking status
                 $db->execute("UPDATE visit_bookings SET status = ? WHERE id = ?", [$newStatus, $bookingId]);
                 error_log("Admin updated visit booking status: ID {$bookingId} to {$newStatus} by Admin ID {$_SESSION['user_id']}");
+                
+                // Send email notification to user
+                if (!empty($bookingData['user_email'])) {
+                    require_once __DIR__ . '/../app/includes/send_status_mail.php';
+                    sendStatusMail($bookingData['user_email'], $newStatus, $bookingId);
+                }
+                
                 $_SESSION['flash_message'] = 'Visit booking status updated successfully';
                 $_SESSION['flash_type'] = 'success';
                 header('Location: ' . app_url('admin/visit-bookings'));

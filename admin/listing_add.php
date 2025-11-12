@@ -23,6 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $ownerName = trim($_POST['owner_name'] ?? '');
+    $ownerEmail = trim($_POST['owner_email'] ?? '');
+    $ownerPassword = $_POST['owner_password'] ?? '';
     $availableFor = $_POST['available_for'] ?? 'both';
     $genderAllowed = $_POST['gender_allowed'] ?? 'unisex';
     $preferredTenants = $_POST['preferred_tenants'] ?? 'anyone';
@@ -240,12 +242,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
+            // Hash owner password if provided
+            $ownerPasswordHash = null;
+            if (!empty($ownerEmail) && !empty($ownerPassword)) {
+                $ownerPasswordHash = password_hash($ownerPassword, PASSWORD_DEFAULT);
+            } elseif (!empty($ownerEmail) && empty($ownerPassword)) {
+                $errors[] = 'Password is required when owner email is provided';
+            }
+            
             // 1. Insert main listing
             $db->execute(
-                "INSERT INTO listings (owner_name, title, description, available_for, preferred_tenants, 
+                "INSERT INTO listings (owner_name, owner_email, owner_password_hash, title, description, available_for, preferred_tenants, 
                  security_deposit_amount, notice_period, gender_allowed, cover_image, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$ownerName, $title, $description, $availableFor, $preferredTenants, 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [$ownerName, !empty($ownerEmail) ? $ownerEmail : null, $ownerPasswordHash, $title, $description, $availableFor, $preferredTenants, 
                  $securityDeposit, $noticePeriod, $genderAllowed, $coverImagePath, $status]
             );
             
@@ -471,6 +481,19 @@ $flashMessage = getFlashMessage();
                            placeholder="Enter owner name" 
                            value="<?= htmlspecialchars($_POST['owner_name'] ?? '') ?>">
                     <small class="form-text text-muted">Enter the name of the property owner</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Owner Email</label>
+                    <input type="email" class="form-control" name="owner_email"
+                           placeholder="owner@example.com" 
+                           value="<?= htmlspecialchars($_POST['owner_email'] ?? '') ?>">
+                    <small class="form-text text-muted">Optional: Allow owner to login and manage availability</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Owner Password</label>
+                    <input type="password" class="form-control" name="owner_password"
+                           placeholder="Leave empty if no owner login needed">
+                    <small class="form-text text-muted">Required if owner email is provided</small>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Description <span class="text-danger">*</span></label>

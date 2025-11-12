@@ -209,13 +209,43 @@ try {
         }
     }
     
-    // Calculate total rooms and available rooms
-    $totalRooms = 0;
-    $totalAvailableRooms = 0;
+    // Recalculate availability for all room configs to ensure accuracy
     foreach ($roomConfigs as $config) {
-        $totalRooms += (int)$config['total_rooms'];
-        $totalAvailableRooms += (int)$config['available_rooms'];
+        recalculateAvailableBeds($config['id']);
     }
+    
+    // Reload room configs with updated availability
+    $roomConfigs = $db->fetchAll(
+        "SELECT * FROM room_configurations WHERE listing_id = ? ORDER BY rent_per_month ASC",
+        [$listingId]
+    );
+    
+    // Calculate bed-based totals (available_rooms represents available beds)
+    $totalRooms = 0;
+    $totalBeds = 0;
+    $totalAvailableBeds = 0;
+    foreach ($roomConfigs as &$config) {
+        $totalRooms += (int)$config['total_rooms'];
+        $bedsPerRoom = getBedsPerRoom($config['room_type']);
+        $configBeds = calculateTotalBeds($config['total_rooms'], $config['room_type']);
+        $totalBeds += $configBeds;
+        
+        // Count actual booked beds to ensure accuracy
+        $bookedBeds = (int)$db->fetchValue(
+            "SELECT COUNT(*) FROM bookings 
+             WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
+            [$config['id']]
+        );
+        
+        $availableBeds = max(0, $configBeds - $bookedBeds);
+        $totalAvailableBeds += $availableBeds;
+        
+        $config['beds_per_room'] = $bedsPerRoom;
+        $config['total_beds'] = $configBeds;
+        $config['available_beds'] = $availableBeds;
+        $config['booked_beds'] = $bookedBeds;
+    }
+    unset($config);
     
 } catch (Exception $e) {
     error_log("Error loading listing view: " . $e->getMessage());
@@ -440,6 +470,23 @@ $baseUrl = app_url('');
                             <label class="form-label text-muted small mb-1">Owner Name</label>
                             <div><?= htmlspecialchars($listing['owner_name'] ?: 'N/A') ?></div>
                         </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted small mb-1">Owner Email</label>
+                            <div>
+                                <?php if (!empty($listing['owner_email'])): ?>
+                                    <a href="mailto:<?= htmlspecialchars($listing['owner_email']) ?>" class="text-decoration-none">
+                                        <?= htmlspecialchars($listing['owner_email']) ?>
+                                    </a>
+                                    <?php if (!empty($listing['owner_password_hash'])): ?>
+                                        <span class="badge bg-success ms-2" title="Owner can login">
+                                            <i class="bi bi-check-circle"></i> Active
+                                        </span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="text-muted">N/A</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                         <div class="col-12">
                             <label class="form-label text-muted small mb-1">Description</label>
                             <div><?= nl2br(htmlspecialchars($listing['description'] ?: 'N/A')) ?></div>
@@ -465,12 +512,12 @@ $baseUrl = app_url('');
                             <div><?= $listing['notice_period'] ? $listing['notice_period'] . ' days' : 'N/A' ?></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-muted small mb-1">Total Rooms</label>
-                            <div><?= $totalRooms > 0 ? $totalRooms : 'N/A' ?></div>
+                            <label class="form-label text-muted small mb-1">Total Rooms / Beds</label>
+                            <div><?= $totalRooms > 0 ? ($totalRooms . ' rooms / ' . $totalBeds . ' beds') : 'N/A' ?></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-muted small mb-1">Available Rooms</label>
-                            <div><?= $totalAvailableRooms > 0 ? $totalAvailableRooms : 'N/A' ?></div>
+                            <label class="form-label text-muted small mb-1">Available Beds</label>
+                            <div><?= $totalAvailableBeds > 0 ? $totalAvailableBeds : 'N/A' ?></div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted small mb-1">Total Beds</label>
@@ -683,25 +730,34 @@ $baseUrl = app_url('');
                                     <tr>
                                         <th>Room Type</th>
                                         <th>Rent/Month</th>
-                                        <th>Total Rooms</th>
-                                        <th>Available Rooms</th>
+                                        <th>Total</th>
+                                        <th>Available Beds</th>
                                         <th>Occupied</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($roomConfigs as $config): ?>
                                         <tr>
-                                            <td><?= ucfirst(htmlspecialchars($config['room_type'])) ?></td>
+                                            <td>
+                                                <?= ucfirst(htmlspecialchars($config['room_type'])) ?>
+                                                <br><small class="text-muted"><?= $config['beds_per_room'] ?> bed<?= $config['beds_per_room'] > 1 ? 's' : '' ?> per room</small>
+                                            </td>
                                             <td class="fw-semibold">₹<?= number_format($config['rent_per_month'], 2) ?></td>
-                                            <td><?= $config['total_rooms'] ?></td>
-                                            <td><?= $config['available_rooms'] ?></td>
+                                            <td>
+                                                <?= $config['total_rooms'] ?> room<?= $config['total_rooms'] != 1 ? 's' : '' ?>
+                                                <br><small class="text-muted"><?= $config['total_beds'] ?> beds</small>
+                                            </td>
+                                            <td>
+                                                <?= $config['available_beds'] ?> bed<?= $config['available_beds'] != 1 ? 's' : '' ?>
+                                            </td>
                                             <td>
                                                 <?php 
-                                                $occupied = $config['total_rooms'] - $config['available_rooms'];
-                                                $percentage = $config['total_rooms'] > 0 ? ($occupied / $config['total_rooms']) * 100 : 0;
+                                                $bookedBeds = (int)($config['booked_beds'] ?? 0);
+                                                $totalBeds = (int)($config['total_beds'] ?? 0);
+                                                $percentage = $totalBeds > 0 ? ($bookedBeds / $totalBeds) * 100 : 0;
                                                 ?>
                                                 <span class="badge bg-<?= $percentage >= 80 ? 'danger' : ($percentage >= 50 ? 'warning' : 'success') ?>">
-                                                    <?= $occupied ?>/<?= $config['total_rooms'] ?> (<?= number_format($percentage, 1) ?>%)
+                                                    <?= $bookedBeds ?>/<?= $totalBeds ?> beds (<?= number_format($percentage, 1) ?>%)
                                                 </span>
                                             </td>
                                         </tr>

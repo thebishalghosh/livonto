@@ -55,34 +55,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                 // Update booking status
                 $db->execute("UPDATE bookings SET status = ? WHERE id = ?", [$newStatus, $bookingId]);
                 
-                // Update available_rooms based on status change
+                // Update available beds based on status change (available_rooms represents available beds)
                 if ($roomConfigId) {
-                    // If changing from pending/confirmed to cancelled, increase available_rooms
-                    if (in_array($oldStatus, ['pending', 'confirmed']) && $newStatus === 'cancelled') {
-                        $db->execute(
-                            "UPDATE room_configurations 
-                             SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
-                             WHERE id = ?",
-                            [$roomConfigId]
-                        );
-                    }
-                    // If changing from cancelled/pending to confirmed, decrease available_rooms
-                    elseif (in_array($oldStatus, ['pending', 'cancelled']) && $newStatus === 'confirmed') {
-                        $db->execute(
-                            "UPDATE room_configurations 
-                             SET available_rooms = GREATEST(0, available_rooms - 1) 
-                             WHERE id = ?",
-                            [$roomConfigId]
-                        );
-                    }
-                    // If changing from confirmed to completed, room becomes available (increase)
-                    elseif ($oldStatus === 'confirmed' && $newStatus === 'completed') {
-                        $db->execute(
-                            "UPDATE room_configurations 
-                             SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
-                             WHERE id = ?",
-                            [$roomConfigId]
-                        );
+                    // Get room config to calculate max beds
+                    $roomConfig = $db->fetchOne(
+                        "SELECT total_rooms, room_type FROM room_configurations WHERE id = ?",
+                        [$roomConfigId]
+                    );
+                    
+                    if ($roomConfig) {
+                        $totalBeds = calculateTotalBeds($roomConfig['total_rooms'], $roomConfig['room_type']);
+                        
+                        // If changing from pending/confirmed to cancelled, increase available beds by 1
+                        if (in_array($oldStatus, ['pending', 'confirmed']) && $newStatus === 'cancelled') {
+                            $db->execute(
+                                "UPDATE room_configurations 
+                                 SET available_rooms = LEAST(?, available_rooms + 1) 
+                                 WHERE id = ?",
+                                [$totalBeds, $roomConfigId]
+                            );
+                        }
+                        // If changing from cancelled/pending to confirmed, decrease available beds by 1
+                        elseif (in_array($oldStatus, ['pending', 'cancelled']) && $newStatus === 'confirmed') {
+                            $db->execute(
+                                "UPDATE room_configurations 
+                                 SET available_rooms = GREATEST(0, available_rooms - 1) 
+                                 WHERE id = ?",
+                                [$roomConfigId]
+                            );
+                        }
+                        // If changing from confirmed to completed, bed becomes available (increase by 1)
+                        elseif ($oldStatus === 'confirmed' && $newStatus === 'completed') {
+                            $db->execute(
+                                "UPDATE room_configurations 
+                                 SET available_rooms = LEAST(?, available_rooms + 1) 
+                                 WHERE id = ?",
+                                [$totalBeds, $roomConfigId]
+                            );
+                        }
                     }
                 }
                 
@@ -114,14 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
             // Delete booking
             $db->execute("DELETE FROM bookings WHERE id = ?", [$bookingId]);
             
-            // If booking was confirmed, increase available_rooms
-            if ($bookingToDelete && $bookingToDelete['status'] === 'confirmed' && $bookingToDelete['room_config_id']) {
-                $db->execute(
-                    "UPDATE room_configurations 
-                     SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
-                     WHERE id = ?",
-                    [$bookingToDelete['room_config_id']]
-                );
+            // Recalculate available beds based on actual bookings (handles all statuses)
+            if ($bookingToDelete && $bookingToDelete['room_config_id']) {
+                recalculateAvailableBeds($bookingToDelete['room_config_id']);
             }
             
             $_SESSION['flash_message'] = 'Booking deleted successfully';

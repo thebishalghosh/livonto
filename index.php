@@ -61,6 +61,14 @@ $routes = [
     'invoice-api' => 'app/invoice_api.php',
 ];
 
+// Owner routes
+$ownerRoutes = [
+    'owner/login' => 'owner/login.php',
+    'owner/logout' => 'owner/logout.php',
+    'owner/dashboard' => 'owner/dashboard.php',
+    'owner/listings/edit' => 'owner/listings/edit.php',
+];
+
 // Admin routes
 $adminRoutes = [
     'admin' => 'admin/index.php',
@@ -82,6 +90,44 @@ $adminRoutes = [
     'admin/payments' => 'admin/payments_manage.php',
     'admin/settings' => 'admin/settings.php',
 ];
+
+// Check if it's an owner route
+if (strpos($path, 'owner/') === 0 || $path === 'owner') {
+    // Handle root owner route - redirect to login or dashboard
+    if ($path === 'owner' || $path === 'owner/') {
+        // Check if owner is logged in
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        if (!empty($_SESSION['owner_logged_in']) && $_SESSION['owner_logged_in'] === true) {
+            header('Location: ' . app_url('owner/dashboard'));
+            exit;
+        } else {
+            header('Location: ' . app_url('owner/login'));
+            exit;
+        }
+    }
+    
+    // Handle owner routes
+    if (isset($ownerRoutes[$path])) {
+        $file = __DIR__ . '/' . $ownerRoutes[$path];
+        if (file_exists($file)) {
+            require $file;
+            exit;
+        }
+    }
+    // Try to find owner file directly (handles both simple and nested paths)
+    $ownerPath = str_replace('owner/', '', $path);
+    if (empty($ownerPath)) {
+        $ownerPath = 'login';
+    }
+    // Try file path (e.g., owner/login.php or owner/listings/edit.php)
+    $file = __DIR__ . '/owner/' . $ownerPath . '.php';
+    if (file_exists($file)) {
+        require $file;
+        exit;
+    }
+}
 
 // Check if it's an admin route
 if (strpos($path, 'admin/') === 0 || $path === 'admin') {

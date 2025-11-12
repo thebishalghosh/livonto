@@ -49,15 +49,37 @@ if ($listingId > 0) {
     if (!$listing) {
         $error = 'Listing not found or is not available.';
     } else {
-        // Get room configurations (only available rooms)
+        // Get room configurations and calculate real-time availability
         try {
             $roomConfigs = db()->fetchAll(
                 "SELECT id, room_type, rent_per_month, total_rooms, available_rooms 
                  FROM room_configurations 
-                 WHERE listing_id = ? AND available_rooms > 0
+                 WHERE listing_id = ?
                  ORDER BY rent_per_month ASC",
                 [$listingId]
             );
+            
+            // Calculate real-time bed availability for each room config
+            foreach ($roomConfigs as &$room) {
+                $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
+                $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
+                
+                // Count actual booked beds (pending + confirmed) for real-time accuracy
+                $bookedBeds = (int)db()->fetchValue(
+                    "SELECT COUNT(*) FROM bookings 
+                     WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
+                    [$room['id']]
+                );
+                
+                $room['available_beds'] = max(0, $room['total_beds'] - $bookedBeds);
+                $room['available_rooms'] = $room['available_beds']; // For backward compatibility
+            }
+            unset($room);
+            
+            // Filter to only show rooms with available beds
+            $roomConfigs = array_filter($roomConfigs, function($room) {
+                return $room['available_beds'] > 0;
+            });
         } catch (Exception $e) {
             error_log("Error fetching room configs: " . $e->getMessage());
             $roomConfigs = [];

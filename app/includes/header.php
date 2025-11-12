@@ -101,6 +101,12 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
         <li class="nav-item"><a class="nav-link" href="<?= htmlspecialchars(app_url('listings')) ?>">Listings</a></li>
         <li class="nav-item"><a class="nav-link" href="<?= htmlspecialchars(app_url('about')) ?>">About</a></li>
         <li class="nav-item"><a class="nav-link" href="<?= htmlspecialchars(app_url('contact')) ?>">Contact</a></li>
+        <!-- Owner Section -->
+        <li class="nav-item">
+          <a class="nav-link" href="<?= htmlspecialchars(app_url('owner/login')) ?>">
+            <i class="bi bi-house-door me-1"></i>Owner
+          </a>
+        </li>
         <!-- Refer & Earn -->
         <li class="nav-item d-flex align-items-center ms-2">
           <a class="btn btn-primary btn-sm text-white" href="<?= htmlspecialchars(app_url('refer')) ?>">

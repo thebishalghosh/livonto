@@ -373,3 +373,14 @@ MODIFY COLUMN booking_start_date DATE NOT NULL;
 -- Add index for booking_start_date
 CREATE INDEX idx_booking_start_date ON bookings(booking_start_date);
 
+-- Migration: Add owner email and password to listings table
+-- This allows owners to login and manage their listings
+
+ALTER TABLE listings 
+ADD COLUMN owner_email VARCHAR(255) NULL AFTER owner_name,
+ADD COLUMN owner_password_hash VARCHAR(255) NULL AFTER owner_email,
+ADD UNIQUE KEY unique_owner_email (owner_email);
+
+-- Note: owner_email is unique to prevent duplicate owner accounts
+-- owner_password_hash can be NULL for existing listings without owner accounts
+

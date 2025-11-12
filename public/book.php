@@ -519,8 +519,10 @@ require __DIR__ . '/../app/includes/header.php';
                                     data-room-id="<?= $room['id'] ?>">
                                 <?= htmlspecialchars(ucfirst($room['room_type'])) ?> - 
                                 ₹<?= number_format($room['rent_per_month']) ?>/month
-                                <?php if ($room['available_rooms'] > 0): ?>
-                                    (<?= $room['available_rooms'] ?> available)
+                                <?php 
+                                $availableBeds = (int)($room['available_beds'] ?? $room['available_rooms'] ?? 0);
+                                if ($availableBeds > 0): ?>
+                                    (<?= $availableBeds ?> bed<?= $availableBeds !== 1 ? 's' : '' ?> available)
                                 <?php else: ?>
                                     (Fully booked)
                                 <?php endif; ?>
@@ -713,7 +715,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     let text = `${roomTypeFormatted} - ₹${parseFloat(room.rent_per_month).toLocaleString('en-IN')}/month`;
                     
                     if (room.is_available) {
-                        text += ` (${room.available_count} available)`;
+                        const availableBeds = room.available_beds || room.available_count || 0;
+                        text += ` (${availableBeds} bed${availableBeds !== 1 ? 's' : ''} available)`;
                         option.disabled = false;
                     } else {
                         text += ' (Fully booked)';

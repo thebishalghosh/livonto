@@ -81,6 +81,137 @@ function requireAdmin() {
 }
 
 /**
+ * Check if owner is logged in
+ * @return bool
+ */
+function isOwnerLoggedIn() {
+    return !empty($_SESSION['owner_logged_in']) && $_SESSION['owner_logged_in'] === true;
+}
+
+/**
+ * Require owner to be logged in (redirect if not)
+ */
+function requireOwnerLogin() {
+    if (!isOwnerLoggedIn()) {
+        header('Location: ' . app_url('owner/login'));
+        exit;
+    }
+}
+
+/**
+ * Get current owner listing ID
+ * @return int|null
+ */
+function getCurrentOwnerListingId() {
+    return $_SESSION['owner_listing_id'] ?? null;
+}
+
+/**
+ * Get number of beds per room based on room type
+ * @param string $roomType
+ * @return int
+ */
+function getBedsPerRoom($roomType) {
+    $roomType = strtolower(trim($roomType));
+    switch ($roomType) {
+        case 'single sharing':
+            return 1;
+        case 'double sharing':
+            return 2;
+        case 'triple sharing':
+            return 3;
+        default:
+            return 1; // Default to 1 bed if unknown
+    }
+}
+
+/**
+ * Calculate total beds for a room configuration
+ * @param int $totalRooms
+ * @param string $roomType
+ * @return int
+ */
+function calculateTotalBeds($totalRooms, $roomType) {
+    return $totalRooms * getBedsPerRoom($roomType);
+}
+
+/**
+ * Calculate available beds for a room configuration
+ * @param int $totalRooms
+ * @param string $roomType
+ * @param int $bookedBeds
+ * @return int
+ */
+function calculateAvailableBeds($totalRooms, $roomType, $bookedBeds) {
+    $totalBeds = calculateTotalBeds($totalRooms, $roomType);
+    return max(0, $totalBeds - $bookedBeds);
+}
+
+/**
+ * Recalculate and update available beds for a room configuration based on actual bookings
+ * @param int $roomConfigId
+ * @return bool
+ */
+function recalculateAvailableBeds($roomConfigId) {
+    try {
+        $db = db();
+        
+        // Get room configuration
+        $roomConfig = $db->fetchOne(
+            "SELECT total_rooms, room_type FROM room_configurations WHERE id = ?",
+            [$roomConfigId]
+        );
+        
+        if (!$roomConfig) {
+            return false;
+        }
+        
+        // Count actual booked beds (pending + confirmed bookings)
+        $bookedBeds = (int)$db->fetchValue(
+            "SELECT COUNT(*) FROM bookings 
+             WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
+            [$roomConfigId]
+        );
+        
+        // Calculate total beds and available beds
+        $totalBeds = calculateTotalBeds($roomConfig['total_rooms'], $roomConfig['room_type']);
+        $availableBeds = max(0, $totalBeds - $bookedBeds);
+        
+        // Update available_rooms (which represents available beds)
+        $db->execute(
+            "UPDATE room_configurations SET available_rooms = ? WHERE id = ?",
+            [$availableBeds, $roomConfigId]
+        );
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error recalculating available beds for room_config_id {$roomConfigId}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Recalculate available beds for all room configurations in a listing
+ * @param int $listingId
+ * @return void
+ */
+function recalculateListingAvailability($listingId) {
+    try {
+        $db = db();
+        $roomConfigs = $db->fetchAll(
+            "SELECT id FROM room_configurations WHERE listing_id = ?",
+            [$listingId]
+        );
+        
+        foreach ($roomConfigs as $config) {
+            recalculateAvailableBeds($config['id']);
+        }
+    } catch (Exception $e) {
+        error_log("Error recalculating listing availability for listing_id {$listingId}: " . $e->getMessage());
+    }
+}
+
+/**
  * Get current user ID
  * @return int|null
  */

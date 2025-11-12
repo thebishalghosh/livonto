@@ -33,6 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $ownerName = trim($_POST['owner_name'] ?? '');
+    $ownerEmail = trim($_POST['owner_email'] ?? '');
+    $ownerPassword = $_POST['owner_password'] ?? '';
     $availableFor = $_POST['available_for'] ?? 'both';
     $genderAllowed = $_POST['gender_allowed'] ?? 'unisex';
     $preferredTenants = $_POST['preferred_tenants'] ?? 'anyone';
@@ -155,15 +157,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $db = db();
             $db->beginTransaction();
             
-            // Update main listing
-            $db->execute(
-                "UPDATE listings SET title = ?, description = ?, owner_name = ?, 
-                 available_for = ?, gender_allowed = ?, preferred_tenants = ?, 
-                 security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
-                 WHERE id = ?",
-                [$title, $description, $ownerName, $availableFor, $genderAllowed, $preferredTenants, 
-                 $securityDeposit, $noticePeriod, $status, $listingId]
-            );
+            // Handle owner password update
+            $ownerPasswordHash = null;
+            if (!empty($ownerEmail) && !empty($ownerPassword)) {
+                // New password provided - hash it
+                $ownerPasswordHash = password_hash($ownerPassword, PASSWORD_DEFAULT);
+            } elseif (!empty($ownerEmail) && empty($ownerPassword)) {
+                // Email provided but no password - check if listing already has a password
+                $existingListing = $db->fetchOne("SELECT owner_password_hash FROM listings WHERE id = ?", [$listingId]);
+                if (empty($existingListing['owner_password_hash'])) {
+                    $errors[] = 'Password is required when setting owner email for the first time';
+                } else {
+                    // Keep existing password hash
+                    $ownerPasswordHash = $existingListing['owner_password_hash'];
+                }
+            }
+            
+            if (empty($errors)) {
+                // Update main listing
+                if ($ownerPasswordHash !== null) {
+                    // Update with password
+                    $db->execute(
+                        "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?, owner_password_hash = ?,
+                         available_for = ?, gender_allowed = ?, preferred_tenants = ?, 
+                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
+                         WHERE id = ?",
+                        [$title, $description, $ownerName, $ownerEmail, $ownerPasswordHash, $availableFor, $genderAllowed, $preferredTenants, 
+                         $securityDeposit, $noticePeriod, $status, $listingId]
+                    );
+                } else {
+                    // Update without password (only email if provided, or remove email)
+                    $db->execute(
+                        "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?,
+                         available_for = ?, gender_allowed = ?, preferred_tenants = ?, 
+                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
+                         WHERE id = ?",
+                        [$title, $description, $ownerName, !empty($ownerEmail) ? $ownerEmail : null, $availableFor, $genderAllowed, $preferredTenants, 
+                         $securityDeposit, $noticePeriod, $status, $listingId]
+                    );
+                }
+            }
             
             // Update location
             $landmarksJson = null;
@@ -229,9 +262,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $config['room_type'],
                         floatval($config['rent_per_month']),
                         intval($config['total_rooms']),
-                        intval($config['available_rooms'])
+                        intval($config['available_rooms']) // Will be recalculated below
                     ]
                 );
+                
+                // Recalculate available beds based on actual bookings (in case there are existing bookings)
+                $newRoomConfigId = $db->lastInsertId();
+                if ($newRoomConfigId) {
+                    recalculateAvailableBeds($newRoomConfigId);
+                }
             }
             
             // Update amenities (delete existing and insert new)
@@ -501,6 +540,19 @@ $flashMessage = getFlashMessage();
                     <label class="form-label">Owner Name</label>
                     <input type="text" class="form-control" name="owner_name" 
                            value="<?= htmlspecialchars($listing['owner_name'] ?? '') ?>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Owner Email</label>
+                    <input type="email" class="form-control" name="owner_email"
+                           placeholder="owner@example.com" 
+                           value="<?= htmlspecialchars($listing['owner_email'] ?? '') ?>">
+                    <small class="form-text text-muted">Allow owner to login and manage availability</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Owner Password</label>
+                    <input type="password" class="form-control" name="owner_password"
+                           placeholder="Leave empty to keep existing password">
+                    <small class="form-text text-muted">Only enter if you want to change the password</small>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Description <span class="text-danger">*</span></label>

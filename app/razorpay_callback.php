@@ -226,14 +226,23 @@ try {
             [$bookingId]
         );
         
-        // Decrease available_rooms when booking is confirmed
+        // Decrease available beds when booking is confirmed (each booking = 1 bed)
         if (!empty($booking['room_config_id'])) {
-            $db->execute(
-                "UPDATE room_configurations 
-                 SET available_rooms = GREATEST(0, available_rooms - 1) 
-                 WHERE id = ?",
+            // Get room config to calculate beds
+            $roomConfig = $db->fetchOne(
+                "SELECT total_rooms, room_type, available_rooms FROM room_configurations WHERE id = ?",
                 [$booking['room_config_id']]
             );
+            
+            if ($roomConfig) {
+                // Decrease available_rooms by 1 bed (available_rooms represents available beds)
+                $db->execute(
+                    "UPDATE room_configurations 
+                     SET available_rooms = GREATEST(0, available_rooms - 1) 
+                     WHERE id = ?",
+                    [$booking['room_config_id']]
+                );
+            }
         }
         
         $db->commit();

@@ -46,6 +46,23 @@ try {
         [$listingId]
     );
     
+    // Recalculate availability for each room to ensure accuracy (handles old data)
+    foreach ($rooms as $room) {
+        recalculateAvailableBeds($room['id']);
+    }
+    
+    // Reload rooms with updated availability
+    $rooms = $db->fetchAll(
+        "SELECT rc.*, 
+                (SELECT COUNT(*) FROM bookings b 
+                 WHERE b.room_config_id = rc.id 
+                 AND b.status IN ('pending', 'confirmed')) as booked_beds
+         FROM room_configurations rc
+         WHERE rc.listing_id = ?
+         ORDER BY rc.room_type, rc.rent_per_month",
+        [$listingId]
+    );
+    
     // Calculate bed information for each room
     foreach ($rooms as &$room) {
         $room['beds_per_room'] = getBedsPerRoom($room['room_type']);

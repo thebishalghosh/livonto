@@ -69,6 +69,10 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
   ?>
   <link rel="stylesheet" href="<?= htmlspecialchars($cssBasePath . 'styles.css') ?>">
   
+  <?php if (isset($additionalCSS)): ?>
+    <?= $additionalCSS ?>
+  <?php endif; ?>
+  
   <!-- Leaflet CSS (for maps) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 

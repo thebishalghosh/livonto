@@ -46,7 +46,7 @@ try {
         [$listingId]
     );
     
-    // Recalculate availability for each room to ensure accuracy (handles old data)
+    // Recalculate availability for each room to ensure accuracy
     foreach ($rooms as $room) {
         recalculateAvailableBeds($room['id']);
     }
@@ -63,16 +63,14 @@ try {
         [$listingId]
     );
     
-    // Calculate bed information for each room (use real-time calculation, not cached column)
+    // Calculate bed information for each room
     foreach ($rooms as &$room) {
         $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
         $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
         
-        // Calculate available beds from actual bookings (real-time, ensures accuracy)
+        // Calculate available beds from actual bookings
         $bookedBeds = (int)($room['booked_beds'] ?? 0);
         $room['available_beds'] = max(0, $room['total_beds'] - $bookedBeds);
-        
-        // Also update the available_rooms column to keep it in sync
         $room['available_rooms'] = $room['available_beds'];
     }
     unset($room);
@@ -200,10 +198,8 @@ try {
                 <div class="card-body">
                     <h3 class="text-warning mb-0">
                         <?php
-                        // Calculate available beds from actual bookings (real-time, not from cached column)
                         $totalAvailableBeds = 0;
                         foreach ($rooms as $room) {
-                            // Use the calculated available_beds which is based on actual bookings
                             $totalAvailableBeds += (int)($room['available_beds'] ?? 0);
                         }
                         echo $totalAvailableBeds;

@@ -75,8 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                                 [$totalBeds, $roomConfigId]
                             );
                         }
-                        // If changing from cancelled/pending to confirmed, decrease available beds by 1
-                        elseif (in_array($oldStatus, ['pending', 'cancelled']) && $newStatus === 'confirmed') {
+                        // If changing from cancelled to confirmed, decrease available beds by 1
+                        // Note: pending -> confirmed doesn't need to decrease because it was already decreased when booking was created
+                        elseif ($oldStatus === 'cancelled' && $newStatus === 'confirmed') {
                             $db->execute(
                                 "UPDATE room_configurations 
                                  SET available_rooms = GREATEST(0, available_rooms - 1) 

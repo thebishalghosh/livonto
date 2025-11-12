@@ -369,9 +369,14 @@ if ($action === 'submit_booking') {
         
         $bookingId = $db->lastInsertId();
         
-        // Recalculate availability immediately after creating booking (even if pending)
-        // This ensures availability is updated in real-time
-        recalculateAvailableBeds($roomConfigId);
+        // Decrease available_rooms by 1 when booking is created (even if pending)
+        // This ensures availability is updated in real-time and respects owner's manual setting
+        $db->execute(
+            "UPDATE room_configurations 
+             SET available_rooms = GREATEST(0, available_rooms - 1) 
+             WHERE id = ?",
+            [$roomConfigId]
+        );
         
         // Create payment record with security deposit amount
         $db->execute(
@@ -425,7 +430,7 @@ if ($action === 'check_availability') {
         
         // Get all room configurations for this listing
         $roomConfigs = $db->fetchAll(
-            "SELECT id, room_type, rent_per_month, total_rooms 
+            "SELECT id, room_type, rent_per_month, total_rooms, available_rooms 
              FROM room_configurations 
              WHERE listing_id = ?",
             [$listingId]
@@ -438,9 +443,16 @@ if ($action === 'check_availability') {
             $bedsPerRoom = getBedsPerRoom($room['room_type']);
             $totalBeds = calculateTotalBeds($room['total_rooms'], $room['room_type']);
             
+            // Owner's manual setting (available_rooms) represents the actual available beds
+            // This is the number of beds the owner wants to make available for booking
+            // It already accounts for booked beds, so we use it directly
+            $ownerSetAvailable = (int)($room['available_rooms'] ?? 0);
+            
             // Check bed availability for all months in the duration
-            $isAvailable = true;
-            $minAvailableBeds = $totalBeds; // Start with total beds, find minimum across all months
+            // We need to verify that the owner's setting is still valid across all months
+            $isAvailable = $ownerSetAvailable > 0;
+            $minAvailableBeds = $ownerSetAvailable;
+            $maxBookedBeds = 0;
             
             $startDate = new DateTime($bookingStartDate);
             for ($i = 0; $i < $durationMonths; $i++) {
@@ -459,16 +471,14 @@ if ($action === 'check_availability') {
                 );
                 
                 $bookedBeds = (int)($bookedBeds['count'] ?? 0);
-                $availableBedsForMonth = max(0, $totalBeds - $bookedBeds);
+                $maxBookedBeds = max($maxBookedBeds, $bookedBeds);
                 
-                // Track minimum available beds across all months (worst case availability)
+                // The owner's setting is the actual available beds
+                // We just need to ensure it's still valid (not negative)
+                $availableBedsForMonth = max(0, $ownerSetAvailable);
+                
+                // Track minimum available beds across all months
                 $minAvailableBeds = min($minAvailableBeds, $availableBedsForMonth);
-                
-                // If any month is fully booked (all beds), the room is not available
-                if ($bookedBeds >= $totalBeds) {
-                    $isAvailable = false;
-                    break;
-                }
             }
             
             $availableBeds = $isAvailable ? $minAvailableBeds : 0;

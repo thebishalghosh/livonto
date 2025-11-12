@@ -209,18 +209,8 @@ try {
         }
     }
     
-    // Recalculate availability for all room configs to ensure accuracy
-    foreach ($roomConfigs as $config) {
-        recalculateAvailableBeds($config['id']);
-    }
-    
-    // Reload room configs with updated availability
-    $roomConfigs = $db->fetchAll(
-        "SELECT * FROM room_configurations WHERE listing_id = ? ORDER BY rent_per_month ASC",
-        [$listingId]
-    );
-    
     // Calculate bed-based totals (available_rooms represents available beds)
+    // Use available_rooms column value directly (owner can manually set this)
     $totalRooms = 0;
     $totalBeds = 0;
     $totalAvailableBeds = 0;
@@ -230,14 +220,16 @@ try {
         $configBeds = calculateTotalBeds($config['total_rooms'], $config['room_type']);
         $totalBeds += $configBeds;
         
-        // Count actual booked beds to ensure accuracy
+        // Count actual booked beds for display
         $bookedBeds = (int)$db->fetchValue(
             "SELECT COUNT(*) FROM bookings 
              WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
             [$config['id']]
         );
         
-        $availableBeds = max(0, $configBeds - $bookedBeds);
+        // Use available_rooms column value directly (owner can manually set this)
+        // available_rooms represents available beds
+        $availableBeds = (int)($config['available_rooms'] ?? 0);
         $totalAvailableBeds += $availableBeds;
         
         $config['beds_per_room'] = $bedsPerRoom;

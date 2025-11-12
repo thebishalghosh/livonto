@@ -59,20 +59,24 @@ if ($listingId > 0) {
                 [$listingId]
             );
             
-            // Calculate real-time bed availability for each room config
+            // Calculate bed availability for each room config
+            // Use available_rooms column value (owner can manually set this) minus booked beds
             foreach ($roomConfigs as &$room) {
                 $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
                 $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
                 
-                // Count actual booked beds (pending + confirmed) for real-time accuracy
+                // Count actual booked beds (pending + confirmed)
                 $bookedBeds = (int)db()->fetchValue(
                     "SELECT COUNT(*) FROM bookings 
                      WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
                     [$room['id']]
                 );
                 
-                $room['available_beds'] = max(0, $room['total_beds'] - $bookedBeds);
-                $room['available_rooms'] = $room['available_beds']; // For backward compatibility
+                // Owner's manual setting (available_rooms) represents the actual available beds
+                // This is the number of beds the owner wants to make available for booking
+                // It already accounts for booked beds, so we use it directly
+                $room['available_beds'] = (int)($room['available_rooms'] ?? 0);
+                $room['booked_beds'] = $bookedBeds;
             }
             unset($room);
             

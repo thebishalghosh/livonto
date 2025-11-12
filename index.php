@@ -72,6 +72,7 @@ $ownerRoutes = [
     'owner/listings/edit' => 'owner/listings/edit.php',
     'owner/forgot-password' => 'owner/forgot-password.php',
     'owner/reset-password' => 'owner/reset-password.php',
+    'owner/change-password-api' => 'app/owner_change_password_api.php',
 ];
 
 // Admin routes

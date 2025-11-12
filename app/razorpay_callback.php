@@ -226,24 +226,9 @@ try {
             [$bookingId]
         );
         
-        // Decrease available beds when booking is confirmed (each booking = 1 bed)
-        if (!empty($booking['room_config_id'])) {
-            // Get room config to calculate beds
-            $roomConfig = $db->fetchOne(
-                "SELECT total_rooms, room_type, available_rooms FROM room_configurations WHERE id = ?",
-                [$booking['room_config_id']]
-            );
-            
-            if ($roomConfig) {
-                // Decrease available_rooms by 1 bed (available_rooms represents available beds)
-                $db->execute(
-                    "UPDATE room_configurations 
-                     SET available_rooms = GREATEST(0, available_rooms - 1) 
-                     WHERE id = ?",
-                    [$booking['room_config_id']]
-                );
-            }
-        }
+        // Note: available_rooms was already decreased when booking was created (pending)
+        // So we don't need to decrease again when confirmed, as it's already accounted for
+        // The availability was already updated in app/book_api.php when the booking was created
         
         $db->commit();
         ob_end_clean();

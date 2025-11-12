@@ -415,3 +415,112 @@ function getListingById($listingId, $requireActive = true) {
     }
 }
 
+/**
+ * Geocode address to coordinates using OpenStreetMap Nominatim API
+ * @param string $address - Full address or city name
+ * @param string $city - City name (optional, for better accuracy)
+ * @return array|null - Returns ['lat' => float, 'lng' => float] or null on failure
+ */
+function geocodeAddress($address, $city = '') {
+    if (empty($address) && empty($city)) {
+        return null;
+    }
+    
+    // Build search query
+    $searchQuery = trim($address);
+    if (!empty($city) && strpos(strtolower($searchQuery), strtolower($city)) === false) {
+        $searchQuery .= ', ' . trim($city);
+    }
+    if (strpos(strtolower($searchQuery), 'india') === false) {
+        $searchQuery .= ', India';
+    }
+    
+    $encodedQuery = urlencode($searchQuery);
+    $url = "https://nominatim.openstreetmap.org/search?format=json&q={$encodedQuery}&limit=1&addressdetails=1";
+    
+    // Use cURL with proper headers (required by Nominatim)
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERAGENT => 'Livonto PG Platform',
+        CURLOPT_TIMEOUT => 5,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => true
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpCode !== 200 || empty($response)) {
+        return null;
+    }
+    
+    $data = json_decode($response, true);
+    
+    if (!empty($data) && is_array($data) && isset($data[0]['lat']) && isset($data[0]['lon'])) {
+        return [
+            'lat' => (float)$data[0]['lat'],
+            'lng' => (float)$data[0]['lon']
+        ];
+    }
+    
+    return null;
+}
+
+/**
+ * Auto-geocode listing location if coordinates are missing
+ * @param int $listingId
+ * @return bool - Returns true if coordinates were successfully added
+ */
+function autoGeocodeListing($listingId) {
+    try {
+        $db = db();
+        
+        // Get listing location data
+        $location = $db->fetchOne(
+            "SELECT complete_address, city, latitude, longitude 
+             FROM listing_locations 
+             WHERE listing_id = ?",
+            [$listingId]
+        );
+        
+        if (!$location) {
+            return false;
+        }
+        
+        // Skip if coordinates already exist
+        if (!empty($location['latitude']) && !empty($location['longitude']) &&
+            abs((float)$location['latitude']) > 0.0001 && abs((float)$location['longitude']) > 0.0001) {
+            return false;
+        }
+        
+        // Build address for geocoding
+        $address = trim($location['complete_address'] ?? '');
+        $city = trim($location['city'] ?? '');
+        
+        if (empty($address) && empty($city)) {
+            return false;
+        }
+        
+        // Geocode the address
+        $coords = geocodeAddress($address, $city);
+        
+        if ($coords && isset($coords['lat']) && isset($coords['lng'])) {
+            // Update coordinates in database
+            $db->execute(
+                "UPDATE listing_locations 
+                 SET latitude = ?, longitude = ? 
+                 WHERE listing_id = ?",
+                [$coords['lat'], $coords['lng'], $listingId]
+            );
+            return true;
+        }
+        
+        return false;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+

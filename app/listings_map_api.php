@@ -34,11 +34,10 @@ $radius = isset($_GET['radius']) ? floatval($_GET['radius']) : 50; // Default 50
 try {
     $db = db();
     
-    // Build WHERE clause - always require coordinates and active status
+    // Build WHERE clause - require active status
+    // Note: We'll validate coordinates in PHP to handle edge cases (0, empty strings, etc.)
     $where = [
-        'l.status = ?',
-        'loc.latitude IS NOT NULL', 
-        'loc.longitude IS NOT NULL'
+        'l.status = ?'
     ];
     $params = ['active'];
     
@@ -123,9 +122,42 @@ try {
             $lngVal = floatval($listing['lng']);
         }
         
+        // If coordinates are missing or invalid, try to auto-geocode
+        $needsGeocoding = false;
+        if ($latVal === null || $lngVal === null || 
+            !is_numeric($latVal) || !is_numeric($lngVal) ||
+            $latVal < -90 || $latVal > 90 || 
+            $lngVal < -180 || $lngVal > 180 ||
+            abs($latVal) <= 0.0001 || abs($lngVal) <= 0.0001) {
+            $needsGeocoding = true;
+        }
+        
+        // Auto-geocode if needed (only once per listing to avoid rate limits)
+        if ($needsGeocoding) {
+            $geocoded = autoGeocodeListing($listing['id']);
+            if ($geocoded) {
+                // Re-fetch the listing with updated coordinates
+                $updatedListing = $db->fetchOne(
+                    "SELECT CAST(loc.latitude AS DECIMAL(10,7)) as latitude,
+                            CAST(loc.longitude AS DECIMAL(10,7)) as longitude
+                     FROM listing_locations loc
+                     WHERE loc.listing_id = ?",
+                    [$listing['id']]
+                );
+                
+                if ($updatedListing && 
+                    isset($updatedListing['latitude']) && 
+                    isset($updatedListing['longitude'])) {
+                    $latVal = floatval($updatedListing['latitude']);
+                    $lngVal = floatval($updatedListing['longitude']);
+                    $needsGeocoding = false;
+                }
+            }
+        }
+        
         // Validate coordinates are within valid ranges
-        // Use abs() to check for non-zero values (handles negative coordinates)
-        if ($latVal !== null && $lngVal !== null && 
+        if (!$needsGeocoding && 
+            $latVal !== null && $lngVal !== null && 
             is_numeric($latVal) && is_numeric($lngVal) &&
             $latVal >= -90 && $latVal <= 90 && 
             $lngVal >= -180 && $lngVal <= 180 &&

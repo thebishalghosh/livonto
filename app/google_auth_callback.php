@@ -360,8 +360,13 @@ try {
     // Get redirect URL from request (if provided)
     $redirect = null;
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
-        $redirect = $input['redirect'] ?? null;
+        // Check FormData first (from modal login)
+        $redirect = $_POST['redirect'] ?? null;
+        // If not in POST, check JSON input (for API calls)
+        if (empty($redirect)) {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $redirect = $input['redirect'] ?? null;
+        }
     } else {
         $redirect = $_GET['redirect'] ?? null;
     }

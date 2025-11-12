@@ -230,17 +230,17 @@ async function loadSearchResults(city = '', query = '') {
                   <h5 class="listing-title mb-2">${escapeHtml(listing.title)}</h5>
                   <p class="small text-muted mb-3 flex-grow-1">${escapeHtml(description)}</p>
                   <div class="d-flex gap-2 mt-auto">
-                    <a href="${baseUrl}/visit-book?id=${listing.id}" 
-                       class="btn btn-outline-primary btn-sm flex-fill text-center"
-                       onclick="event.stopPropagation();"
-                       style="border-color: var(--primary); color: var(--primary);">
+                    <button type="button"
+                            class="btn btn-outline-primary btn-sm flex-fill text-center"
+                            onclick="event.stopPropagation(); if(typeof showLoginModal === 'function') { showLoginModal('${baseUrl}/visit-book?id=${listing.id}'); } else { window.location.href='${baseUrl}/visit-book?id=${listing.id}'; }"
+                            style="border-color: var(--primary); color: var(--primary);">
                       Book a Visit
-                    </a>
-                    <a href="${baseUrl}/listings/${listing.id}?action=book" 
-                       class="btn btn-primary btn-sm flex-fill text-white text-center"
-                       onclick="event.stopPropagation();">
+                    </button>
+                    <button type="button"
+                            class="btn btn-primary btn-sm flex-fill text-white text-center"
+                            onclick="event.stopPropagation(); if(typeof showLoginModal === 'function') { showLoginModal('${baseUrl}/listings/${listing.id}?action=book'); } else { window.location.href='${baseUrl}/listings/${listing.id}?action=book'; }">
                       Book Now
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>

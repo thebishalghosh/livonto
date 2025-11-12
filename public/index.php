@@ -1,4 +1,9 @@
 <?php
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 $pageTitle = "Find your PG";
 require __DIR__ . '/../app/config.php';
 require __DIR__ . '/../app/functions.php';
@@ -364,17 +369,31 @@ try {
             <h5 class="listing-title mb-2"><?= htmlspecialchars($listing['title']) ?></h5>
             <p class="small text-muted mb-3 flex-grow-1"><?= htmlspecialchars($description) ?></p>
             <div class="d-flex gap-2 mt-auto">
-              <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
-                 class="btn btn-outline-primary btn-sm flex-fill text-center"
-                 onclick="event.stopPropagation();"
-                 style="border-color: var(--primary); color: var(--primary);">
-                Book a Visit
-              </a>
-              <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
-                 class="btn btn-primary btn-sm flex-fill text-white text-center"
-                 onclick="event.stopPropagation();">
-                Book Now
-              </a>
+              <?php if (isLoggedIn()): ?>
+                <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
+                   class="btn btn-outline-primary btn-sm flex-fill text-center"
+                   onclick="event.stopPropagation();"
+                   style="border-color: var(--primary); color: var(--primary);">
+                  Book a Visit
+                </a>
+                <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
+                   class="btn btn-primary btn-sm flex-fill text-white text-center"
+                   onclick="event.stopPropagation();">
+                  Book Now
+                </a>
+              <?php else: ?>
+                <button type="button"
+                        class="btn btn-outline-primary btn-sm flex-fill text-center"
+                        onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>');"
+                        style="border-color: var(--primary); color: var(--primary);">
+                  Book a Visit
+                </button>
+                <button type="button"
+                        class="btn btn-primary btn-sm flex-fill text-white text-center"
+                        onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars($listingUrl . '?action=book') ?>');">
+                  Book Now
+                </button>
+              <?php endif; ?>
             </div>
           </div>
         </div>

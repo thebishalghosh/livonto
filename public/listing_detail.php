@@ -4,6 +4,11 @@
  * Shows complete information about a specific PG listing
  */
 
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require __DIR__ . '/../app/config.php';
 require __DIR__ . '/../app/functions.php';
 
@@ -518,14 +523,36 @@ try {
                 <?php endif; ?>
                 
                 <div class="d-grid gap-2 mb-4">
-                    <a href="<?= htmlspecialchars(app_url('book?id=' . $listingId)) ?>" 
-                       class="btn btn-primary btn-lg text-white">
-                        <i class="bi bi-check-circle me-2"></i>Book Now
-                    </a>
-                    <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listingId)) ?>" 
-                       class="btn btn-outline-primary btn-lg text-white">
-                        <i class="bi bi-calendar-check me-2"></i>Book a Visit
-                    </a>
+                    <?php if (isLoggedIn()): ?>
+                        <a href="<?= htmlspecialchars(app_url('book?id=' . $listingId)) ?>" 
+                           class="btn btn-primary btn-lg text-white">
+                            <i class="bi bi-check-circle me-2"></i>Book Now
+                        </a>
+                    <?php else: ?>
+                        <button type="button" 
+                                class="btn btn-primary btn-lg text-white" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#loginModal"
+                                data-booking-url="<?= htmlspecialchars(app_url('book?id=' . $listingId)) ?>"
+                                id="bookNowBtn">
+                            <i class="bi bi-check-circle me-2"></i>Book Now
+                        </button>
+                    <?php endif; ?>
+                    <?php if (isLoggedIn()): ?>
+                        <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listingId)) ?>" 
+                           class="btn btn-outline-primary btn-lg text-white">
+                            <i class="bi bi-calendar-check me-2"></i>Book a Visit
+                        </a>
+                    <?php else: ?>
+                        <button type="button" 
+                                class="btn btn-outline-primary btn-lg text-white" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#loginModal"
+                                data-booking-url="<?= htmlspecialchars(app_url('visit-book?id=' . $listingId)) ?>"
+                                id="bookVisitBtn">
+                            <i class="bi bi-calendar-check me-2"></i>Book a Visit
+                        </button>
+                    <?php endif; ?>
                 </div>
                 
                 <hr class="theme-border-color">

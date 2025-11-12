@@ -13,6 +13,12 @@ $baseUrl = rtrim((string)$baseUrl, '/');
 if (file_exists(__DIR__ . '/../functions.php') && !function_exists('getSetting')) {
     require_once __DIR__ . '/../functions.php';
 }
+// Ensure isLoggedIn function is available
+if (!function_exists('isLoggedIn')) {
+    function isLoggedIn() {
+        return !empty($_SESSION['user_id']);
+    }
+}
 $siteName = function_exists('getSetting') ? getSetting('site_name', 'Livonto') : 'Livonto';
 $pageTitle = $pageTitle ?? $siteName;
 // Get SEO settings
@@ -74,7 +80,7 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
   <!-- Autocomplete styles -->
   <link rel="stylesheet" href="<?= htmlspecialchars($cssBasePath . 'autocomplete.css') ?>">
 </head>
-<body>
+<body data-user-logged-in="<?= isLoggedIn() ? '1' : '0' ?>">
 <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
   <div class="container-xxl d-flex align-items-center">
     <a class="navbar-brand" href="<?= htmlspecialchars(app_url('')) ?>">
@@ -207,6 +213,7 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <form id="loginForm" method="post" action="<?= htmlspecialchars($baseUrl . '/app/login_action.php') ?>" novalidate>
+        <input type="hidden" id="loginRedirect" name="redirect" value="">
         <div class="modal-header">
           <h5 class="modal-title" id="loginModalLabel">Login to PG Finder</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -214,6 +221,10 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
 
         <div class="modal-body">
           <div id="loginAlert"></div>
+          <div id="loginRequiredMessage" class="alert alert-info d-none">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Login Required:</strong> Please login to continue with your booking.
+          </div>
 
           <!-- Google Sign In Button -->
           <div class="mb-3">
@@ -430,7 +441,6 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
       }
 
     } catch (err) {
-      console.error('AJAX error', err);
       showAlert(alertContainerId, 'danger', 'Server error. Please try again later.');
     } finally {
       if (submitBtn) submitBtn.disabled = false;
@@ -537,11 +547,13 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
                     fetch('https://www.googleapis.com/oauth2/v2/userinfo?access_token=' + response.access_token)
                       .then(res => res.json())
                       .then(userInfo => {
+                        // Get redirect URL from login form
+                        const loginRedirect = document.getElementById('loginRedirect');
+                        const redirectUrl = loginRedirect ? loginRedirect.value : '';
                         // Send to server for verification and login
-                        sendGoogleUserInfoToServer(userInfo, '');
+                        sendGoogleUserInfoToServer(userInfo, '', redirectUrl);
                       })
                       .catch(err => {
-                        console.error('Google OAuth error:', err);
                         showAlert('loginAlert', 'danger', 'Failed to sign in with Google. Please try again.');
                       });
                   }
@@ -565,7 +577,6 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
                         sendGoogleUserInfoToServer(userInfo, referralCode);
                       })
                       .catch(err => {
-                        console.error('Google OAuth error:', err);
                         showAlert('registerAlert', 'danger', 'Failed to sign up with Google. Please try again.');
                       });
                   }
@@ -577,7 +588,7 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
         }
       });
 
-      function sendGoogleUserInfoToServer(userInfo, referralCode = '') {
+      function sendGoogleUserInfoToServer(userInfo, referralCode = '', redirectUrl = '') {
         const formData = new FormData();
         formData.append('google_id', userInfo.id);
         formData.append('email', userInfo.email);
@@ -585,6 +596,9 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
         formData.append('picture', userInfo.picture || '');
         if (referralCode) {
           formData.append('referral_code', referralCode);
+        }
+        if (redirectUrl) {
+          formData.append('redirect', redirectUrl);
         }
 
         const alertId = referralCode ? 'registerAlert' : 'loginAlert';
@@ -616,7 +630,6 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
           }
         })
         .catch(err => {
-          console.error('Error:', err);
           showAlert(alertId, 'danger', 'An error occurred. Please try again.');
         });
       }
@@ -650,5 +663,94 @@ $metaKeywords = function_exists('getSetting') ? getSetting('meta_keywords', '') 
         });
       }
     });
+
+    // ----- Global function to show login modal with redirect URL -----
+    window.showLoginModal = function(redirectUrl) {
+      // Check if user is already logged in
+      const isLoggedIn = document.body.getAttribute('data-user-logged-in') === '1';
+      
+      if (isLoggedIn && redirectUrl) {
+        // User is already logged in, just redirect
+        window.location.href = redirectUrl;
+        return;
+      }
+      
+      const loginModal = document.getElementById('loginModal');
+      const loginRequiredMessage = document.getElementById('loginRequiredMessage');
+      const loginRedirect = document.getElementById('loginRedirect');
+      
+      if (loginModal) {
+        // Set redirect URL in hidden input
+        if (loginRedirect && redirectUrl) {
+          loginRedirect.value = redirectUrl;
+        }
+        
+        // Show login required message
+        if (loginRequiredMessage) {
+          loginRequiredMessage.classList.remove('d-none');
+        }
+        
+        // Show the modal
+        const modal = bootstrap.Modal.getOrCreateInstance(loginModal);
+        modal.show();
+      }
+    };
+
+    // ----- Handle Book Now button click (show login modal with message) -----
+    (function(){
+      const bookNowBtn = document.getElementById('bookNowBtn');
+      const bookVisitBtn = document.getElementById('bookVisitBtn');
+      const loginModal = document.getElementById('loginModal');
+      const loginRequiredMessage = document.getElementById('loginRequiredMessage');
+      const loginRedirect = document.getElementById('loginRedirect');
+      
+      // Handle Book Now button
+      if (bookNowBtn && loginModal) {
+        bookNowBtn.addEventListener('click', function(e){
+          // Get booking URL from data attribute
+          const bookingUrl = this.getAttribute('data-booking-url');
+          
+          // Set redirect URL in hidden input
+          if (loginRedirect && bookingUrl) {
+            loginRedirect.value = bookingUrl;
+          }
+          
+          // Show login required message
+          if (loginRequiredMessage) {
+            loginRequiredMessage.classList.remove('d-none');
+          }
+        });
+      }
+      
+      // Handle Book a Visit button
+      if (bookVisitBtn && loginModal) {
+        bookVisitBtn.addEventListener('click', function(e){
+          // Get booking URL from data attribute
+          const bookingUrl = this.getAttribute('data-booking-url');
+          
+          // Set redirect URL in hidden input
+          if (loginRedirect && bookingUrl) {
+            loginRedirect.value = bookingUrl;
+          }
+          
+          // Show login required message
+          if (loginRequiredMessage) {
+            loginRequiredMessage.classList.remove('d-none');
+          }
+        });
+      }
+      
+      // Clear message when modal is closed
+      if (loginModal) {
+        loginModal.addEventListener('hidden.bs.modal', function(){
+          if (loginRequiredMessage) {
+            loginRequiredMessage.classList.add('d-none');
+          }
+          if (loginRedirect) {
+            loginRedirect.value = '';
+          }
+        });
+      }
+    })();
   })();
 </script>

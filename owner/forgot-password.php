@@ -134,7 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } catch (Exception $e) {
-            error_log("Error in owner forgot password: " . $e->getMessage());
             $error = 'An error occurred. Please try again later.';
         }
     }

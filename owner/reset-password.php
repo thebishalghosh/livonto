@@ -106,7 +106,6 @@ if (empty($token)) {
             }
         }
     } catch (Exception $e) {
-        error_log("Error in owner reset password: " . $e->getMessage());
         $error = 'An error occurred. Please try again later.';
     }
 }

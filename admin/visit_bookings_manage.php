@@ -210,8 +210,9 @@ $flashMessage = getFlashMessage();
 <?php endif; ?>
 
 <!-- Statistics Cards -->
-<div class="row g-3 mb-4">
-    <div class="col-xl-2 col-md-4 col-6">
+<!-- Row 1: Main Statistics -->
+<div class="row g-3 mb-3">
+    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 col-12">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                 <i class="bi bi-calendar-check"></i>
@@ -222,7 +223,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 col-12">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
                 <i class="bi bi-clock-history"></i>
@@ -233,7 +234,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 col-12">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
                 <i class="bi bi-check-circle"></i>
@@ -244,7 +245,11 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+</div>
+
+<!-- Row 2: Additional Statistics -->
+<div class="row g-3 mb-4">
+    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 col-12">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
                 <i class="bi bi-check-circle-fill"></i>
@@ -255,7 +260,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 col-12">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
                 <i class="bi bi-calendar-day"></i>
@@ -266,7 +271,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-2 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-4 col-sm-6 col-12">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
                 <i class="bi bi-calendar-month"></i>

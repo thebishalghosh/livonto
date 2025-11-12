@@ -33,49 +33,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
         if ($action === 'update_status' && isset($_POST['new_status'])) {
             $newStatus = $_POST['new_status'];
             if (in_array($newStatus, ['pending', 'confirmed', 'cancelled', 'completed'])) {
-                // Get current booking status and room_config_id
-                $currentBooking = $db->fetchOne(
-                    "SELECT status, room_config_id FROM bookings WHERE id = ?",
+                // Get user email and current booking status before updating
+                $bookingData = $db->fetchOne(
+                    "SELECT u.email as user_email, b.status, b.room_config_id
+                     FROM bookings b
+                     LEFT JOIN users u ON b.user_id = u.id
+                     WHERE b.id = ?",
                     [$bookingId]
                 );
                 
-                if ($currentBooking) {
-                    $oldStatus = $currentBooking['status'];
-                    $roomConfigId = $currentBooking['room_config_id'];
-                    
-                    // Update booking status
-                    $db->execute("UPDATE bookings SET status = ? WHERE id = ?", [$newStatus, $bookingId]);
-                    
-                    // Update available_rooms based on status change
-                    if ($roomConfigId) {
-                        // If changing from pending/confirmed to cancelled, increase available_rooms
-                        if (in_array($oldStatus, ['pending', 'confirmed']) && $newStatus === 'cancelled') {
-                            $db->execute(
-                                "UPDATE room_configurations 
-                                 SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
-                                 WHERE id = ?",
-                                [$roomConfigId]
-                            );
-                        }
-                        // If changing from cancelled/pending to confirmed, decrease available_rooms
-                        elseif (in_array($oldStatus, ['pending', 'cancelled']) && $newStatus === 'confirmed') {
-                            $db->execute(
-                                "UPDATE room_configurations 
-                                 SET available_rooms = GREATEST(0, available_rooms - 1) 
-                                 WHERE id = ?",
-                                [$roomConfigId]
-                            );
-                        }
-                        // If changing from confirmed to completed, room becomes available (increase)
-                        elseif ($oldStatus === 'confirmed' && $newStatus === 'completed') {
-                            $db->execute(
-                                "UPDATE room_configurations 
-                                 SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
-                                 WHERE id = ?",
-                                [$roomConfigId]
-                            );
-                        }
+                if (!$bookingData) {
+                    $_SESSION['flash_message'] = 'Booking not found';
+                    $_SESSION['flash_type'] = 'danger';
+                    header('Location: ' . app_url('admin/bookings'));
+                    exit;
+                }
+                
+                $oldStatus = $bookingData['status'];
+                $roomConfigId = $bookingData['room_config_id'];
+                
+                // Update booking status
+                $db->execute("UPDATE bookings SET status = ? WHERE id = ?", [$newStatus, $bookingId]);
+                
+                // Update available_rooms based on status change
+                if ($roomConfigId) {
+                    // If changing from pending/confirmed to cancelled, increase available_rooms
+                    if (in_array($oldStatus, ['pending', 'confirmed']) && $newStatus === 'cancelled') {
+                        $db->execute(
+                            "UPDATE room_configurations 
+                             SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
+                             WHERE id = ?",
+                            [$roomConfigId]
+                        );
                     }
+                    // If changing from cancelled/pending to confirmed, decrease available_rooms
+                    elseif (in_array($oldStatus, ['pending', 'cancelled']) && $newStatus === 'confirmed') {
+                        $db->execute(
+                            "UPDATE room_configurations 
+                             SET available_rooms = GREATEST(0, available_rooms - 1) 
+                             WHERE id = ?",
+                            [$roomConfigId]
+                        );
+                    }
+                    // If changing from confirmed to completed, room becomes available (increase)
+                    elseif ($oldStatus === 'confirmed' && $newStatus === 'completed') {
+                        $db->execute(
+                            "UPDATE room_configurations 
+                             SET available_rooms = LEAST(total_rooms, available_rooms + 1) 
+                             WHERE id = ?",
+                            [$roomConfigId]
+                        );
+                    }
+                }
+                
+                // Send email notification to user
+                if (!empty($bookingData['user_email'])) {
+                    require_once __DIR__ . '/../app/includes/send_booking_status_mail.php';
+                    sendBookingStatusMail($bookingData['user_email'], $newStatus, $bookingId);
                 }
                 
                 $_SESSION['flash_message'] = 'Booking status updated successfully';

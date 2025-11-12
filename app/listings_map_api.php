@@ -9,8 +9,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Set content type to JSON
-header('Content-Type: application/json');
+// Set headers for CORS and JSON response
+header('Content-Type: application/json; charset=utf-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
 // Load required files
 require __DIR__ . '/config.php';
@@ -63,6 +66,7 @@ try {
     $whereClause = 'WHERE ' . implode(' AND ', $where);
     
     // Build query with distance calculation if coordinates provided
+    // Ensure coordinates are properly cast to DECIMAL for consistent numeric handling
     if ($lat !== null && $lng !== null) {
         $sql = "SELECT l.id, l.title, l.description, l.cover_image,
                        loc.city, loc.complete_address, 
@@ -105,35 +109,49 @@ try {
     // Format listings for map
     $mapListings = [];
     foreach ($listings as $listing) {
-        // Check if latitude and longitude are valid numbers
-        // Try different possible field names
+        // Extract coordinates - handle both string and numeric formats
+        // Force conversion to float to ensure proper numeric type
         $latVal = null;
         $lngVal = null;
         
-        if (isset($listing['latitude']) && $listing['latitude'] !== null) {
-            $latVal = floatval($listing['latitude']);
-        } elseif (isset($listing['lat']) && $listing['lat'] !== null) {
-            $latVal = floatval($listing['lat']);
+        // Try latitude field (handle both 'latitude' and 'lat' keys)
+        if (isset($listing['latitude'])) {
+            $latRaw = $listing['latitude'];
+            if ($latRaw !== null && $latRaw !== '' && $latRaw !== '0') {
+                $latVal = (float)$latRaw;
+            }
+        } elseif (isset($listing['lat'])) {
+            $latRaw = $listing['lat'];
+            if ($latRaw !== null && $latRaw !== '' && $latRaw !== '0') {
+                $latVal = (float)$latRaw;
+            }
         }
         
-        if (isset($listing['longitude']) && $listing['longitude'] !== null) {
-            $lngVal = floatval($listing['longitude']);
-        } elseif (isset($listing['lng']) && $listing['lng'] !== null) {
-            $lngVal = floatval($listing['lng']);
+        // Try longitude field (handle both 'longitude' and 'lng' keys)
+        if (isset($listing['longitude'])) {
+            $lngRaw = $listing['longitude'];
+            if ($lngRaw !== null && $lngRaw !== '' && $lngRaw !== '0') {
+                $lngVal = (float)$lngRaw;
+            }
+        } elseif (isset($listing['lng'])) {
+            $lngRaw = $listing['lng'];
+            if ($lngRaw !== null && $lngRaw !== '' && $lngRaw !== '0') {
+                $lngVal = (float)$lngRaw;
+            }
+        }
+        
+        // Validate coordinates are valid numbers and within ranges
+        $hasValidCoords = false;
+        if ($latVal !== null && $lngVal !== null && 
+            is_finite($latVal) && is_finite($lngVal) &&
+            $latVal >= -90 && $latVal <= 90 && 
+            $lngVal >= -180 && $lngVal <= 180 &&
+            abs($latVal) > 0.0001 && abs($lngVal) > 0.0001) {
+            $hasValidCoords = true;
         }
         
         // If coordinates are missing or invalid, try to auto-geocode
-        $needsGeocoding = false;
-        if ($latVal === null || $lngVal === null || 
-            !is_numeric($latVal) || !is_numeric($lngVal) ||
-            $latVal < -90 || $latVal > 90 || 
-            $lngVal < -180 || $lngVal > 180 ||
-            abs($latVal) <= 0.0001 || abs($lngVal) <= 0.0001) {
-            $needsGeocoding = true;
-        }
-        
-        // Auto-geocode if needed (only once per listing to avoid rate limits)
-        if ($needsGeocoding) {
+        if (!$hasValidCoords) {
             $geocoded = autoGeocodeListing($listing['id']);
             if ($geocoded) {
                 // Re-fetch the listing with updated coordinates
@@ -148,33 +166,33 @@ try {
                 if ($updatedListing && 
                     isset($updatedListing['latitude']) && 
                     isset($updatedListing['longitude'])) {
-                    $latVal = floatval($updatedListing['latitude']);
-                    $lngVal = floatval($updatedListing['longitude']);
-                    $needsGeocoding = false;
+                    $latVal = (float)$updatedListing['latitude'];
+                    $lngVal = (float)$updatedListing['longitude'];
+                    
+                    // Re-validate after geocoding
+                    if ($latVal >= -90 && $latVal <= 90 && 
+                        $lngVal >= -180 && $lngVal <= 180 &&
+                        abs($latVal) > 0.0001 && abs($lngVal) > 0.0001) {
+                        $hasValidCoords = true;
+                    }
                 }
             }
         }
         
-        // Validate coordinates are within valid ranges
-        if (!$needsGeocoding && 
-            $latVal !== null && $lngVal !== null && 
-            is_numeric($latVal) && is_numeric($lngVal) &&
-            $latVal >= -90 && $latVal <= 90 && 
-            $lngVal >= -180 && $lngVal <= 180 &&
-            abs($latVal) > 0.0001 && abs($lngVal) > 0.0001) {
-            
+        // Add to map listings if coordinates are valid
+        if ($hasValidCoords) {
             $mapListings[] = [
-                'id' => $listing['id'],
+                'id' => (int)$listing['id'],
                 'title' => $listing['title'] ?? 'Untitled',
                 'description' => mb_substr($listing['description'] ?? '', 0, 100),
                 'city' => $listing['city'] ?? '',
                 'address' => $listing['complete_address'] ?? '',
-                'lat' => $latVal,
-                'lng' => $lngVal,
+                'lat' => $latVal,  // Already validated as float
+                'lng' => $lngVal,  // Already validated as float
                 'price' => $listing['min_rent'] ? '₹' . number_format($listing['min_rent']) . ($listing['max_rent'] && $listing['max_rent'] != $listing['min_rent'] ? ' - ₹' . number_format($listing['max_rent']) : '') : 'Price on request',
                 'image' => !empty($listing['cover_image']) ? app_url($listing['cover_image']) : null,
                 'url' => app_url('listings/' . $listing['id']),
-                'distance' => isset($listing['distance']) ? round($listing['distance'], 2) : null
+                'distance' => isset($listing['distance']) && is_numeric($listing['distance']) ? round((float)$listing['distance'], 2) : null
             ];
         }
     }

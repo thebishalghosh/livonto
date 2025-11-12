@@ -323,7 +323,7 @@ function jsonResponse($data, $statusCode = 200) {
         header('Content-Type: application/json; charset=utf-8');
     }
     
-    $json = @json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $json = @json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_NUMERIC_CHECK);
     if ($json === false || $json === null) {
         echo '{"status":"error","message":"JSON encoding failed"}';
     } else {

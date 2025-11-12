@@ -138,6 +138,7 @@ $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
           <li class="mb-2"><a href="<?= htmlspecialchars(app_url('profile')) ?>" class="text-light text-decoration-none">My Profile</a></li>
           <li class="mb-2"><a href="#" class="text-light text-decoration-none" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a></li>
           <li class="mb-2"><a href="#" class="text-light text-decoration-none" data-bs-toggle="modal" data-bs-target="#registerModal">Register</a></li>
+          <li class="mb-2"><a href="<?= htmlspecialchars(app_url('terms')) ?>" class="text-light text-decoration-none">Terms & Conditions</a></li>
         </ul>
       </div>
 

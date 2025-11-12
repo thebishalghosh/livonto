@@ -543,7 +543,7 @@ require __DIR__ . '/../app/includes/header.php';
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="agreed_to_tnc" id="agreedToTnc" required>
                         <label class="form-check-label" for="agreedToTnc">
-                            I agree to the <a href="#" class="text-decoration-none">Terms and Conditions</a>
+                            I agree to the <a href="<?= app_url('terms') ?>" target="_blank" rel="noopener noreferrer" class="text-decoration-none">Terms and Conditions</a>
                         </label>
                     </div>
                 </div>

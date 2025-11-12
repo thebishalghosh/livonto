@@ -58,39 +58,39 @@ try {
     
     // Get user statistics with error handling for each query
     try {
-        $userStats['listings_count'] = $db->fetchValue("SELECT COUNT(*) FROM listings WHERE owner_name = ?", [$user['name']]) ?: 0;
+        $userStats['listings_count'] = (int)$db->fetchValue("SELECT COUNT(*) FROM listings WHERE owner_name = ?", [$user['name']]) ?: 0;
     } catch (Exception $e) {
-        error_log("Error fetching listings_count: " . $e->getMessage());
+        $userStats['listings_count'] = 0;
     }
     
     try {
-        $userStats['bookings_count'] = $db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ?", [$userId]) ?: 0;
+        $userStats['bookings_count'] = (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE user_id = ?", [$userId]) ?: 0;
     } catch (Exception $e) {
-        error_log("Error fetching bookings_count: " . $e->getMessage());
+        $userStats['bookings_count'] = 0;
     }
     
     try {
-        $userStats['visit_bookings_count'] = $db->fetchValue("SELECT COUNT(*) FROM visit_bookings WHERE user_id = ?", [$userId]) ?: 0;
+        $userStats['visit_bookings_count'] = (int)$db->fetchValue("SELECT COUNT(*) FROM visit_bookings WHERE user_id = ?", [$userId]) ?: 0;
     } catch (Exception $e) {
-        error_log("Error fetching visit_bookings_count: " . $e->getMessage());
+        $userStats['visit_bookings_count'] = 0;
     }
     
     try {
-        $userStats['referrals_count'] = $db->fetchValue("SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", [$userId]) ?: 0;
+        $userStats['referrals_count'] = (int)$db->fetchValue("SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", [$userId]) ?: 0;
     } catch (Exception $e) {
-        error_log("Error fetching referrals_count: " . $e->getMessage());
+        $userStats['referrals_count'] = 0;
     }
     
     try {
-        $userStats['total_spent'] = $db->fetchValue("SELECT COALESCE(SUM(p.amount), 0) FROM payments p INNER JOIN bookings b ON p.booking_id = b.id WHERE b.user_id = ? AND p.status = 'success'", [$userId]) ?: 0;
+        $userStats['total_spent'] = (float)$db->fetchValue("SELECT COALESCE(SUM(p.amount), 0) FROM payments p INNER JOIN bookings b ON p.booking_id = b.id WHERE b.user_id = ? AND p.status = 'success'", [$userId]) ?: 0;
     } catch (Exception $e) {
-        error_log("Error fetching total_spent: " . $e->getMessage());
+        $userStats['total_spent'] = 0;
     }
     
     try {
-        $userStats['kyc_count'] = $db->fetchValue("SELECT COUNT(*) FROM user_kyc WHERE user_id = ?", [$userId]) ?: 0;
+        $userStats['kyc_count'] = (int)$db->fetchValue("SELECT COUNT(*) FROM user_kyc WHERE user_id = ?", [$userId]) ?: 0;
     } catch (Exception $e) {
-        error_log("Error fetching kyc_count: " . $e->getMessage());
+        $userStats['kyc_count'] = 0;
     }
     
     // Get user listings
@@ -108,19 +108,19 @@ try {
             [$user['name']]
         ) ?: [];
     } catch (Exception $e) {
-        error_log("Error fetching listings: " . $e->getMessage());
         $listings = [];
     }
     
     // Get user bookings
     try {
         $bookings = $db->fetchAll(
-            "SELECT b.id, b.booking_start_date, b.total_amount, b.status, b.created_at,
+            "SELECT DISTINCT b.id, b.booking_start_date, b.total_amount, b.status, b.created_at,
                     l.title as listing_title,
                     loc.city as listing_city,
                     rc.room_type,
                     (SELECT p.status FROM payments p WHERE p.booking_id = b.id ORDER BY p.created_at DESC LIMIT 1) as payment_status,
                     (SELECT p.amount FROM payments p WHERE p.booking_id = b.id ORDER BY p.created_at DESC LIMIT 1) as payment_amount,
+                    (SELECT p.provider FROM payments p WHERE p.booking_id = b.id ORDER BY p.created_at DESC LIMIT 1) as payment_provider,
                     (SELECT i.invoice_number FROM invoices i WHERE i.booking_id = b.id ORDER BY i.created_at DESC LIMIT 1) as invoice_number
              FROM bookings b
              LEFT JOIN listings l ON b.listing_id = l.id
@@ -132,7 +132,6 @@ try {
             [$userId]
         ) ?: [];
     } catch (Exception $e) {
-        error_log("Error fetching bookings: " . $e->getMessage());
         $bookings = [];
     }
     
@@ -151,38 +150,128 @@ try {
             [$userId]
         ) ?: [];
     } catch (Exception $e) {
-        error_log("Error fetching visit_bookings: " . $e->getMessage());
         $visitBookings = [];
     }
     
     // Get KYC documents
     try {
-        $kycDocuments = $db->fetchAll(
-            "SELECT kyc.*, 
-                    (SELECT name FROM users WHERE id = kyc.verified_by) as verified_by_name
-             FROM user_kyc kyc
-             WHERE kyc.user_id = ?
-             ORDER BY kyc.created_at DESC",
-            [$userId]
-        ) ?: [];
+        // Check if user_kyc table exists and get column structure
+        $kycTableExists = false;
+        $columnNames = [];
+        try {
+            $kycColumns = $db->fetchAll("DESCRIBE user_kyc");
+            $columnNames = array_column($kycColumns, 'Field');
+            $kycTableExists = true;
+        } catch (Exception $e) {
+            $kycTableExists = false;
+        }
+        
+        if ($kycTableExists) {
+            // Build SELECT fields based on available columns (handle both old and new schema)
+            $selectFields = ['kyc.id', 'kyc.user_id'];
+            
+            // Document type (new or old column)
+            if (in_array('document_type', $columnNames)) {
+                $selectFields[] = 'kyc.document_type';
+            } elseif (in_array('doc_type', $columnNames)) {
+                $selectFields[] = 'kyc.doc_type as document_type';
+            }
+            
+            // Document number (new or old column)
+            if (in_array('document_number', $columnNames)) {
+                $selectFields[] = 'kyc.document_number';
+            } elseif (in_array('doc_number', $columnNames)) {
+                $selectFields[] = 'kyc.doc_number as document_number';
+            }
+            
+            // Document front (new or old column)
+            if (in_array('document_front', $columnNames)) {
+                $selectFields[] = 'kyc.document_front';
+            } elseif (in_array('doc_image', $columnNames)) {
+                $selectFields[] = 'kyc.doc_image as document_front';
+            }
+            
+            // Document back
+            if (in_array('document_back', $columnNames)) {
+                $selectFields[] = 'kyc.document_back';
+            }
+            
+            // Status
+            if (in_array('status', $columnNames)) {
+                $selectFields[] = 'kyc.status';
+            }
+            
+            // Verified by
+            if (in_array('verified_by', $columnNames)) {
+                $selectFields[] = 'kyc.verified_by';
+                $selectFields[] = "(SELECT name FROM users WHERE id = kyc.verified_by) as verified_by_name";
+            }
+            
+            // Verified at
+            if (in_array('verified_at', $columnNames)) {
+                $selectFields[] = 'kyc.verified_at';
+            }
+            
+            // Rejection reason
+            if (in_array('rejection_reason', $columnNames)) {
+                $selectFields[] = 'kyc.rejection_reason';
+            }
+            
+            // Created at
+            if (in_array('created_at', $columnNames)) {
+                $selectFields[] = 'kyc.created_at';
+                $orderBy = 'created_at';
+            } elseif (in_array('submitted_at', $columnNames)) {
+                $selectFields[] = 'kyc.submitted_at as created_at';
+                $orderBy = 'submitted_at';
+            } else {
+                $orderBy = 'id';
+            }
+            
+            // Updated at
+            if (in_array('updated_at', $columnNames)) {
+                $selectFields[] = 'kyc.updated_at';
+            }
+            
+            $kycDocuments = $db->fetchAll(
+                "SELECT " . implode(', ', $selectFields) . "
+                 FROM user_kyc kyc
+                 WHERE kyc.user_id = ?
+                 ORDER BY kyc.{$orderBy} DESC",
+                [$userId]
+            ) ?: [];
+        } else {
+            $kycDocuments = [];
+        }
     } catch (Exception $e) {
-        error_log("Error fetching kyc documents: " . $e->getMessage());
         $kycDocuments = [];
     }
     
     // Get referrals made by this user
     try {
-        $referrals = $db->fetchAll(
-            "SELECT r.*, 
-                    u.name as referred_user_name, u.email as referred_user_email, u.created_at as referred_user_joined
-             FROM referrals r
-             LEFT JOIN users u ON r.referred_id = u.id
-             WHERE r.referrer_id = ?
-             ORDER BY r.created_at DESC",
-            [$userId]
-        ) ?: [];
+        // Check if referrals table exists first
+        $referralsTableExists = false;
+        try {
+            $db->fetchValue("SELECT COUNT(*) FROM referrals LIMIT 1");
+            $referralsTableExists = true;
+        } catch (Exception $e) {
+            $referralsTableExists = false;
+        }
+        
+        if ($referralsTableExists) {
+            $referrals = $db->fetchAll(
+                "SELECT r.*, 
+                        u.name as referred_user_name, u.email as referred_user_email, u.created_at as referred_user_joined
+                 FROM referrals r
+                 LEFT JOIN users u ON r.referred_id = u.id
+                 WHERE r.referrer_id = ?
+                 ORDER BY r.created_at DESC",
+                [$userId]
+            ) ?: [];
+        } else {
+            $referrals = [];
+        }
     } catch (Exception $e) {
-        error_log("Error fetching referrals: " . $e->getMessage());
         $referrals = [];
     }
     
@@ -201,14 +290,11 @@ try {
             [$userId]
         ) ?: [];
     } catch (Exception $e) {
-        error_log("Error fetching payments: " . $e->getMessage());
         $payments = [];
     }
     
 } catch (Exception $e) {
-    error_log("Error loading user details: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    $_SESSION['flash_message'] = 'Error loading user details: ' . (getenv('APP_DEBUG') === 'true' ? $e->getMessage() : 'Please try again later.');
+    $_SESSION['flash_message'] = 'Error loading user details. Please try again later.';
     $_SESSION['flash_type'] = 'danger';
     header('Location: ' . app_url('admin/users'));
     exit;
@@ -636,20 +722,21 @@ $flashMessage = getFlashMessage();
                         <tbody>
                             <?php foreach ($bookings as $booking): ?>
                                 <tr>
-                                    <td>#<?= htmlspecialchars($booking['id']) ?></td>
-                                    <td><?= htmlspecialchars($booking['listing_title'] ?: 'N/A') ?></td>
-                                    <td><?= htmlspecialchars(ucfirst(str_replace(' sharing', '', $booking['room_type'] ?: 'N/A'))) ?></td>
-                                    <td><?= formatDate($booking['booking_start_date'], 'd M Y') ?></td>
-                                    <td>₹<?= number_format($booking['total_amount']) ?></td>
+                                    <td>#<?= htmlspecialchars($booking['id'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($booking['listing_title'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars(ucfirst(str_replace(' sharing', '', $booking['room_type'] ?? 'N/A'))) ?></td>
+                                    <td><?= !empty($booking['booking_start_date']) ? formatDate($booking['booking_start_date'], 'd M Y') : 'N/A' ?></td>
+                                    <td>₹<?= !empty($booking['total_amount']) ? number_format($booking['total_amount'], 2) : '0.00' ?></td>
                                     <td>
                                         <?php
                                         $statusColors = ['pending' => 'warning', 'confirmed' => 'success', 'cancelled' => 'danger', 'completed' => 'info'];
-                                        $statusColor = $statusColors[$booking['status']] ?? 'secondary';
+                                        $bookingStatus = $booking['status'] ?? 'unknown';
+                                        $statusColor = $statusColors[$bookingStatus] ?? 'secondary';
                                         ?>
-                                        <span class="badge bg-<?= $statusColor ?>"><?= ucfirst($booking['status']) ?></span>
+                                        <span class="badge bg-<?= $statusColor ?>"><?= ucfirst($bookingStatus) ?></span>
                                     </td>
                                     <td>
-                                        <?php if ($booking['payment_status']): ?>
+                                        <?php if (!empty($booking['payment_status'])): ?>
                                             <?php
                                             $paymentColors = ['success' => 'success', 'initiated' => 'warning', 'failed' => 'danger'];
                                             $paymentColor = $paymentColors[$booking['payment_status']] ?? 'secondary';
@@ -660,13 +747,13 @@ $flashMessage = getFlashMessage();
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php if ($booking['invoice_number']): ?>
+                                        <?php if (!empty($booking['invoice_number'])): ?>
                                             <code><?= htmlspecialchars($booking['invoice_number']) ?></code>
                                         <?php else: ?>
                                             <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= formatDate($booking['created_at'], 'd M Y') ?></td>
+                                    <td><?= !empty($booking['created_at']) ? formatDate($booking['created_at'], 'd M Y') : 'N/A' ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -698,18 +785,19 @@ $flashMessage = getFlashMessage();
                         <tbody>
                             <?php foreach ($visitBookings as $visit): ?>
                                 <tr>
-                                    <td>#<?= htmlspecialchars($visit['id']) ?></td>
-                                    <td><?= htmlspecialchars($visit['listing_title'] ?: 'N/A') ?></td>
-                                    <td><?= formatDate($visit['preferred_date'], 'd M Y') ?></td>
-                                    <td><?= date('h:i A', strtotime($visit['preferred_time'])) ?></td>
+                                    <td>#<?= htmlspecialchars($visit['id'] ?? 'N/A') ?></td>
+                                    <td><?= htmlspecialchars($visit['listing_title'] ?? 'N/A') ?></td>
+                                    <td><?= !empty($visit['preferred_date']) ? formatDate($visit['preferred_date'], 'd M Y') : 'N/A' ?></td>
+                                    <td><?= !empty($visit['preferred_time']) ? date('h:i A', strtotime($visit['preferred_time'])) : 'N/A' ?></td>
                                     <td>
                                         <?php
                                         $statusColors = ['pending' => 'warning', 'confirmed' => 'info', 'completed' => 'success', 'cancelled' => 'danger'];
-                                        $statusColor = $statusColors[$visit['status']] ?? 'secondary';
+                                        $visitStatus = $visit['status'] ?? 'unknown';
+                                        $statusColor = $statusColors[$visitStatus] ?? 'secondary';
                                         ?>
-                                        <span class="badge bg-<?= $statusColor ?>"><?= ucfirst($visit['status']) ?></span>
+                                        <span class="badge bg-<?= $statusColor ?>"><?= ucfirst($visitStatus) ?></span>
                                     </td>
-                                    <td><?= formatDate($visit['created_at'], 'd M Y') ?></td>
+                                    <td><?= !empty($visit['created_at']) ? formatDate($visit['created_at'], 'd M Y') : 'N/A' ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -731,38 +819,39 @@ $flashMessage = getFlashMessage();
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-body">
-                                    <h6 class="card-title"><?= ucfirst(str_replace('_', ' ', $kyc['document_type'])) ?></h6>
-                                    <p class="card-text small text-muted mb-2">Document Number: <code><?= htmlspecialchars($kyc['document_number']) ?></code></p>
+                                    <h6 class="card-title"><?= ucfirst(str_replace('_', ' ', $kyc['document_type'] ?? 'Unknown')) ?></h6>
+                                    <p class="card-text small text-muted mb-2">Document Number: <code><?= htmlspecialchars($kyc['document_number'] ?? 'N/A') ?></code></p>
                                     <p class="card-text small">
                                         Status: 
                                         <?php
                                         $kycStatusColors = ['pending' => 'warning', 'verified' => 'success', 'rejected' => 'danger'];
-                                        $kycStatusColor = $kycStatusColors[$kyc['status']] ?? 'secondary';
+                                        $kycStatus = $kyc['status'] ?? 'unknown';
+                                        $kycStatusColor = $kycStatusColors[$kycStatus] ?? 'secondary';
                                         ?>
-                                        <span class="badge bg-<?= $kycStatusColor ?>"><?= ucfirst($kyc['status']) ?></span>
+                                        <span class="badge bg-<?= $kycStatusColor ?>"><?= ucfirst($kycStatus) ?></span>
                                     </p>
-                                    <?php if ($kyc['verified_by_name']): ?>
+                                    <?php if (!empty($kyc['verified_by_name'])): ?>
                                         <p class="card-text small text-muted">Verified by: <?= htmlspecialchars($kyc['verified_by_name']) ?></p>
                                     <?php endif; ?>
-                                    <?php if ($kyc['verified_at']): ?>
+                                    <?php if (!empty($kyc['verified_at'])): ?>
                                         <p class="card-text small text-muted">Verified at: <?= formatDate($kyc['verified_at'], 'd M Y h:i A') ?></p>
                                     <?php endif; ?>
-                                    <?php if ($kyc['rejection_reason']): ?>
+                                    <?php if (!empty($kyc['rejection_reason'])): ?>
                                         <p class="card-text small text-danger">Reason: <?= htmlspecialchars($kyc['rejection_reason']) ?></p>
                                     <?php endif; ?>
                                     <div class="mt-2">
-                                        <?php if ($kyc['document_front']): ?>
+                                        <?php if (!empty($kyc['document_front'])): ?>
                                             <a href="<?= app_url($kyc['document_front']) ?>" target="_blank" class="btn btn-sm btn-outline-primary me-2">
                                                 <i class="bi bi-image"></i> Front
                                             </a>
                                         <?php endif; ?>
-                                        <?php if ($kyc['document_back']): ?>
+                                        <?php if (!empty($kyc['document_back'])): ?>
                                             <a href="<?= app_url($kyc['document_back']) ?>" target="_blank" class="btn btn-sm btn-outline-primary">
                                                 <i class="bi bi-image"></i> Back
                                             </a>
                                         <?php endif; ?>
                                     </div>
-                                    <p class="card-text small text-muted mt-2">Submitted: <?= formatDate($kyc['created_at'], 'd M Y') ?></p>
+                                    <p class="card-text small text-muted mt-2">Submitted: <?= !empty($kyc['created_at']) ? formatDate($kyc['created_at'], 'd M Y') : 'N/A' ?></p>
                                 </div>
                             </div>
                         </div>

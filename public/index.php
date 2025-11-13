@@ -197,14 +197,15 @@ try {
   </div>
 </div>
 
-<!-- Map Section (hidden by default, shown when location is searched) -->
+
+<!-- Map Section (shown separately, full width) -->
 <div id="mapSection" class="mt-4" style="display: none;">
   <div class="card pg">
     <div class="card-header d-flex justify-content-between align-items-center">
       <h5 class="mb-0" style="color: var(--primary-700);">
         <i class="bi bi-map me-2"></i>Listings on Map
       </h5>
-      <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('mapSection').style.display='none';">
+      <button class="btn btn-sm btn-outline-secondary" id="closeMapBtn">
         <i class="bi bi-x"></i> Close
       </button>
     </div>
@@ -222,49 +223,9 @@ try {
   </div>
 </div>
 
-
-<!-- Feature highlights -->
-<div class="row g-3 mt-4">
-  <div class="col-md-4">
-    <div class="card pg">
-      <div class="card-body d-flex align-items-start gap-3">
-        <i class="bi bi-shield-check fs-3 text-primary"></i>
-        <div>
-          <div class="kicker mb-1">Verified</div>
-          <h6 class="mb-1">Trusted Listings</h6>
-          <p class="small text-muted mb-0">Profiles validated by our team so you can book with confidence.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card pg">
-      <div class="card-body d-flex align-items-start gap-3">
-        <i class="bi bi-currency-rupee fs-3 text-primary"></i>
-        <div>
-          <div class="kicker mb-1">Affordable</div>
-          <h6 class="mb-1">Transparent Pricing</h6>
-          <p class="small text-muted mb-0">No surprises — compare amenities and prices side by side.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card pg">
-      <div class="card-body d-flex align-items-start gap-3">
-        <i class="bi bi-lightning-charge fs-3 text-primary"></i>
-        <div>
-          <div class="kicker mb-1">Fast</div>
-          <h6 class="mb-1">Instant Booking</h6>
-          <p class="small text-muted mb-0">Message hosts and confirm your stay in minutes.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<hr>
-<h3 class="mb-3" id="listingsTitle">
+<!-- Default Listings Section (full width) -->
+<div id="defaultListingsSection" class="mt-4">
+  <h3 class="mb-3" id="listingsTitleDefault">
     <?php if (!empty($searchQuery) || !empty($searchCity)): ?>
         Search Results
         <?php if (!empty($searchQuery) || !empty($searchCity)): ?>
@@ -273,8 +234,8 @@ try {
     <?php else: ?>
         Latest listings
     <?php endif; ?>
-</h3>
-<div id="featured" class="row g-4">
+  </h3>
+  <div id="featuredDefault" class="row g-4">
   <?php if (empty($latestListings)): ?>
     <div class="col-12">
       <div class="alert alert-info">
@@ -407,6 +368,47 @@ try {
     <a href="<?= htmlspecialchars(app_url('listings')) ?>" class="btn btn-outline-primary">View All Listings</a>
   </div>
 <?php endif; ?>
+</div>
+
+<!-- Feature highlights -->
+<div class="row g-3 mt-5">
+  <div class="col-md-4">
+    <div class="card pg">
+      <div class="card-body d-flex align-items-start gap-3">
+        <i class="bi bi-shield-check fs-3 text-primary"></i>
+        <div>
+          <div class="kicker mb-1">Verified</div>
+          <h6 class="mb-1">Trusted Listings</h6>
+          <p class="small text-muted mb-0">Profiles validated by our team so you can book with confidence.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card pg">
+      <div class="card-body d-flex align-items-start gap-3">
+        <i class="bi bi-currency-rupee fs-3 text-primary"></i>
+        <div>
+          <div class="kicker mb-1">Affordable</div>
+          <h6 class="mb-1">Transparent Pricing</h6>
+          <p class="small text-muted mb-0">No surprises — compare amenities and prices side by side.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card pg">
+      <div class="card-body d-flex align-items-start gap-3">
+        <i class="bi bi-lightning-charge fs-3 text-primary"></i>
+        <div>
+          <div class="kicker mb-1">Fast</div>
+          <h6 class="mb-1">Instant Booking</h6>
+          <p class="small text-muted mb-0">Message hosts and confirm your stay in minutes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Popular areas quick links -->
 <div class="mt-5">
@@ -489,83 +491,75 @@ try {
         <h6 class="mb-1">Get the Livonto app</h6>
         <div class="text-muted small">Manage bookings, chat with hosts, and get alerts.</div>
       </div>
-      <div class="d-flex gap-2">
-        <a href="#" class="btn btn-dark btn-sm">App Store</a>
-        <a href="#" class="btn btn-dark btn-sm">Google Play</a>
+      <div>
+        <span class="badge bg-secondary">Coming Soon</span>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Testimonials -->
-<?php if (!empty($testimonials)): ?>
+<!-- Testimonials and FAQ Side by Side -->
 <div class="mt-5">
-  <div class="kicker mb-2">Stories</div>
-  <h3 class="mb-3">What our users say</h3>
-  <div class="row g-3">
-    <?php foreach ($testimonials as $testimonial): ?>
-      <div class="col-md-4">
-        <div class="card pg h-100">
-          <div class="card-body">
-            <?php if ($testimonial['rating']): ?>
-              <div class="mb-2">
-                <span class="text-warning">
-                  <?php for ($i = 1; $i <= 5; $i++): ?>
-                    <i class="bi bi-star<?= $i <= $testimonial['rating'] ? '-fill' : '' ?>"></i>
-                  <?php endfor; ?>
-                </span>
+  <div class="row g-4">
+    <!-- Stories Section (Left Column) -->
+    <div class="col-lg-6">
+      <?php if (!empty($testimonials)): ?>
+        <div class="kicker mb-2">Stories</div>
+        <h3 class="mb-3">What our users say</h3>
+        <div class="d-flex flex-column gap-3">
+          <?php foreach ($testimonials as $testimonial): ?>
+            <div class="card pg">
+              <div class="card-body">
+                <?php if ($testimonial['rating']): ?>
+                  <div class="mb-2">
+                    <span class="text-warning">
+                      <?php for ($i = 1; $i <= 5; $i++): ?>
+                        <i class="bi bi-star<?= $i <= $testimonial['rating'] ? '-fill' : '' ?>"></i>
+                      <?php endfor; ?>
+                    </span>
+                  </div>
+                <?php endif; ?>
+                <p class="mb-2">"<?= htmlspecialchars($testimonial['comment']) ?>"</p>
+                <div class="small text-muted">
+                  <?= htmlspecialchars($testimonial['user_name']) ?>
+                  <?php if (!empty($testimonial['city'])): ?>
+                    , <?= htmlspecialchars($testimonial['city']) ?>
+                  <?php endif; ?>
+                </div>
               </div>
-            <?php endif; ?>
-            <p class="mb-2">"<?= htmlspecialchars($testimonial['comment']) ?>"</p>
-            <div class="small text-muted">
-              <?= htmlspecialchars($testimonial['user_name']) ?>
-              <?php if (!empty($testimonial['city'])): ?>
-                , <?= htmlspecialchars($testimonial['city']) ?>
-              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <!-- Fallback testimonials if no reviews -->
+        <div class="kicker mb-2">Stories</div>
+        <h3 class="mb-3">What our users say</h3>
+        <div class="d-flex flex-column gap-3">
+          <div class="card pg">
+            <div class="card-body">
+              <p class="mb-2">"Booking my PG was super quick and transparent. Photos matched the place."</p>
+              <div class="small text-muted">Ananya, Pune</div>
+            </div>
+          </div>
+          <div class="card pg">
+            <div class="card-body">
+              <p class="mb-2">"Loved the filters and verified badge. Helped me avoid brokers."</p>
+              <div class="small text-muted">Rahul, Bengaluru</div>
+            </div>
+          </div>
+          <div class="card pg">
+            <div class="card-body">
+              <p class="mb-2">"Host response time was fast and move‑in was smooth."</p>
+              <div class="small text-muted">Sneha, Mumbai</div>
             </div>
           </div>
         </div>
-      </div>
-    <?php endforeach; ?>
-  </div>
-</div>
-<?php else: ?>
-<!-- Fallback testimonials if no reviews -->
-<div class="mt-5">
-  <div class="kicker mb-2">Stories</div>
-  <h3 class="mb-3">What our users say</h3>
-  <div class="row g-3">
-    <div class="col-md-4">
-      <div class="card pg h-100">
-        <div class="card-body">
-          <p class="mb-2">"Booking my PG was super quick and transparent. Photos matched the place."</p>
-          <div class="small text-muted">Ananya, Pune</div>
-        </div>
-      </div>
+      <?php endif; ?>
     </div>
-    <div class="col-md-4">
-      <div class="card pg h-100">
-        <div class="card-body">
-          <p class="mb-2">"Loved the filters and verified badge. Helped me avoid brokers."</p>
-          <div class="small text-muted">Rahul, Bengaluru</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card pg h-100">
-        <div class="card-body">
-          <p class="mb-2">"Host response time was fast and move‑in was smooth."</p>
-          <div class="small text-muted">Sneha, Mumbai</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-<?php endif; ?>
-
-<!-- FAQ -->
-<div class="mt-5">
-  <div class="kicker mb-2">FAQ</div>
+    
+    <!-- FAQ Section (Right Column) -->
+    <div class="col-lg-6">
+      <div class="kicker mb-2">FAQ</div>
   <div class="accordion" id="faq">
     <div class="accordion-item">
       <h2 class="accordion-header" id="q1">
@@ -596,6 +590,8 @@ try {
       <div id="a3" class="accordion-collapse collapse" aria-labelledby="q3" data-bs-parent="#faq">
         <div class="accordion-body small text-muted">Basic KYC like ID proof may be requested by hosts at check-in as per city norms.</div>
       </div>
+    </div>
+  </div>
     </div>
   </div>
 </div>

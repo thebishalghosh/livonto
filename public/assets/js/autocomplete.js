@@ -202,7 +202,6 @@ async function geocodeCitySuggestions(query) {
             }))
             .slice(0, 5);
     } catch (error) {
-        console.error('Error geocoding suggestions:', error);
         return [];
     }
 }

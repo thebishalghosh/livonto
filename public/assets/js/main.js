@@ -89,10 +89,10 @@ document.addEventListener('DOMContentLoaded', function() {
       // Load listings on map - pass geocoded coordinates to find nearby listings
       await loadListingsOnMap(searchValue, searchValue, mapLat, mapLng);
       
-      // Load search results in listings section
+      // Load search results in listings section (right column)
       await loadSearchResults(searchValue, searchValue);
       
-      // Scroll to map
+      // Scroll to map section
       const mapSection = document.getElementById('mapSection');
       if (mapSection) {
         mapSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -128,7 +128,6 @@ async function loadSearchResults(city = '', query = '') {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Search API error:', response.status, errorText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
@@ -137,7 +136,6 @@ async function loadSearchResults(city = '', query = '') {
     try {
       data = JSON.parse(responseText);
     } catch (parseError) {
-      console.error('JSON parse error:', parseError, 'Response:', responseText);
       throw new Error('Invalid JSON response from server');
     }
     
@@ -153,12 +151,29 @@ async function loadSearchResults(city = '', query = '') {
         `;
       }
       
+      // Ensure listings are shown in full-width section (map is separate above)
+      const defaultListingsSection = document.getElementById('defaultListingsSection');
+      const defaultTitle = document.getElementById('listingsTitleDefault');
+      const defaultFeatured = document.getElementById('featuredDefault');
+      
+      if (defaultListingsSection) {
+        defaultListingsSection.style.display = 'block';
+        // Update the default section's title
+        if (defaultTitle && sectionTitle) {
+          defaultTitle.innerHTML = sectionTitle.innerHTML;
+        }
+        // Use default featured section for full-width display
+        if (defaultFeatured) {
+          featuredSection = defaultFeatured;
+        }
+      }
+      
       // Display listings
       if (listings.length === 0) {
         featuredSection.innerHTML = `
           <div class="col-12">
             <div class="alert alert-info">
-              <p class="mb-0">No listings found for "${escapeHtml(city || query)}". Try a different search term.</p>
+              <p class="mb-0">No listings found for "${escapeHtml(city || query)}". Showing all available listings.</p>
             </div>
           </div>
         `;
@@ -229,8 +244,11 @@ async function loadSearchResults(city = '', query = '') {
             `;
           }
           
+          // Always use col-md-4 for listings (3 per row in full-width view)
+          const colClass = 'col-md-4';
+          
           return `
-            <div class="col-md-4">
+            <div class="${colClass}">
               <div class="card pg shadow-sm h-100">
                 <a href="${baseUrl}/listings/${listing.id}" class="text-decoration-none">
                   ${carouselHtml}

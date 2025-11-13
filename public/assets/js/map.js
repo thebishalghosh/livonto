@@ -236,20 +236,35 @@ async function loadListingsOnMap(city = '', query = '', lat = null, lng = null) 
         return;
     }
     
-    // Show map section first - this is critical
+    // Show map section (full width, separate from listings)
     const mapSection = document.getElementById('mapSection');
+    const defaultListingsSection = document.getElementById('defaultListingsSection');
+    
     if (mapSection) {
         mapSection.style.display = 'block';
         // Force a reflow to ensure the element is rendered
         mapSection.offsetHeight;
         
-        // Hide placeholder image if it exists
-        const mapPlaceholder = document.getElementById('mapPlaceholder');
-        if (mapPlaceholder) {
-            mapPlaceholder.style.display = 'none';
+        // Ensure default listings section is visible (map is separate, above listings)
+        if (defaultListingsSection) {
+            defaultListingsSection.style.display = 'block';
+        }
+        
+        // Set up close button to hide map
+        const closeBtn = document.getElementById('closeMapBtn');
+        if (closeBtn) {
+            closeBtn.onclick = function() {
+                mapSection.style.display = 'none';
+            };
         }
     } else {
         return;
+    }
+    
+    // Hide placeholder image if it exists
+    const mapPlaceholder = document.getElementById('mapPlaceholder');
+    if (mapPlaceholder) {
+        mapPlaceholder.style.display = 'none';
     }
     
     // Ensure map container is visible and has proper dimensions
@@ -283,7 +298,6 @@ async function loadListingsOnMap(city = '', query = '', lat = null, lng = null) 
         
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('Map API error:', response.status, errorText);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
@@ -292,7 +306,6 @@ async function loadListingsOnMap(city = '', query = '', lat = null, lng = null) 
         try {
             data = JSON.parse(responseText);
         } catch (parseError) {
-            console.error('JSON parse error:', parseError, 'Response:', responseText);
             throw new Error('Invalid JSON response from server');
         }
         

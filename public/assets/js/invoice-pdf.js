@@ -97,7 +97,6 @@ async function downloadInvoicePDF() {
         }
         
     } catch (error) {
-        console.error('Error generating PDF:', error);
         alert('Failed to generate PDF: ' + error.message);
         
         // Restore button

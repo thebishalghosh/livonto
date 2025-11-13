@@ -812,7 +812,6 @@ require __DIR__ . '/../app/includes/header.php';
             }
             
         } catch (error) {
-            console.error('AJAX error:', error);
             showAlert('error', 'Network error. Please check your connection and try again.');
             
             // Re-enable submit button

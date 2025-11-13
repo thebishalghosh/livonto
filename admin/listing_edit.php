@@ -1021,10 +1021,15 @@ document.querySelectorAll('.delete-image-btn').forEach(btn => {
         formData.append('listing_id', listingId);
         
         try {
-            const response = await fetch(baseUrl + '/app/listing_images_api.php', {
+            const response = await fetch(baseUrl + '/listing-images-api', {
                 method: 'POST',
                 body: formData
             });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+            }
             
             const data = await response.json();
             
@@ -1037,17 +1042,29 @@ document.querySelectorAll('.delete-image-btn').forEach(btn => {
                 alert('Error: ' + (data.message || 'Failed to delete image'));
             }
         } catch (error) {
-            console.error('Error:', error);
-            alert('An error occurred while deleting the image');
+            alert('An error occurred while deleting the image: ' + error.message);
         }
     });
 });
 
 // Set cover image
 document.querySelectorAll('.set-cover-btn').forEach(btn => {
-    btn.addEventListener('click', async function() {
+    btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const imageId = this.dataset.imageId;
         const listingId = this.dataset.listingId;
+        
+        if (!imageId || !listingId) {
+            alert('Error: Missing image or listing ID');
+            return;
+        }
+        
+        // Disable button during request
+        const originalText = this.innerHTML;
+        this.disabled = true;
+        this.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Setting...';
         
         const formData = new FormData();
         formData.append('action', 'set_cover');
@@ -1055,10 +1072,16 @@ document.querySelectorAll('.set-cover-btn').forEach(btn => {
         formData.append('listing_id', listingId);
         
         try {
-            const response = await fetch(baseUrl + '/app/listing_images_api.php', {
+            const apiUrl = baseUrl + '/listing-images-api';
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 body: formData
             });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
+            }
             
             const data = await response.json();
             
@@ -1067,10 +1090,13 @@ document.querySelectorAll('.set-cover-btn').forEach(btn => {
                 location.reload();
             } else {
                 alert('Error: ' + (data.message || 'Failed to set cover image'));
+                this.disabled = false;
+                this.innerHTML = originalText;
             }
         } catch (error) {
-            console.error('Error:', error);
-            alert('An error occurred while setting cover image');
+            alert('An error occurred while setting cover image: ' + error.message);
+            this.disabled = false;
+            this.innerHTML = originalText;
         }
     });
 });
@@ -1138,13 +1164,14 @@ if (imagesContainer) {
         draggedElement.style.opacity = '0.7';
         
         try {
-            const response = await fetch(baseUrl + '/app/listing_images_api.php', {
+            const response = await fetch(baseUrl + '/listing-images-api', {
                 method: 'POST',
                 body: formData
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
             }
             
             const data = await response.json();
@@ -1166,7 +1193,6 @@ if (imagesContainer) {
                 location.reload();
             }
         } catch (error) {
-            console.error('Error:', error);
             alert('An error occurred while reordering images: ' + error.message);
             location.reload();
         } finally {

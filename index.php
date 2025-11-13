@@ -65,6 +65,7 @@ $routes = [
     'invoice' => 'public/invoice.php',
     'invoice-api' => 'app/invoice_api.php',
     'change-password-api' => 'app/change_password_api.php',
+    'listing-images-api' => 'app/listing_images_api.php',
 ];
 
 // Owner routes

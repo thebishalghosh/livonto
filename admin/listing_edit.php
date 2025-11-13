@@ -1021,7 +1021,18 @@ document.querySelectorAll('.delete-image-btn').forEach(btn => {
         formData.append('listing_id', listingId);
         
         try {
-            const response = await fetch(baseUrl + '/listing-images-api', {
+            // Construct absolute URL
+            let apiUrl;
+            if (baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://'))) {
+                apiUrl = baseUrl.replace(/\/+$/, '') + '/listing-images-api';
+            } else {
+                const protocol = window.location.protocol;
+                const host = window.location.host;
+                const basePath = baseUrl ? baseUrl.replace(/\/+$/, '') : '';
+                apiUrl = protocol + '//' + host + basePath + '/listing-images-api';
+            }
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 body: formData
             });
@@ -1072,7 +1083,18 @@ document.querySelectorAll('.set-cover-btn').forEach(btn => {
         formData.append('listing_id', listingId);
         
         try {
-            const apiUrl = baseUrl + '/listing-images-api';
+            // Construct absolute URL
+            let apiUrl;
+            if (baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://'))) {
+                // baseUrl is already absolute
+                apiUrl = baseUrl.replace(/\/+$/, '') + '/listing-images-api';
+            } else {
+                // Construct full URL from current location
+                const protocol = window.location.protocol;
+                const host = window.location.host;
+                const basePath = baseUrl ? baseUrl.replace(/\/+$/, '') : '';
+                apiUrl = protocol + '//' + host + basePath + '/listing-images-api';
+            }
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 body: formData
@@ -1164,7 +1186,18 @@ if (imagesContainer) {
         draggedElement.style.opacity = '0.7';
         
         try {
-            const response = await fetch(baseUrl + '/listing-images-api', {
+            // Construct absolute URL
+            let apiUrl;
+            if (baseUrl && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://'))) {
+                apiUrl = baseUrl.replace(/\/+$/, '') + '/listing-images-api';
+            } else {
+                const protocol = window.location.protocol;
+                const host = window.location.host;
+                const basePath = baseUrl ? baseUrl.replace(/\/+$/, '') : '';
+                apiUrl = protocol + '//' + host + basePath + '/listing-images-api';
+            }
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 body: formData
             });

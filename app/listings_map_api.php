@@ -252,7 +252,6 @@ try {
     }
     
     error_log("Error in listings_map_api.php: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
     
     jsonError('Error loading listings', [], 500);
 } catch (Error $e) {
@@ -262,7 +261,6 @@ try {
     }
     
     error_log("Fatal error in listings_map_api.php: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
     
     jsonError('Error loading listings', [], 500);
 }

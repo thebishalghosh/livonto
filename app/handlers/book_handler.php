@@ -59,8 +59,7 @@ if ($listingId > 0) {
                 [$listingId]
             );
             
-            // Calculate bed availability for each room config
-            // Use available_rooms column value (owner can manually set this) minus booked beds
+            // Calculate bed availability for each room config using unified calculation
             foreach ($roomConfigs as &$room) {
                 $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
                 $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
@@ -72,10 +71,8 @@ if ($listingId > 0) {
                     [$room['id']]
                 );
                 
-                // Owner's manual setting (available_rooms) represents the actual available beds
-                // This is the number of beds the owner wants to make available for booking
-                // It already accounts for booked beds, so we use it directly
-                $room['available_beds'] = (int)($room['available_rooms'] ?? 0);
+                // Use unified calculation: total_beds - booked_beds (ensures consistency)
+                $room['available_beds'] = calculateAvailableBeds($room['total_rooms'], $room['room_type'], $bookedBeds);
                 $room['booked_beds'] = $bookedBeds;
             }
             unset($room);

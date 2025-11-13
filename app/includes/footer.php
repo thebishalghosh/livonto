@@ -122,8 +122,7 @@ $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
           <img src="<?= htmlspecialchars($logoUrl) ?>" 
                alt="<?= htmlspecialchars($siteName) ?>" 
                class="footer-logo" 
-               style="max-height: 50px; width: auto;"
-               onerror="console.error('Logo failed to load. URL:', this.src, 'baseUrl:', '<?= htmlspecialchars($baseUrl) ?>');">
+               style="max-height: 50px; width: auto;">
         </a>
         <p class="small text-white">
           <?= htmlspecialchars($siteTagline) ?>

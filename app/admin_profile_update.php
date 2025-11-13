@@ -98,7 +98,6 @@ try {
     
 } catch (Exception $e) {
     error_log("Error updating admin profile: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
     // Return more detailed error in development, generic message in production
     $errorMessage = 'Failed to update profile. Please try again.';
     if (defined('DEBUG') && DEBUG) {

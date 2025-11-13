@@ -214,9 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $coverImagePath = $imagePath;
                             }
                             
-                            error_log("Successfully uploaded image: {$filename} to {$uploadPath}");
                         } else {
-                            error_log("File move appeared successful but file doesn't exist: {$uploadPath}");
                             $errors[] = "Failed to upload image '{$file['name']}': File not found after upload";
                         }
                     } else {
@@ -307,7 +305,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Verify file exists before inserting into database
                     $fullPath = __DIR__ . '/../' . $imagePath;
                     if (!file_exists($fullPath)) {
-                        error_log("Warning: Image file does not exist before DB insert: {$fullPath}");
                         continue; // Skip this image if file doesn't exist
                     }
                     
@@ -318,10 +315,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         [$listingId, $imagePath, $order, $isCover]
                     );
                     
-                    error_log("Inserted image into database: listing_id={$listingId}, path={$imagePath}, order={$order}, is_cover={$isCover}");
                 }
-            } else {
-                error_log("Warning: No images to insert for listing ID {$listingId}");
             }
             
             // Also insert cover image if it was uploaded separately
@@ -382,8 +376,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $db->commit();
-            
-            error_log("Admin created listing: ID {$listingId} ({$title}) by Admin ID {$_SESSION['user_id']}");
             
             $_SESSION['flash_message'] = 'Listing created successfully!';
             $_SESSION['flash_type'] = 'success';

@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     let errorMsg = data.message || 'Error submitting KYC. Please try again.';
                     if (data.errors) {
-                        const errorList = Object.values(data.errors).filter(err => err !== 'debug').join('\n');
+                        const errorList = Object.values(data.errors).join('\n');
                         if (errorList) {
                             errorMsg += '\n\n' + errorList;
                         }
@@ -867,7 +867,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data && data.status === 'error') {
                         let errorMsg = data.message || 'Error creating booking.';
                         if (data.errors) {
-                            const errorList = Object.values(data.errors).filter(err => err !== 'debug').join(', ');
+                            const errorList = Object.values(data.errors).join(', ');
                             if (errorList) {
                                 errorMsg += '\n\n' + errorList;
                             }

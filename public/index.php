@@ -171,7 +171,7 @@ try {
 ?>
 <div class="row g-4 align-items-center">
   <div class="col-md-7">
-    <h1 class="display-5">Discover PGs near you</h1>
+    <h1 class="display-5">Discover PGs Near You</h1>
     <p class="text-muted">Find trusted PGs, compare amenities, and book with confidence.</p>
 
     <form id="searchForm" class="row g-2 search-bar">
@@ -232,7 +232,7 @@ try {
             <small class="text-muted">for "<?= htmlspecialchars($searchQuery ?: $searchCity) ?>"</small>
         <?php endif; ?>
     <?php else: ?>
-        Latest listings
+        Latest Listings
     <?php endif; ?>
   </h3>
   <div id="featuredDefault" class="row g-4">

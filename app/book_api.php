@@ -439,19 +439,13 @@ if ($action === 'check_availability') {
         $availability = [];
         
         foreach ($roomConfigs as $room) {
-            // Calculate bed-based availability
+            // Calculate bed-based availability using unified calculation
             $bedsPerRoom = getBedsPerRoom($room['room_type']);
             $totalBeds = calculateTotalBeds($room['total_rooms'], $room['room_type']);
             
-            // Owner's manual setting (available_rooms) represents the actual available beds
-            // This is the number of beds the owner wants to make available for booking
-            // It already accounts for booked beds, so we use it directly
-            $ownerSetAvailable = (int)($room['available_rooms'] ?? 0);
-            
             // Check bed availability for all months in the duration
-            // We need to verify that the owner's setting is still valid across all months
-            $isAvailable = $ownerSetAvailable > 0;
-            $minAvailableBeds = $ownerSetAvailable;
+            // Calculate real-time available beds for each month
+            $minAvailableBeds = null;
             $maxBookedBeds = 0;
             
             $startDate = new DateTime($bookingStartDate);
@@ -461,7 +455,7 @@ if ($action === 'check_availability') {
                 $checkMonth = $checkDate->format('Y-m'); // Format to match DATE_FORMAT output
                 
                 // Count booked beds for this room config for this month (each booking = 1 bed)
-                $bookedBeds = $db->fetchOne(
+                $bookedBedsForMonth = $db->fetchOne(
                     "SELECT COUNT(*) as count 
                      FROM bookings 
                      WHERE room_config_id = ? 
@@ -470,18 +464,21 @@ if ($action === 'check_availability') {
                     [$room['id'], $checkMonth]
                 );
                 
-                $bookedBeds = (int)($bookedBeds['count'] ?? 0);
-                $maxBookedBeds = max($maxBookedBeds, $bookedBeds);
+                $bookedBedsForMonth = (int)($bookedBedsForMonth['count'] ?? 0);
+                $maxBookedBeds = max($maxBookedBeds, $bookedBedsForMonth);
                 
-                // The owner's setting is the actual available beds
-                // We just need to ensure it's still valid (not negative)
-                $availableBedsForMonth = max(0, $ownerSetAvailable);
+                // Use unified calculation: total_beds - booked_beds (ensures consistency)
+                $availableBedsForMonth = calculateAvailableBeds($room['total_rooms'], $room['room_type'], $bookedBedsForMonth);
                 
                 // Track minimum available beds across all months
-                $minAvailableBeds = min($minAvailableBeds, $availableBedsForMonth);
+                if ($minAvailableBeds === null || $availableBedsForMonth < $minAvailableBeds) {
+                    $minAvailableBeds = $availableBedsForMonth;
+                }
             }
             
-            $availableBeds = $isAvailable ? $minAvailableBeds : 0;
+            // Final available beds is the minimum across all months
+            $availableBeds = $minAvailableBeds !== null ? max(0, $minAvailableBeds) : 0;
+            $isAvailable = $availableBeds > 0;
             
             $availability[] = [
                 'id' => $room['id'],

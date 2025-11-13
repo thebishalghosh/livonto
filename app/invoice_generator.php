@@ -133,7 +133,6 @@ function createInvoice($bookingId, $paymentId) {
         } catch (Exception $e) {
             // Log error but don't fail invoice creation
             error_log("Failed to generate invoice PDF for invoice ID {$invoiceId}: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
         } catch (Error $e) {
             // Catch fatal errors too
             error_log("Fatal error generating invoice PDF for invoice ID {$invoiceId}: " . $e->getMessage());

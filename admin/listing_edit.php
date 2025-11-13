@@ -362,8 +362,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             
             $db->commit();
             
-            error_log("Listing updated successfully: ID {$listingId} by Admin ID {$_SESSION['user_id']}");
-            
             $_SESSION['flash_message'] = 'Listing updated successfully!';
             $_SESSION['flash_type'] = 'success';
             header('Location: ' . app_url('admin/listings/view?id=' . $listingId));
@@ -374,14 +372,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $db->rollback();
             }
             error_log("Database error updating listing: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
             $errors[] = 'Database error: ' . (getenv('APP_DEBUG') === 'true' ? $e->getMessage() : 'Please try again');
         } catch (Exception $e) {
             if (isset($db) && $db->inTransaction()) {
                 $db->rollback();
             }
             error_log("Error updating listing: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
             $errors[] = 'Error updating listing: ' . $e->getMessage();
         }
     }
@@ -483,21 +479,8 @@ try {
         [$listingId]
     );
     
-    // Recalculate available_rooms for each configuration based on actual bookings
+    // Recalculate available_rooms for each configuration using unified calculation
     foreach ($existingRoomConfigs as &$config) {
-        // Get total rooms
-        $totalRooms = (int)$config['total_rooms'];
-        
-        // Calculate beds per room based on room type
-        $bedsPerRoom = 1;
-        if ($config['room_type'] === 'double sharing') {
-            $bedsPerRoom = 2;
-        } elseif ($config['room_type'] === 'triple sharing') {
-            $bedsPerRoom = 3;
-        }
-        
-        $totalBeds = $totalRooms * $bedsPerRoom;
-        
         // Count booked beds (confirmed and pending bookings)
         $bookedBeds = (int)$db->fetchValue(
             "SELECT COUNT(*) FROM bookings 
@@ -505,8 +488,8 @@ try {
             [$config['id']]
         );
         
-        // Calculate available beds
-        $availableBeds = max(0, $totalBeds - $bookedBeds);
+        // Use unified calculation: total_beds - booked_beds (ensures consistency)
+        $availableBeds = calculateAvailableBeds($config['total_rooms'], $config['room_type'], $bookedBeds);
         
         // Update the config array with recalculated value
         $config['available_rooms'] = $availableBeds;

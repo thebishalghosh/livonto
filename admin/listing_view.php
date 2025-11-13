@@ -209,8 +209,7 @@ try {
         }
     }
     
-    // Calculate bed-based totals (available_rooms represents available beds)
-    // Use available_rooms column value directly (owner can manually set this)
+    // Calculate bed-based totals using unified calculation
     $totalRooms = 0;
     $totalBeds = 0;
     $totalAvailableBeds = 0;
@@ -227,9 +226,8 @@ try {
             [$config['id']]
         );
         
-        // Use available_rooms column value directly (owner can manually set this)
-        // available_rooms represents available beds
-        $availableBeds = (int)($config['available_rooms'] ?? 0);
+        // Use unified calculation: total_beds - booked_beds (ensures consistency)
+        $availableBeds = calculateAvailableBeds($config['total_rooms'], $config['room_type'], $bookedBeds);
         $totalAvailableBeds += $availableBeds;
         
         $config['beds_per_room'] = $bedsPerRoom;

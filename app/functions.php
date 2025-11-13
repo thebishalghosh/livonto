@@ -148,11 +148,12 @@ function calculateAvailableBeds($totalRooms, $roomType, $bookedBeds) {
 }
 
 /**
- * Recalculate and update available beds for a room configuration based on actual bookings
+ * Get real-time available beds for a room configuration
+ * This calculates based on total_beds - booked_beds, ensuring consistency across all interfaces
  * @param int $roomConfigId
- * @return bool
+ * @return int Available beds count
  */
-function recalculateAvailableBeds($roomConfigId) {
+function getAvailableBedsForRoomConfig($roomConfigId) {
     try {
         $db = db();
         
@@ -163,7 +164,7 @@ function recalculateAvailableBeds($roomConfigId) {
         );
         
         if (!$roomConfig) {
-            return false;
+            return 0;
         }
         
         // Count actual booked beds (pending + confirmed bookings)
@@ -177,8 +178,24 @@ function recalculateAvailableBeds($roomConfigId) {
         $totalBeds = calculateTotalBeds($roomConfig['total_rooms'], $roomConfig['room_type']);
         $availableBeds = max(0, $totalBeds - $bookedBeds);
         
+        return $availableBeds;
+    } catch (Exception $e) {
+        error_log("Error getting available beds for room_config_id {$roomConfigId}: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Recalculate and update available beds for a room configuration based on actual bookings
+ * @param int $roomConfigId
+ * @return bool
+ */
+function recalculateAvailableBeds($roomConfigId) {
+    try {
+        $availableBeds = getAvailableBedsForRoomConfig($roomConfigId);
+        
         // Update available_rooms (which represents available beds)
-        $db->execute(
+        db()->execute(
             "UPDATE room_configurations SET available_rooms = ? WHERE id = ?",
             [$availableBeds, $roomConfigId]
         );

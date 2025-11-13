@@ -42,12 +42,14 @@ try {
         [$listingId]
     );
     
-    // Calculate bed information for each room
+    // Calculate bed information for each room using unified calculation
     foreach ($rooms as &$room) {
         $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
         $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
-        $room['available_beds'] = (int)($room['available_rooms'] ?? 0); // available_rooms = available beds
         $room['booked_beds'] = (int)($room['booked_beds'] ?? 0);
+        
+        // Use unified calculation: total_beds - booked_beds (ensures consistency)
+        $room['available_beds'] = calculateAvailableBeds($room['total_rooms'], $room['room_type'], $room['booked_beds']);
     }
     unset($room);
     

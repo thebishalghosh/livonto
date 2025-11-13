@@ -4,6 +4,9 @@
  * Returns listings with coordinates for map display
  */
 
+// Start output buffering to prevent any output before headers
+ob_start();
+
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -14,6 +17,11 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
+
+// Suppress errors from being displayed (they'll be logged)
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 // Load required files
 require __DIR__ . '/config.php';
@@ -222,6 +230,9 @@ try {
         $centerLng = 78.9629;
     }
     
+    // Clean output buffer before sending JSON
+    ob_end_clean();
+    
     jsonSuccess('Listings loaded', [
         'listings' => $mapListings,
         'center' => [
@@ -232,6 +243,24 @@ try {
     ]);
     
 } catch (Exception $e) {
+    // Clean output buffer
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    error_log("Error in listings_map_api.php: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    
+    jsonError('Error loading listings', [], 500);
+} catch (Error $e) {
+    // Clean output buffer
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    error_log("Fatal error in listings_map_api.php: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    
     jsonError('Error loading listings', [], 500);
 }
 

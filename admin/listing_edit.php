@@ -733,7 +733,7 @@ $flashMessage = getFlashMessage();
                                        required min="1" value="<?= intval($config['total_rooms']) ?>">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Available Rooms <span class="text-danger">*</span></label>
+                                <label class="form-label">Available Beds <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="room_configs[<?= $index ?>][available_rooms]" 
                                        required min="0" value="<?= intval($config['available_rooms']) ?>">
                             </div>

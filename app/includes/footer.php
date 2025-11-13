@@ -245,14 +245,18 @@ $jsBasePath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/js/' : ($b
 if (substr($jsBasePath, 0, 1) !== '/') {
     $jsBasePath = '/' . ltrim($jsBasePath, '/');
 }
+// Get full base URL with protocol and domain for JavaScript
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$fullBaseUrl = $protocol . '://' . $host . ($baseUrl ?: '');
 ?>
+<script>
+  // Set baseUrl for all JavaScript files (main.js, map.js, etc.)
+  const baseUrl = '<?= htmlspecialchars($fullBaseUrl) ?>';
+</script>
 <script src="<?= htmlspecialchars($jsBasePath . 'main.js') ?>"></script>
 
 <!-- Map JS (loaded conditionally) -->
-<script>
-  // Set baseUrl for map.js
-  const baseUrl = '<?= htmlspecialchars($baseUrl) ?>';
-</script>
 <script src="<?= htmlspecialchars($jsBasePath . 'map.js') ?>"></script>
 
 <!-- Autocomplete JS -->

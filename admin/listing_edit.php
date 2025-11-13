@@ -146,8 +146,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 empty($config['total_rooms']) || !isset($config['available_rooms'])) {
                 $errors[] = "Room configuration #" . ($index + 1) . " is incomplete";
             }
-            if (isset($config['available_rooms']) && intval($config['available_rooms']) > intval($config['total_rooms'])) {
-                $errors[] = "Available rooms cannot exceed total rooms in configuration #" . ($index + 1);
+            
+            // Calculate total beds based on room type
+            $bedsPerRoom = 1;
+            if ($config['room_type'] === 'double sharing') {
+                $bedsPerRoom = 2;
+            } elseif ($config['room_type'] === 'triple sharing') {
+                $bedsPerRoom = 3;
+            }
+            $totalBeds = intval($config['total_rooms']) * $bedsPerRoom;
+            $availableBeds = intval($config['available_rooms']);
+            
+            // Validate: available beds cannot exceed total beds
+            if ($availableBeds > $totalBeds) {
+                $errors[] = "Available beds cannot exceed total beds in configuration #" . ($index + 1) . " (Total: {$totalBeds} beds, Available: {$availableBeds} beds)";
             }
         }
     }
@@ -470,6 +482,36 @@ try {
         "SELECT * FROM room_configurations WHERE listing_id = ? ORDER BY rent_per_month ASC",
         [$listingId]
     );
+    
+    // Recalculate available_rooms for each configuration based on actual bookings
+    foreach ($existingRoomConfigs as &$config) {
+        // Get total rooms
+        $totalRooms = (int)$config['total_rooms'];
+        
+        // Calculate beds per room based on room type
+        $bedsPerRoom = 1;
+        if ($config['room_type'] === 'double sharing') {
+            $bedsPerRoom = 2;
+        } elseif ($config['room_type'] === 'triple sharing') {
+            $bedsPerRoom = 3;
+        }
+        
+        $totalBeds = $totalRooms * $bedsPerRoom;
+        
+        // Count booked beds (confirmed and pending bookings)
+        $bookedBeds = (int)$db->fetchValue(
+            "SELECT COUNT(*) FROM bookings 
+             WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
+            [$config['id']]
+        );
+        
+        // Calculate available beds
+        $availableBeds = max(0, $totalBeds - $bookedBeds);
+        
+        // Update the config array with recalculated value
+        $config['available_rooms'] = $availableBeds;
+    }
+    unset($config);
     
     // Parse nearby landmarks
     $nearbyLandmarksArray = [];

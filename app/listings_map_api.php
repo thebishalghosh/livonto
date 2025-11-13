@@ -73,6 +73,9 @@ try {
     
     $whereClause = 'WHERE ' . implode(' AND ', $where);
     
+    // Ensure we have at least one listing location to avoid empty results
+    // Use INNER JOIN to only get listings with valid locations
+    
     // Build query with distance calculation if coordinates provided
     // Ensure coordinates are properly cast to DECIMAL for consistent numeric handling
     if ($lat !== null && $lng !== null) {

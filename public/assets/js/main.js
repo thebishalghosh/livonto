@@ -127,10 +127,19 @@ async function loadSearchResults(city = '', query = '') {
     const response = await fetch(`${baseUrl}/app/listings_search_api.php?${params.toString()}`);
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Search API error:', response.status, errorText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const responseText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError, 'Response:', responseText);
+      throw new Error('Invalid JSON response from server');
+    }
     
     if (data && (data.status === 'ok' || data.status === 'success')) {
       const listings = (data.data && data.data.listings) ? data.data.listings : (data.listings || []);

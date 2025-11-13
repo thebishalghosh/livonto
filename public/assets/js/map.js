@@ -282,10 +282,19 @@ async function loadListingsOnMap(city = '', query = '', lat = null, lng = null) 
         const response = await fetch(`${baseUrl}/app/listings_map_api.php?${params.toString()}`);
         
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Map API error:', response.status, errorText);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const data = await response.json();
+        const responseText = await response.text();
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('JSON parse error:', parseError, 'Response:', responseText);
+            throw new Error('Invalid JSON response from server');
+        }
         
         // Check if response is successful
         if (data && (data.status === 'ok' || data.status === 'success')) {

@@ -63,12 +63,14 @@ try {
     $whereClause = 'WHERE ' . implode(' AND ', $where);
     
     // Get listings with all necessary data
+    // Use COALESCE to handle NULL values from subqueries
     $sql = "SELECT l.id, l.title, l.description, l.cover_image, l.available_for, l.gender_allowed,
-                   loc.city, loc.pin_code,
-                   (SELECT MIN(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as min_rent,
-                   (SELECT MAX(rent_per_month) FROM room_configurations WHERE listing_id = l.id) as max_rent,
-                   (SELECT AVG(rating) FROM reviews WHERE listing_id = l.id) as avg_rating,
-                   (SELECT COUNT(*) FROM reviews WHERE listing_id = l.id) as reviews_count
+                   COALESCE(loc.city, '') as city, 
+                   COALESCE(loc.pin_code, '') as pin_code,
+                   COALESCE((SELECT MIN(rent_per_month) FROM room_configurations WHERE listing_id = l.id), 0) as min_rent,
+                   COALESCE((SELECT MAX(rent_per_month) FROM room_configurations WHERE listing_id = l.id), 0) as max_rent,
+                   COALESCE((SELECT AVG(rating) FROM reviews WHERE listing_id = l.id), 0) as avg_rating,
+                   COALESCE((SELECT COUNT(*) FROM reviews WHERE listing_id = l.id), 0) as reviews_count
             FROM listings l
             LEFT JOIN listing_locations loc ON l.id = loc.listing_id
             {$whereClause}

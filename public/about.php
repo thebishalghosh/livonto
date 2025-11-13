@@ -7,48 +7,51 @@ $baseUrl = app_url('');
 <div class="row g-4">
   <!-- Main column -->
   <main class="col-12">
-    <header class="mb-3">
+    <header class="mb-4">
       <h1 class="display-6 mb-1">About Livonto</h1>
       <p class="lead text-muted">A trusted platform simplifying the search for quality PG accommodations.</p>
     </header>
 
-    <!-- Intro card -->
-    <section class="card pg mb-4">
-      <div class="card-body">
-        <p class="mb-3">
-          Ayushman Agarwal and Aditiya Agarwal, co-founders and students at St. Xavier’s College, Kolkata,
-          identified a gap in the PG rental market and launched Livonto — a trusted platform simplifying the
-          search for quality accommodations.
-        </p>
-        <p class="mb-3">
-          With a vision to create a thriving community of happy tenants, Livonto streamlines the PG search process,
-          ensuring students can effortlessly find and secure suitable housing while also benefiting PG owners.
-        </p>
-        <p class="mb-0">
-          Leading the tech innovation, CTO Amaan Ansari is developing a robust platform that enables students to
-          explore PGs seamlessly from anywhere, redefining the student housing experience with efficiency and
-          reliability.
-        </p>
-      </div>
-    </section>
-
-    <!-- Mission & Vision -->
-    <section class="row g-3 mb-4">
-      <div class="col-md-6">
+    <!-- About and Mission/Vision Side by Side -->
+    <section class="row g-4 mb-4">
+      <!-- About Section (Left) -->
+      <div class="col-lg-7">
         <div class="card pg h-100">
           <div class="card-body">
-            <div class="kicker mb-1">Our Mission</div>
-            <h5 class="mb-2">Make PG discovery effortless</h5>
-            <p class="text-muted mb-0">We help students find verified, comfortable, and affordable PGs faster with transparent information and a delightful experience.</p>
+            <p class="mb-3">
+              Ayushman Agarwal and Aditiya Agarwal, co-founders and students at St. Xavier's College, Kolkata,
+              identified a gap in the PG rental market and launched Livonto — a trusted platform simplifying the
+              search for quality accommodations.
+            </p>
+            <p class="mb-3">
+              With a vision to create a thriving community of happy tenants, Livonto streamlines the PG search process,
+              ensuring students can effortlessly find and secure suitable housing while also benefiting PG owners.
+            </p>
+            <p class="mb-0">
+              Leading the tech innovation, CTO Amaan Ansari is developing a robust platform that enables students to
+              explore PGs seamlessly from anywhere, redefining the student housing experience with efficiency and
+              reliability.
+            </p>
           </div>
         </div>
       </div>
-      <div class="col-md-6">
-        <div class="card pg h-100">
-          <div class="card-body">
-            <div class="kicker mb-1">Our Vision</div>
-            <h5 class="mb-2">A thriving community of happy tenants</h5>
-            <p class="text-muted mb-0">We aim to be India’s most trusted PG platform, loved by students and hosts for its reliability, speed, and support.</p>
+
+      <!-- Mission & Vision Section (Right) -->
+      <div class="col-lg-5">
+        <div class="d-flex flex-column gap-3 h-100">
+          <div class="card pg flex-fill">
+            <div class="card-body">
+              <div class="kicker mb-1">Our Mission</div>
+              <h5 class="mb-2">Make PG discovery effortless</h5>
+              <p class="text-muted mb-0">We help students find verified, comfortable, and affordable PGs faster with transparent information and a delightful experience.</p>
+            </div>
+          </div>
+          <div class="card pg flex-fill">
+            <div class="card-body">
+              <div class="kicker mb-1">Our Vision</div>
+              <h5 class="mb-2">A thriving community of happy tenants</h5>
+              <p class="text-muted mb-0">We aim to be India's most trusted PG platform, loved by students and hosts for its reliability, speed, and support.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -199,18 +202,6 @@ $baseUrl = app_url('');
           </div>
         </div>
       </div>
-    </section>
-
-    <!-- Values -->
-    <section class="mb-4">
-      <div class="kicker mb-1">Our Values</div>
-      <h5 class="mb-3">What guides us</h5>
-      <ul class="list-group list-group-flush">
-        <li class="list-group-item">Trust &amp; Transparency</li>
-        <li class="list-group-item">Student-first Experience</li>
-        <li class="list-group-item">Speed with Reliability</li>
-        <li class="list-group-item">Continuous Improvement</li>
-      </ul>
     </section>
 
     <!-- FAQ -->

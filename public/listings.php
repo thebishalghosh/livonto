@@ -191,8 +191,15 @@ try {
 
 <div class="listings-page">
     <div class="listings-header">
-        <h1><i class="bi bi-grid-3x3-gap me-2"></i>Browse All Listings</h1>
-        <p class="mb-0 text-white" style="opacity: 0.95;">Find your perfect PG accommodation</p>
+        <div class="container-xxl">
+            <div class="listings-header-content">
+                <div class="listings-header-text">
+                    <div class="kicker">Explore</div>
+                    <h1>Find Your Perfect PG</h1>
+                    <p class="lead">Browse verified listings, compare amenities, and book with confidence</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="container-xxl">

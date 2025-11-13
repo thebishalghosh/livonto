@@ -6,19 +6,83 @@
 }
 
 .listings-header {
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-700) 100%);
-    color: white;
-    padding: 3rem 2rem;
-    border-radius: var(--card-radius);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: #ffffff !important;
+    padding: 2rem 0;
     margin-bottom: 2rem;
-    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Ensure header text is always visible in dark mode */
+[data-theme="dark"] .listings-header,
+.dark .listings-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .listings-header h1,
+.dark .listings-header h1,
+[data-theme="dark"] .listings-header .lead,
+.dark .listings-header .lead,
+[data-theme="dark"] .listings-header .kicker,
+.dark .listings-header .kicker {
+    color: #ffffff !important;
+}
+
+.listings-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.listings-header-content {
+    position: relative;
+    z-index: 1;
+}
+
+.listings-header-text {
+    max-width: 700px;
+}
+
+.listings-header .kicker {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #ffffff !important;
+    margin-bottom: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 50px;
+    backdrop-filter: blur(10px);
 }
 
 .listings-header h1 {
-    font-size: 2.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
-    color: white;
+    color: #ffffff !important;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
+.listings-header .lead {
+    font-size: 0.95rem;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.95) !important;
+    margin-bottom: 0;
+    line-height: 1.5;
+    max-width: 600px;
 }
 
 .filters-card {
@@ -140,8 +204,23 @@
 }
 
 @media (max-width: 768px) {
+    .listings-header {
+        padding: 1.5rem 0;
+    }
+    
     .listings-header h1 {
-        font-size: 2rem;
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .listings-header .lead {
+        font-size: 0.875rem;
+    }
+    
+    .listings-header .kicker {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.75rem;
+        margin-bottom: 0.5rem;
     }
     
     .filter-row {

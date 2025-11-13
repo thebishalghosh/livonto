@@ -206,11 +206,22 @@ $message = $formData['message'] ?? '';
         <h5 class="fw-bold mb-3">
           <i class="bi bi-geo-alt-fill text-primary me-2"></i>Our Office
         </h5>
-        <p class="mb-2 fw-semibold">Kolkata Office</p>
-        <p class="small text-muted mb-3">St. Xavier's College area, Kolkata</p>
+        <?php
+        // Get address from site settings
+        $contactAddress = function_exists('getSetting') ? getSetting('contact_address', 'St. Xavier\'s College area, Kolkata') : 'St. Xavier\'s College area, Kolkata';
+        $addressLines = array_filter(array_map('trim', explode("\n", $contactAddress)));
+        $firstLine = !empty($addressLines) ? array_shift($addressLines) : $contactAddress;
+        $remainingAddress = !empty($addressLines) ? implode(', ', $addressLines) : '';
+        ?>
+        <?php if (!empty($remainingAddress)): ?>
+          <p class="mb-2 fw-semibold"><?= htmlspecialchars($firstLine) ?></p>
+          <p class="small text-muted mb-3"><?= htmlspecialchars($remainingAddress) ?></p>
+        <?php else: ?>
+          <p class="small text-muted mb-3"><?= nl2br(htmlspecialchars($contactAddress)) ?></p>
+        <?php endif; ?>
         <div class="ratio ratio-16x9 rounded overflow-hidden">
           <iframe
-            src="https://www.google.com/maps?q=St.+Xavier%E2%80%99s+College,+Kolkata&output=embed"
+            src="https://www.google.com/maps?q=<?= urlencode($contactAddress) ?>&output=embed"
             allowfullscreen
             loading="lazy"
             referrerpolicy="no-referrer-when-downgrade"
@@ -327,55 +338,6 @@ $message = $formData['message'] ?? '';
             <a href="tel:+916293010501" class="btn btn-outline-primary btn-sm w-100 mb-2">
               <i class="bi bi-telephone me-2"></i>Call Us Now
             </a>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- FAQ Accordion -->
-    <div class="card pg">
-      <div class="card-body">
-        <h6 class="fw-bold mb-3">
-          <i class="bi bi-question-circle text-primary me-2"></i>Frequently Asked Questions
-        </h6>
-        <div class="accordion accordion-flush" id="contactFaq">
-          <div class="accordion-item border-0">
-            <h2 class="accordion-header" id="faq1">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1Collapse" aria-expanded="false">
-                How soon will I get a response?
-              </button>
-            </h2>
-            <div id="faq1Collapse" class="accordion-collapse collapse" data-bs-parent="#contactFaq">
-              <div class="accordion-body text-muted">
-                We typically respond within business hours (10:00 AM to 8:00 PM IST). For urgent matters, please call us directly.
-              </div>
-            </div>
-          </div>
-          
-          <div class="accordion-item border-0">
-            <h2 class="accordion-header" id="faq2">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2Collapse" aria-expanded="false">
-                Can I list my PG with you?
-              </button>
-            </h2>
-            <div id="faq2Collapse" class="accordion-collapse collapse" data-bs-parent="#contactFaq">
-              <div class="accordion-body text-muted">
-                Yes! We welcome PG owners to list their properties. Please call us or send a message using the form above, and we'll guide you through the listing process.
-              </div>
-            </div>
-          </div>
-          
-          <div class="accordion-item border-0">
-            <h2 class="accordion-header" id="faq3">
-              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3Collapse" aria-expanded="false">
-                What information should I include in my message?
-              </button>
-            </h2>
-            <div id="faq3Collapse" class="accordion-collapse collapse" data-bs-parent="#contactFaq">
-              <div class="accordion-body text-muted">
-                Please include your name, contact details, and a clear description of your inquiry. For PG listing inquiries, mention your property location, number of rooms, and preferred contact method.
-              </div>
-            </div>
           </div>
         </div>
       </div>

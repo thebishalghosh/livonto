@@ -216,6 +216,16 @@ try {
         $hasDurationMonths = false;
     }
     
+    // Check if gst_amount column exists
+    $hasGstAmount = false;
+    try {
+        $db->fetchValue("SELECT gst_amount FROM bookings LIMIT 1");
+        $hasGstAmount = true;
+    } catch (Exception $e) {
+        // Column doesn't exist, will use default value
+        $hasGstAmount = false;
+    }
+    
     $where = [];
     $params = [];
     
@@ -250,13 +260,14 @@ try {
     $sort = in_array($sort, $allowedSorts) ? $sort : 'b.created_at';
     $order = strtoupper($order) === 'ASC' ? 'ASC' : 'DESC';
     
-    // Build SELECT clause with conditional duration_months
+    // Build SELECT clause with conditional duration_months and gst_amount
     $durationField = $hasDurationMonths ? 'b.duration_months,' : '1 as duration_months,';
+    $gstField = $hasGstAmount ? 'b.gst_amount,' : '0 as gst_amount,';
     
     // Simplified query to avoid JOIN issues - get latest payment and invoice separately if needed
     $bookings = $db->fetchAll(
         "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, {$durationField}
-                b.total_amount, b.gst_amount, b.status, b.special_requests, b.created_at, b.updated_at,
+                b.total_amount, {$gstField} b.status, b.special_requests, b.created_at, b.updated_at,
                 u.name as user_name, u.email as user_email, u.phone as user_phone,
                 l.title as listing_title,
                 loc.city as listing_city, loc.pin_code as listing_pincode,

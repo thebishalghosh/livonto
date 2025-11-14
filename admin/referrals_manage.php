@@ -22,7 +22,7 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $referralId = intval($_GET['id'] ?? $_POST['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $referralId) {
-    // Handle POST actions (credit reward, etc.)
+    // Handle POST actions (credit reward, update reward amount, etc.)
     if ($action === 'credit' && isset($_POST['confirm_credit'])) {
         try {
             $db = db();
@@ -37,12 +37,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $referralId) {
             );
             
             if ($referral && $referral['status'] === 'pending') {
-                // Update referral status to credited
+                // Get reward amount from form (default to 1500 if not provided)
+                $rewardAmount = floatval($_POST['reward_amount'] ?? 1500.00);
+                if ($rewardAmount < 0) {
+                    $rewardAmount = 0;
+                }
+                // Validate maximum amount (DECIMAL(10,2) max: 99,999,999.99)
+                if ($rewardAmount > 99999999.99) {
+                    $_SESSION['flash_message'] = 'Reward amount cannot exceed ₹99,999,999.99';
+                    $_SESSION['flash_type'] = 'danger';
+                    header('Location: ' . app_url('admin/referrals'));
+                    exit;
+                }
+                
+                // Update referral status to credited and set reward amount
                 $db->execute(
-                    "UPDATE referrals SET status = 'credited', credited_at = NOW() WHERE id = ?",
-                    [$referralId]
+                    "UPDATE referrals SET status = 'credited', reward_amount = ?, credited_at = NOW() WHERE id = ?",
+                    [$rewardAmount, $referralId]
                 );
-                error_log("Admin credited referral: ID {$referralId} (Referrer: {$referral['referrer_name']}, Referred: {$referral['referred_name']}) by Admin ID {$_SESSION['user_id']}");
+                error_log("Admin credited referral: ID {$referralId} (Referrer: {$referral['referrer_name']}, Referred: {$referral['referred_name']}, Amount: ₹{$rewardAmount}) by Admin ID {$_SESSION['user_id']}");
                 $_SESSION['flash_message'] = 'Referral reward credited successfully';
                 $_SESSION['flash_type'] = 'success';
                 header('Location: ' . app_url('admin/referrals'));
@@ -51,6 +64,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $referralId) {
         } catch (Exception $e) {
             error_log("Error crediting referral: " . $e->getMessage());
             $_SESSION['flash_message'] = 'Error crediting referral reward';
+            $_SESSION['flash_type'] = 'danger';
+        }
+    } elseif ($action === 'update_reward' && isset($_POST['reward_amount'])) {
+        try {
+            $db = db();
+            // Get referral details
+            $referral = $db->fetchOne(
+                "SELECT r.*, u1.name as referrer_name, u2.name as referred_name 
+                 FROM referrals r
+                 LEFT JOIN users u1 ON r.referrer_id = u1.id
+                 LEFT JOIN users u2 ON r.referred_id = u2.id
+                 WHERE r.id = ?",
+                [$referralId]
+            );
+            
+            if ($referral) {
+                // Get reward amount from form
+                $rewardAmount = floatval($_POST['reward_amount'] ?? 0);
+                if ($rewardAmount < 0) {
+                    $rewardAmount = 0;
+                }
+                // Validate maximum amount (DECIMAL(10,2) max: 99,999,999.99)
+                if ($rewardAmount > 99999999.99) {
+                    $_SESSION['flash_message'] = 'Reward amount cannot exceed ₹99,999,999.99';
+                    $_SESSION['flash_type'] = 'danger';
+                    header('Location: ' . app_url('admin/referrals'));
+                    exit;
+                }
+                
+                // Update reward amount
+                $db->execute(
+                    "UPDATE referrals SET reward_amount = ? WHERE id = ?",
+                    [$rewardAmount, $referralId]
+                );
+                error_log("Admin updated referral reward: ID {$referralId} (Referrer: {$referral['referrer_name']}, Referred: {$referral['referred_name']}, New Amount: ₹{$rewardAmount}) by Admin ID {$_SESSION['user_id']}");
+                $_SESSION['flash_message'] = 'Reward amount updated successfully';
+                $_SESSION['flash_type'] = 'success';
+                header('Location: ' . app_url('admin/referrals'));
+                exit;
+            }
+        } catch (Exception $e) {
+            error_log("Error updating referral reward: " . $e->getMessage());
+            $_SESSION['flash_message'] = 'Error updating reward amount';
             $_SESSION['flash_type'] = 'danger';
         }
     }
@@ -373,16 +429,22 @@ $flashMessage = getFlashMessage();
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php if ($referral['status'] === 'pending'): ?>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <?php if ($referral['status'] === 'pending'): ?>
+                                            <button type="button" 
+                                                    class="btn btn-success" 
+                                                    onclick="creditReward(<?= $referral['id'] ?>, '<?= htmlspecialchars($referral['referrer_name'] ?: 'User', ENT_QUOTES) ?>', '<?= htmlspecialchars($referral['referred_name'] ?: 'User', ENT_QUOTES) ?>', <?= floatval($referral['reward_amount']) ?>)"
+                                                    title="Credit Reward">
+                                                <i class="bi bi-check-circle me-1"></i>Credit
+                                            </button>
+                                        <?php endif; ?>
                                         <button type="button" 
-                                                class="btn btn-sm btn-success" 
-                                                onclick="creditReward(<?= $referral['id'] ?>, '<?= htmlspecialchars($referral['referrer_name'] ?: 'User', ENT_QUOTES) ?>', '<?= htmlspecialchars($referral['referred_name'] ?: 'User', ENT_QUOTES) ?>')"
-                                                title="Credit Reward">
-                                            <i class="bi bi-check-circle me-1"></i>Credit
+                                                class="btn btn-outline-primary" 
+                                                onclick="editReward(<?= $referral['id'] ?>, '<?= htmlspecialchars($referral['referrer_name'] ?: 'User', ENT_QUOTES) ?>', '<?= htmlspecialchars($referral['referred_name'] ?: 'User', ENT_QUOTES) ?>', <?= floatval($referral['reward_amount']) ?>)"
+                                                title="Edit Reward Amount">
+                                            <i class="bi bi-pencil"></i>
                                         </button>
-                                    <?php else: ?>
-                                        <span class="text-muted small">Credited</span>
-                                    <?php endif; ?>
+                                    </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -442,15 +504,20 @@ $flashMessage = getFlashMessage();
                                         <?php endif; ?>
                                     </div>
                                     
-                                    <?php if ($referral['status'] === 'pending'): ?>
-                                        <div class="d-grid">
+                                    <div class="d-grid gap-2">
+                                        <?php if ($referral['status'] === 'pending'): ?>
                                             <button type="button" 
                                                     class="btn btn-sm btn-success" 
-                                                    onclick="creditReward(<?= $referral['id'] ?>, '<?= htmlspecialchars($referral['referrer_name'] ?: 'User', ENT_QUOTES) ?>', '<?= htmlspecialchars($referral['referred_name'] ?: 'User', ENT_QUOTES) ?>')">
+                                                    onclick="creditReward(<?= $referral['id'] ?>, '<?= htmlspecialchars($referral['referrer_name'] ?: 'User', ENT_QUOTES) ?>', '<?= htmlspecialchars($referral['referred_name'] ?: 'User', ENT_QUOTES) ?>', <?= floatval($referral['reward_amount']) ?>)">
                                                 <i class="bi bi-check-circle me-1"></i>Credit Reward
                                             </button>
-                                        </div>
-                                    <?php endif; ?>
+                                        <?php endif; ?>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-primary" 
+                                                onclick="editReward(<?= $referral['id'] ?>, '<?= htmlspecialchars($referral['referrer_name'] ?: 'User', ENT_QUOTES) ?>', '<?= htmlspecialchars($referral['referred_name'] ?: 'User', ENT_QUOTES) ?>', <?= floatval($referral['reward_amount']) ?>)">
+                                            <i class="bi bi-pencil me-1"></i>Edit Amount
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -482,6 +549,19 @@ $flashMessage = getFlashMessage();
                         <strong>Referrer:</strong> <span id="creditReferrerName"></span><br>
                         <strong>Referred User:</strong> <span id="creditReferredName"></span>
                     </div>
+                    <div class="mb-3">
+                        <label for="creditRewardAmount" class="form-label">Reward Amount (₹)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="creditRewardAmount" 
+                               name="reward_amount" 
+                               step="0.01" 
+                               min="0" 
+                               max="99999999.99"
+                               value="1500.00" 
+                               required>
+                        <div class="form-text">Enter the reward amount to be credited to the referrer.</div>
+                    </div>
                     <p class="text-muted small">This action will mark the referral as credited and record the credit timestamp.</p>
                 </div>
                 <div class="modal-footer">
@@ -493,12 +573,59 @@ $flashMessage = getFlashMessage();
     </div>
 </div>
 
+<!-- Edit Reward Amount Modal -->
+<div class="modal fade" id="editRewardModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="<?= htmlspecialchars(app_url('admin/referrals')) ?>" id="editRewardForm">
+                <input type="hidden" name="id" id="editReferralId">
+                <input type="hidden" name="action" value="update_reward">
+                <div class="modal-header">
+                    <h5 class="modal-title text-primary">Edit Reward Amount</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <strong>Referrer:</strong> <span id="editReferrerName"></span><br>
+                        <strong>Referred User:</strong> <span id="editReferredName"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRewardAmount" class="form-label">Reward Amount (₹)</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="editRewardAmount" 
+                               name="reward_amount" 
+                               step="0.01" 
+                               min="0" 
+                               max="99999999.99"
+                               required>
+                        <div class="form-text">Update the reward amount for this referral.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Amount</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
-function creditReward(referralId, referrerName, referredName) {
+function creditReward(referralId, referrerName, referredName, currentAmount) {
     document.getElementById('creditReferralId').value = referralId;
     document.getElementById('creditReferrerName').textContent = referrerName;
     document.getElementById('creditReferredName').textContent = referredName;
+    document.getElementById('creditRewardAmount').value = currentAmount > 0 ? currentAmount.toFixed(2) : '1500.00';
     new bootstrap.Modal(document.getElementById('creditRewardModal')).show();
+}
+
+function editReward(referralId, referrerName, referredName, currentAmount) {
+    document.getElementById('editReferralId').value = referralId;
+    document.getElementById('editReferrerName').textContent = referrerName;
+    document.getElementById('editReferredName').textContent = referredName;
+    document.getElementById('editRewardAmount').value = currentAmount > 0 ? currentAmount.toFixed(2) : '0.00';
+    new bootstrap.Modal(document.getElementById('editRewardModal')).show();
 }
 </script>
 

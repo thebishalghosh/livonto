@@ -146,6 +146,14 @@ try {
         // Log successful registration
         error_log("New user registered: User ID {$userId} ({$email})" . ($referredBy ? " - Referred by: {$referredBy}" : ""));
         
+        // Send welcome email to user
+        try {
+            require_once __DIR__ . '/email_helper.php';
+            sendWelcomeEmail($email, $name, $newReferralCode, !empty($referredBy));
+        } catch (Exception $e) {
+            error_log("Failed to send welcome email to user: " . $e->getMessage());
+        }
+        
         // Send admin notification about new user registration
         try {
             require_once __DIR__ . '/email_helper.php';

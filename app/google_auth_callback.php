@@ -282,6 +282,39 @@ try {
                 // Commit transaction
                 $db->commit();
                 
+                // Log successful registration
+                error_log("New user registered via Google OAuth: User ID {$userId} ({$email})" . ($referredBy ? " - Referred by: {$referredBy}" : ""));
+                
+                // Send welcome email to user
+                try {
+                    require_once __DIR__ . '/email_helper.php';
+                    sendWelcomeEmail($email, $name, $newReferralCode, !empty($referredBy));
+                } catch (Exception $e) {
+                    error_log("Failed to send welcome email to user: " . $e->getMessage());
+                }
+                
+                // Send admin notification about new user registration
+                try {
+                    require_once __DIR__ . '/email_helper.php';
+                    $baseUrl = app_url('');
+                    sendAdminNotification(
+                        "New User Registration (Google OAuth) - {$name}",
+                        "New User Registered",
+                        "A new user has registered on the platform via Google OAuth.",
+                        [
+                            'User Name' => $name,
+                            'Email' => $email,
+                            'Registration Date' => date('F d, Y, h:i A'),
+                            'Registration Method' => 'Google OAuth',
+                            'Referred By' => $referredBy ? 'Yes (Code: ' . $referralCode . ')' : 'No'
+                        ],
+                        $baseUrl . 'admin/users/view?id=' . $userId,
+                        'View User Profile'
+                    );
+                } catch (Exception $e) {
+                    error_log("Failed to send admin notification for new user: " . $e->getMessage());
+                }
+                
                 // Fetch created user
                 $user = $db->fetchOne(
                     "SELECT id, name, email, role, referral_code, profile_image 

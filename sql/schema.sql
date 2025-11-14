@@ -384,3 +384,35 @@ ADD UNIQUE KEY unique_owner_email (owner_email);
 -- Note: owner_email is unique to prevent duplicate owner accounts
 -- owner_password_hash can be NULL for existing listings without owner accounts
 
+-- =====================================================
+-- Migration: Add duration_months and gst_amount columns
+-- =====================================================
+-- This migration adds the duration_months and gst_amount columns
+-- to the bookings and payments tables for production server
+-- =====================================================
+
+-- Add duration_months to bookings table
+-- Position: After booking_start_date
+ALTER TABLE bookings 
+ADD COLUMN duration_months INT NULL DEFAULT 1 
+AFTER booking_start_date;
+
+-- Add gst_amount to bookings table
+-- Position: After total_amount
+ALTER TABLE bookings 
+ADD COLUMN gst_amount DECIMAL(10,2) NULL DEFAULT 0.00 
+AFTER total_amount;
+
+-- Add gst_amount to payments table
+-- Position: After amount
+ALTER TABLE payments 
+ADD COLUMN gst_amount DECIMAL(10,2) NULL DEFAULT 0.00 
+AFTER amount;
+
+-- =====================================================
+-- Verification queries (run these to verify the columns were added)
+-- =====================================================
+-- DESCRIBE bookings;
+-- DESCRIBE payments;
+-- =====================================================
+

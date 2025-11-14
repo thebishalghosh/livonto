@@ -518,34 +518,21 @@ $flashMessage = getFlashMessage();
                 <p class="text-muted mt-3">No bookings found</p>
             </div>
         <?php else: ?>
-            <div class="table-responsive d-none d-md-block" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-                <table class="table table-hover admin-table mb-0" style="min-width: 1200px;">
+            <div class="table-responsive d-none d-md-block">
+                <table class="table table-hover admin-table mb-0">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>User</th>
                             <th>Listing</th>
-                            <th>Start Date</th>
-                            <th>Room Type</th>
-                            <th>Security Deposit</th>
-                            <th>GST</th>
                             <th>Total Amount</th>
                             <th>Payment</th>
                             <th>Status</th>
-                            <th>Created</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($bookings as $booking): ?>
-                            <?php
-                            $durationMonths = isset($booking['duration_months']) ? (int)$booking['duration_months'] : 1;
-                            if ($durationMonths < 1) $durationMonths = 1;
-                            $startDate = new DateTime($booking['booking_start_date']);
-                            $endDate = clone $startDate;
-                            $endDate->modify("+{$durationMonths} months");
-                            $endDate->modify('-1 day');
-                            ?>
                             <tr>
                                 <td><?= htmlspecialchars($booking['id']) ?></td>
                                 <td>
@@ -575,31 +562,14 @@ $flashMessage = getFlashMessage();
                                     </div>
                                 </td>
                                 <td>
-                                    <div>
-                                        <strong><?= date('F 1, Y', strtotime($booking['booking_start_date'])) ?></strong>
-                                        <div class="small text-muted">
-                                            to <?= $endDate->format('F d, Y') ?>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?></td>
-                                <td><strong>₹<?= number_format($booking['total_amount'], 2) ?></strong></td>
-                                <td>
-                                    <?php 
-                                    $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
-                                    if ($gstAmount > 0): 
-                                    ?>
-                                        <strong>₹<?= number_format($gstAmount, 2) ?></strong>
-                                    <?php else: ?>
-                                        <span class="text-muted">-</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
                                     <?php 
                                     $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
                                     $totalWithGst = $booking['total_amount'] + $gstAmount;
                                     ?>
                                     <strong>₹<?= number_format($totalWithGst, 2) ?></strong>
+                                    <?php if ($gstAmount > 0): ?>
+                                        <div class="small text-muted">GST: ₹<?= number_format($gstAmount, 2) ?></div>
+                                    <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if ($booking['payment_status'] === 'success'): ?>
@@ -628,18 +598,11 @@ $flashMessage = getFlashMessage();
                                     </span>
                                 </td>
                                 <td>
-                                    <div class="small">
-                                        <?= date('d M Y', strtotime($booking['created_at'])) ?>
-                                        <div class="text-muted">
-                                            <?= date('h:i A', strtotime($booking['created_at'])) ?>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
                                     <div class="btn-group btn-group-sm" role="group">
                                         <button type="button" class="btn btn-outline-primary" 
                                                 data-bs-toggle="modal" 
-                                                data-bs-target="#viewModal<?= $booking['id'] ?>">
+                                                data-bs-target="#viewModal<?= $booking['id'] ?>"
+                                                title="View Details">
                                             <i class="bi bi-eye"></i>
                                         </button>
                                         <?php if (!empty($booking['invoice_id'])): ?>
@@ -652,7 +615,8 @@ $flashMessage = getFlashMessage();
                                         <?php endif; ?>
                                         <button type="button" class="btn btn-outline-secondary" 
                                                 data-bs-toggle="modal" 
-                                                data-bs-target="#statusModal<?= $booking['id'] ?>">
+                                                data-bs-target="#statusModal<?= $booking['id'] ?>"
+                                                title="Change Status">
                                             <i class="bi bi-three-dots-vertical"></i>
                                         </button>
                                     </div>

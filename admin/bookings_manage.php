@@ -313,23 +313,12 @@ try {
     ];
     
 } catch (Exception $e) {
-    // Log detailed error information
-    $errorMsg = $e->getMessage();
-    $errorFile = $e->getFile();
-    $errorLine = $e->getLine();
-    error_log("Error in bookings_manage.php: {$errorMsg} in {$errorFile} on line {$errorLine}");
-    error_log("Stack trace: " . $e->getTraceAsString());
-    
+    error_log("Error in bookings_manage.php: " . $e->getMessage());
     $bookings = [];
     $stats = ['total' => 0, 'pending' => 0, 'confirmed' => 0, 'completed' => 0, 'cancelled' => 0, 'today' => 0, 'this_month' => 0, 'total_revenue' => 0];
     $totalBookings = 0;
     $totalPages = 0;
-    
-    // Show detailed error in development, generic message in production
-    $errorMessage = (getenv('APP_DEBUG') === 'true' || !empty($_ENV['APP_DEBUG'])) 
-        ? "Error loading bookings: {$errorMsg}" 
-        : 'Error loading bookings. Please check server logs for details.';
-    $_SESSION['flash_message'] = $errorMessage;
+    $_SESSION['flash_message'] = 'Error loading bookings';
     $_SESSION['flash_type'] = 'danger';
 }
 

@@ -597,29 +597,7 @@ $flashMessage = getFlashMessage();
             </div>
             
             <!-- Pagination -->
-            <?php if ($totalPages > 1): ?>
-                <nav aria-label="Listings pagination" class="mt-4">
-                    <ul class="pagination justify-content-center flex-wrap">
-                        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                            <a class="page-link" href="<?= app_url('admin/listings?' . http_build_query(array_merge($_GET, ['page' => $page - 1]))) ?>">
-                                <i class="bi bi-chevron-left d-md-none"></i>
-                                <span class="d-none d-md-inline">Previous</span>
-                            </a>
-                        </li>
-                        <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                            <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-                                <a class="page-link" href="<?= app_url('admin/listings?' . http_build_query(array_merge($_GET, ['page' => $i]))) ?>"><?= $i ?></a>
-                            </li>
-                        <?php endfor; ?>
-                        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
-                            <a class="page-link" href="<?= app_url('admin/listings?' . http_build_query(array_merge($_GET, ['page' => $page + 1]))) ?>">
-                                <span class="d-none d-md-inline">Next</span>
-                                <i class="bi bi-chevron-right d-md-none"></i>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
-            <?php endif; ?>
+            <?= renderAdminPagination($page, $totalPages, $totalListings, $perPage, $offset, app_url('admin/listings'), 'Listings pagination', true) ?>
         <?php endif; ?>
     </div>
 </div>

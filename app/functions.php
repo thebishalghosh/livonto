@@ -541,3 +541,111 @@ function autoGeocodeListing($listingId) {
     }
 }
 
+/**
+ * Render pagination HTML for admin pages
+ * @param int $currentPage Current page number
+ * @param int $totalPages Total number of pages
+ * @param int $totalItems Total number of items
+ * @param int $perPage Items per page
+ * @param int $offset Current offset
+ * @param string $baseUrl Base URL for pagination links (optional, uses current URL if not provided)
+ * @param string $ariaLabel Aria label for pagination (optional)
+ * @param bool $showInfo Show "Showing X to Y of Z" info (default: true)
+ * @return string HTML for pagination
+ */
+function renderAdminPagination($currentPage, $totalPages, $totalItems, $perPage, $offset, $baseUrl = null, $ariaLabel = 'Page navigation', $showInfo = true) {
+    if ($totalPages <= 1) {
+        return '';
+    }
+    
+    // Calculate page range (show 2 pages before and after current)
+    $startPage = max(1, $currentPage - 2);
+    $endPage = min($totalPages, $currentPage + 2);
+    
+    // Expand range if near start or end
+    if ($startPage === 1 && $endPage < min(5, $totalPages)) {
+        $endPage = min(5, $totalPages);
+    }
+    if ($endPage === $totalPages && $startPage > max(1, $totalPages - 4)) {
+        $startPage = max(1, $totalPages - 4);
+    }
+    
+    $html = '<div class="admin-card-body border-top">';
+    
+    if ($showInfo) {
+        $html .= '<div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">';
+        $html .= '<div class="text-muted small">';
+        $html .= 'Showing ' . number_format($offset + 1) . ' to ' . number_format(min($offset + $perPage, $totalItems)) . ' of ' . number_format($totalItems) . ' items';
+        $html .= '</div>';
+        $html .= '</div>';
+    }
+    
+    $html .= '<nav aria-label="' . htmlspecialchars($ariaLabel) . '">';
+    $html .= '<ul class="pagination pagination-sm justify-content-center mb-0">';
+    
+    // Helper function to build URL with page parameter
+    $buildPageUrl = function($pageNum) use ($baseUrl) {
+        if ($baseUrl !== null) {
+            // If baseUrl provided, append page parameter
+            $separator = strpos($baseUrl, '?') === false ? '?' : '&';
+            return $baseUrl . $separator . 'page=' . $pageNum;
+        } else {
+            // Use current GET parameters
+            $params = $_GET;
+            $params['page'] = $pageNum;
+            return '?' . http_build_query($params);
+        }
+    };
+    
+    // Previous button
+    if ($currentPage > 1) {
+        $html .= '<li class="page-item">';
+        $html .= '<a class="page-link" href="' . htmlspecialchars($buildPageUrl($currentPage - 1)) . '">';
+        $html .= '<i class="bi bi-chevron-left"></i>';
+        $html .= '</a>';
+        $html .= '</li>';
+    }
+    
+    // First page if not in range
+    if ($startPage > 1) {
+        $html .= '<li class="page-item">';
+        $html .= '<a class="page-link" href="' . htmlspecialchars($buildPageUrl(1)) . '">1</a>';
+        $html .= '</li>';
+        if ($startPage > 2) {
+            $html .= '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+    
+    // Page numbers
+    for ($i = $startPage; $i <= $endPage; $i++) {
+        $html .= '<li class="page-item ' . ($i === $currentPage ? 'active' : '') . '">';
+        $html .= '<a class="page-link" href="' . htmlspecialchars($buildPageUrl($i)) . '">' . $i . '</a>';
+        $html .= '</li>';
+    }
+    
+    // Last page if not in range
+    if ($endPage < $totalPages) {
+        if ($endPage < $totalPages - 1) {
+            $html .= '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+        $html .= '<li class="page-item">';
+        $html .= '<a class="page-link" href="' . htmlspecialchars($buildPageUrl($totalPages)) . '">' . $totalPages . '</a>';
+        $html .= '</li>';
+    }
+    
+    // Next button
+    if ($currentPage < $totalPages) {
+        $html .= '<li class="page-item">';
+        $html .= '<a class="page-link" href="' . htmlspecialchars($buildPageUrl($currentPage + 1)) . '">';
+        $html .= '<i class="bi bi-chevron-right"></i>';
+        $html .= '</a>';
+        $html .= '</li>';
+    }
+    
+    $html .= '</ul>';
+    $html .= '</nav>';
+    $html .= '</div>';
+    
+    return $html;
+}
+

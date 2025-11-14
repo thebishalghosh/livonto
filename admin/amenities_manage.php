@@ -153,24 +153,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $pageTitle = "Manage Amenities";
 require __DIR__ . '/../app/includes/admin_header.php';
 
+// Get pagination parameters
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 50; // Show 50 amenities per page
+$offset = ($page - 1) * $perPage;
+
 // Fetch amenities with usage count
 try {
     $db = db();
+    
+    // Get total count
+    $totalAmenities = (int)$db->fetchValue("SELECT COUNT(*) FROM amenities") ?: 0;
+    $totalPages = ceil($totalAmenities / $perPage);
+    
+    // Get paginated amenities
     $amenities = $db->fetchAll(
         "SELECT a.id, a.name, 
          COUNT(la.listing_id) as usage_count
          FROM amenities a
          LEFT JOIN listing_amenities la ON a.id = la.amenity_id
          GROUP BY a.id
-         ORDER BY a.name"
+         ORDER BY a.name
+         LIMIT ? OFFSET ?",
+        [$perPage, $offset]
     );
 
-    $totalAmenities = count($amenities);
     $amenitiesInUse = $db->fetchValue("SELECT COUNT(DISTINCT amenity_id) FROM listing_amenities");
 } catch (Exception $e) {
     error_log("Error fetching amenities: " . $e->getMessage());
     $amenities = [];
     $totalAmenities = 0;
+    $totalPages = 0;
     $amenitiesInUse = 0;
     setFlashMessage("Error loading amenities: " . $e->getMessage(), 'error');
 }
@@ -294,6 +307,9 @@ $flashMessage = getFlashMessage();
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination -->
+        <?= renderAdminPagination($page, $totalPages, $totalAmenities, $perPage, $offset, app_url('admin/amenities'), 'Amenities pagination', true) ?>
     </div>
 </div>
 

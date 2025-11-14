@@ -153,24 +153,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $pageTitle = "Manage House Rules";
 require __DIR__ . '/../app/includes/admin_header.php';
 
+// Get pagination parameters
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 50; // Show 50 house rules per page
+$offset = ($page - 1) * $perPage;
+
 // Fetch house rules with usage count
 try {
     $db = db();
+    
+    // Get total count
+    $totalHouseRules = (int)$db->fetchValue("SELECT COUNT(*) FROM house_rules") ?: 0;
+    $totalPages = ceil($totalHouseRules / $perPage);
+    
+    // Get paginated house rules
     $houseRules = $db->fetchAll(
         "SELECT hr.id, hr.name, 
          COUNT(lr.listing_id) as usage_count
          FROM house_rules hr
          LEFT JOIN listing_rules lr ON hr.id = lr.rule_id
          GROUP BY hr.id
-         ORDER BY hr.name"
+         ORDER BY hr.name
+         LIMIT ? OFFSET ?",
+        [$perPage, $offset]
     );
 
-    $totalHouseRules = count($houseRules);
     $rulesInUse = $db->fetchValue("SELECT COUNT(DISTINCT rule_id) FROM listing_rules");
 } catch (Exception $e) {
     error_log("Error fetching house rules: " . $e->getMessage());
     $houseRules = [];
     $totalHouseRules = 0;
+    $totalPages = 0;
     $rulesInUse = 0;
     setFlashMessage("Error loading house rules: " . $e->getMessage(), 'error');
 }
@@ -294,6 +307,9 @@ $flashMessage = getFlashMessage();
                 </tbody>
             </table>
         </div>
+        
+        <!-- Pagination -->
+        <?= renderAdminPagination($page, $totalPages, $totalHouseRules, $perPage, $offset, app_url('admin/house-rules'), 'House Rules pagination', true) ?>
     </div>
 </div>
 

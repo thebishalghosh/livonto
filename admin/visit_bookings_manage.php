@@ -507,25 +507,7 @@ $flashMessage = getFlashMessage();
             </div>
             
             <!-- Pagination -->
-            <?php if ($totalPages > 1): ?>
-                <div class="admin-card-body border-top">
-                    <nav aria-label="Page navigation">
-                        <ul class="pagination justify-content-center mb-0">
-                            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">Previous</a>
-                            </li>
-                            <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-                                    <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
-                                </li>
-                            <?php endfor; ?>
-                            <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
-                                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">Next</a>
-                            </li>
-                        </ul>
-                    </nav>
-                </div>
-            <?php endif; ?>
+            <?= renderAdminPagination($page, $totalPages, $totalBookings, $perPage, $offset, null, 'Visit Bookings pagination', true) ?>
         <?php endif; ?>
     </div>
 </div>

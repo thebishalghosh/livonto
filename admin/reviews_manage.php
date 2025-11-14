@@ -486,45 +486,7 @@ try {
             </div>
             
             <!-- Pagination -->
-            <?php if ($totalPages > 1): ?>
-                <div class="admin-card-body border-top">
-                    <nav aria-label="Reviews pagination">
-                        <ul class="pagination justify-content-center mb-0">
-                            <?php if ($page > 1): ?>
-                                <li class="page-item">
-                                    <a class="page-link" href="<?= htmlspecialchars(app_url('admin/reviews?' . http_build_query(array_merge($_GET, ['page' => $page - 1])))) ?>">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </a>
-                                </li>
-                            <?php endif; ?>
-                            
-                            <?php
-                            $startPage = max(1, $page - 2);
-                            $endPage = min($totalPages, $page + 2);
-                            
-                            for ($i = $startPage; $i <= $endPage; $i++):
-                            ?>
-                                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-                                    <a class="page-link" href="<?= htmlspecialchars(app_url('admin/reviews?' . http_build_query(array_merge($_GET, ['page' => $i])))) ?>">
-                                        <?= $i ?>
-                                    </a>
-                                </li>
-                            <?php endfor; ?>
-                            
-                            <?php if ($page < $totalPages): ?>
-                                <li class="page-item">
-                                    <a class="page-link" href="<?= htmlspecialchars(app_url('admin/reviews?' . http_build_query(array_merge($_GET, ['page' => $page + 1])))) ?>">
-                                        <i class="bi bi-chevron-right"></i>
-                                    </a>
-                                </li>
-                            <?php endif; ?>
-                        </ul>
-                    </nav>
-                    <div class="text-center mt-2 text-muted small">
-                        Showing <?= $offset + 1 ?> to <?= min($offset + $perPage, $totalReviews) ?> of <?= number_format($totalReviews) ?> reviews
-                    </div>
-                </div>
-            <?php endif; ?>
+            <?= renderAdminPagination($page, $totalPages, $totalReviews, $perPage, $offset, app_url('admin/reviews'), 'Reviews pagination', true) ?>
         <?php endif; ?>
     </div>
 </div>

@@ -537,33 +537,7 @@ $flashMessage = getFlashMessage();
             <?php endforeach; ?>
             
             <!-- Pagination -->
-            <?php if ($totalPages > 1): ?>
-                <div class="admin-card-body border-top">
-                    <nav aria-label="Enquiries pagination">
-                        <ul class="pagination justify-content-center mb-0">
-                            <?php if ($page > 1): ?>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>&sort=<?= urlencode($sort) ?>&order=<?= urlencode($order) ?>">Previous</a>
-                                </li>
-                            <?php endif; ?>
-                            
-                            <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                                <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-                                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>&sort=<?= urlencode($sort) ?>&order=<?= urlencode($order) ?>">
-                                        <?= $i ?>
-                                    </a>
-                                </li>
-                            <?php endfor; ?>
-                            
-                            <?php if ($page < $totalPages): ?>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>&status=<?= urlencode($status) ?>&sort=<?= urlencode($sort) ?>&order=<?= urlencode($order) ?>">Next</a>
-                                </li>
-                            <?php endif; ?>
-                        </ul>
-                    </nav>
-                </div>
-            <?php endif; ?>
+            <?= renderAdminPagination($page, $totalPages, $totalEnquiries, $perPage, $offset, null, 'Enquiries pagination', true) ?>
         <?php endif; ?>
     </div>
 </div>

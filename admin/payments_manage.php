@@ -429,30 +429,7 @@ $flashMessage = getFlashMessage();
     </div>
     
     <!-- Pagination -->
-    <?php if ($totalPages > 1): ?>
-        <div class="admin-card-footer">
-            <nav aria-label="Page navigation">
-                <ul class="pagination pagination-sm justify-content-center mb-0">
-                    <?php
-                    $currentUrl = '?' . http_build_query(array_merge($_GET, ['page' => 1]));
-                    $prevPage = max(1, $page - 1);
-                    $nextPage = min($totalPages, $page + 1);
-                    ?>
-                    <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $prevPage])) ?>">Previous</a>
-                    </li>
-                    <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                        <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-                            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
-                        </li>
-                    <?php endfor; ?>
-                    <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
-                        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $nextPage])) ?>">Next</a>
-                    </li>
-                </ul>
-            </nav>
-        </div>
-    <?php endif; ?>
+    <?= renderAdminPagination($page, $totalPages, $totalPayments, $perPage, $offset, null, 'Payments pagination', true) ?>
 </div>
 
 <!-- Payment Detail Modals -->

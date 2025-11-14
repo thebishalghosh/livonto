@@ -413,23 +413,7 @@ $flashMessage = getFlashMessage();
             </div>
             
             <!-- Pagination -->
-            <?php if ($totalPages > 1): ?>
-                <nav aria-label="Users pagination">
-                    <ul class="pagination justify-content-center mt-4">
-                        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                            <a class="page-link" href="<?= app_url('admin/users?' . http_build_query(array_merge($_GET, ['page' => $page - 1]))) ?>">Previous</a>
-                        </li>
-                        <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
-                            <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-                                <a class="page-link" href="<?= app_url('admin/users?' . http_build_query(array_merge($_GET, ['page' => $i]))) ?>"><?= $i ?></a>
-                            </li>
-                        <?php endfor; ?>
-                        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
-                            <a class="page-link" href="<?= app_url('admin/users?' . http_build_query(array_merge($_GET, ['page' => $page + 1]))) ?>">Next</a>
-                        </li>
-                    </ul>
-                </nav>
-            <?php endif; ?>
+            <?= renderAdminPagination($page, $totalPages, $totalUsers, $perPage, $offset, app_url('admin/users'), 'Users pagination', true) ?>
         <?php endif; ?>
     </div>
 </div>

@@ -254,6 +254,44 @@ try {
             }
         }
         
+        // Send admin notification about successful payment
+        try {
+            require_once __DIR__ . '/email_helper.php';
+            $bookingDetails = $db->fetchOne(
+                "SELECT b.id, b.total_amount, u.name as user_name, u.email as user_email, l.title as listing_title
+                 FROM bookings b
+                 LEFT JOIN users u ON b.user_id = u.id
+                 LEFT JOIN listings l ON b.listing_id = l.id
+                 WHERE b.id = ?",
+                [$bookingId]
+            );
+            $paymentDetails = $db->fetchOne(
+                "SELECT amount, gst_amount FROM payments WHERE booking_id = ? AND status = 'success' ORDER BY id DESC LIMIT 1",
+                [$bookingId]
+            );
+            $baseUrl = app_url('');
+            sendAdminNotification(
+                "Payment Received - Booking #{$bookingId}",
+                "Payment Received",
+                "A payment has been successfully received and the booking has been confirmed.",
+                [
+                    'Booking ID' => '#' . $bookingId,
+                    'User Name' => $bookingDetails['user_name'] ?? 'Unknown',
+                    'User Email' => $bookingDetails['user_email'] ?? 'N/A',
+                    'Property' => $bookingDetails['listing_title'] ?? 'Unknown',
+                    'Payment Amount' => '₹' . number_format($paymentDetails['amount'] ?? 0, 2),
+                    'GST Amount' => '₹' . number_format($paymentDetails['gst_amount'] ?? 0, 2),
+                    'Total Amount' => '₹' . number_format($bookingDetails['total_amount'] ?? 0, 2),
+                    'Payment Status' => 'Success',
+                    'Booking Status' => 'Confirmed'
+                ],
+                $baseUrl . 'admin/bookings',
+                'View Booking'
+            );
+        } catch (Exception $e) {
+            error_log("Failed to send admin notification for payment: " . $e->getMessage());
+        }
+        
         $db->commit();
         ob_end_clean();
         jsonSuccess('Payment verified and booking confirmed', [

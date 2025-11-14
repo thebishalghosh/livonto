@@ -57,6 +57,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                     sendStatusMail($bookingData['user_email'], $newStatus, $bookingId);
                 }
                 
+                // Send admin notification for visit booking status change (if completed or cancelled)
+                if (in_array($newStatus, ['completed', 'cancelled'])) {
+                    try {
+                        require_once __DIR__ . '/../app/email_helper.php';
+                        $visitInfo = $db->fetchOne(
+                            "SELECT vb.id, vb.preferred_date, vb.preferred_time, u.name as user_name, u.email as user_email, l.title as listing_title
+                             FROM visit_bookings vb
+                             LEFT JOIN users u ON vb.user_id = u.id
+                             LEFT JOIN listings l ON vb.listing_id = l.id
+                             WHERE vb.id = ?",
+                            [$bookingId]
+                        );
+                        $baseUrl = app_url('');
+                        sendAdminNotification(
+                            "Visit Booking {$newStatus} - Visit #{$bookingId}",
+                            "Visit Booking " . ucfirst($newStatus),
+                            "A visit booking has been marked as {$newStatus}.",
+                            [
+                                'Visit ID' => '#' . $bookingId,
+                                'User Name' => $visitInfo['user_name'] ?? 'Unknown',
+                                'User Email' => $visitInfo['user_email'] ?? 'N/A',
+                                'Property' => $visitInfo['listing_title'] ?? 'Unknown',
+                                'Visit Date' => $visitInfo['preferred_date'] ? date('F d, Y', strtotime($visitInfo['preferred_date'])) : 'N/A',
+                                'Visit Time' => $visitInfo['preferred_time'] ? date('h:i A', strtotime($visitInfo['preferred_time'])) : 'N/A',
+                                'Status' => ucfirst($newStatus)
+                            ],
+                            $baseUrl . 'admin/visit-bookings',
+                            'View Visit Booking'
+                        );
+                    } catch (Exception $e) {
+                        error_log("Failed to send admin notification for visit booking status change: " . $e->getMessage());
+                    }
+                }
+                
                 $_SESSION['flash_message'] = 'Visit booking status updated successfully';
                 $_SESSION['flash_type'] = 'success';
                 header('Location: ' . app_url('admin/visit-bookings'));

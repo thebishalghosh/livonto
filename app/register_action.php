@@ -146,6 +146,27 @@ try {
         // Log successful registration
         error_log("New user registered: User ID {$userId} ({$email})" . ($referredBy ? " - Referred by: {$referredBy}" : ""));
         
+        // Send admin notification about new user registration
+        try {
+            require_once __DIR__ . '/email_helper.php';
+            $baseUrl = app_url('');
+            sendAdminNotification(
+                "New User Registration - {$name}",
+                "New User Registered",
+                "A new user has registered on the platform.",
+                [
+                    'User Name' => $name,
+                    'Email' => $email,
+                    'Registration Date' => date('F d, Y, h:i A'),
+                    'Referred By' => $referredBy ? 'Yes (Code: ' . $referralCode . ')' : 'No'
+                ],
+                $baseUrl . 'admin/users/view?id=' . $userId,
+                'View User Profile'
+            );
+        } catch (Exception $e) {
+            error_log("Failed to send admin notification for new user: " . $e->getMessage());
+        }
+        
         // Auto-login the user after registration
         session_regenerate_id(true);
         

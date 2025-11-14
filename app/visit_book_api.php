@@ -104,8 +104,36 @@ try {
         ]
     );
     
+    $visitBookingId = $db->lastInsertId();
+    
+    // Send admin notification about new visit booking
+    try {
+        require_once __DIR__ . '/email_helper.php';
+        $user = $db->fetchOne("SELECT name, email FROM users WHERE id = ?", [$userId]);
+        $listing = $db->fetchOne("SELECT title FROM listings WHERE id = ?", [$listingId]);
+        $baseUrl = app_url('');
+        sendAdminNotification(
+            "New Visit Booking Request - Visit #{$visitBookingId}",
+            "New Visit Booking Request",
+            "A new visit booking request has been submitted.",
+            [
+                'Visit ID' => '#' . $visitBookingId,
+                'User Name' => $user['name'] ?? 'Unknown',
+                'User Email' => $user['email'] ?? 'N/A',
+                'Property' => $listing['title'] ?? 'Unknown',
+                'Preferred Date' => date('F d, Y', strtotime($date)),
+                'Preferred Time' => date('h:i A', strtotime($time)),
+                'Status' => 'Pending'
+            ],
+            $baseUrl . 'admin/visit-bookings',
+            'View Visit Booking'
+        );
+    } catch (Exception $e) {
+        error_log("Failed to send admin notification for new visit booking: " . $e->getMessage());
+    }
+    
     jsonSuccess('Your visit request has been submitted successfully. We\'ll contact you soon.', [
-        'booking_id' => $db->lastInsertId()
+        'booking_id' => $visitBookingId
     ]);
     
 } catch (Exception $e) {

@@ -158,6 +158,14 @@ $flashMessage = getFlashMessage();
                     </div>
                     
                     <div class="col-md-6">
+                        <label for="admin_email" class="form-label">Admin Notification Email</label>
+                        <input type="email" class="form-control" id="admin_email" name="settings[admin_email]" 
+                               value="<?= htmlspecialchars($currentSettings['admin_email'] ?? 'admin@livonto.com') ?>" 
+                               placeholder="admin@livonto.com">
+                        <small class="text-muted">Email address to receive admin notifications (new bookings, users, etc.)</small>
+                    </div>
+                    
+                    <div class="col-md-6">
                         <label for="contact_phone" class="form-label">Contact Phone</label>
                         <input type="tel" class="form-control" id="contact_phone" name="settings[contact_phone]" 
                                value="<?= htmlspecialchars($currentSettings['contact_phone'] ?? '+91 9876543210') ?>" 

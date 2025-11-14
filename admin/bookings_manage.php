@@ -112,6 +112,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                     sendBookingStatusMail($bookingData['user_email'], $newStatus, $bookingId);
                 }
                 
+                // Send admin notification for booking status change (if completed or cancelled)
+                if (in_array($newStatus, ['completed', 'cancelled'])) {
+                    try {
+                        require_once __DIR__ . '/../app/email_helper.php';
+                        $bookingInfo = $db->fetchOne(
+                            "SELECT b.id, b.total_amount, u.name as user_name, u.email as user_email, l.title as listing_title
+                             FROM bookings b
+                             LEFT JOIN users u ON b.user_id = u.id
+                             LEFT JOIN listings l ON b.listing_id = l.id
+                             WHERE b.id = ?",
+                            [$bookingId]
+                        );
+                        $baseUrl = app_url('');
+                        sendAdminNotification(
+                            "Booking {$newStatus} - Booking #{$bookingId}",
+                            "Booking " . ucfirst($newStatus),
+                            "A booking has been marked as {$newStatus}.",
+                            [
+                                'Booking ID' => '#' . $bookingId,
+                                'User Name' => $bookingInfo['user_name'] ?? 'Unknown',
+                                'User Email' => $bookingInfo['user_email'] ?? 'N/A',
+                                'Property' => $bookingInfo['listing_title'] ?? 'Unknown',
+                                'Total Amount' => '₹' . number_format($bookingInfo['total_amount'] ?? 0, 2),
+                                'Status' => ucfirst($newStatus)
+                            ],
+                            $baseUrl . 'admin/bookings',
+                            'View Booking'
+                        );
+                    } catch (Exception $e) {
+                        error_log("Failed to send admin notification for booking status change: " . $e->getMessage());
+                    }
+                }
+                
                 $_SESSION['flash_message'] = 'Booking status updated successfully';
                 $_SESSION['flash_type'] = 'success';
                 header('Location: ' . app_url('admin/bookings'));

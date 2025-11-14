@@ -398,6 +398,33 @@ if ($action === 'submit_booking') {
         // Availability will only decrease when booking status changes to 'confirmed'
         // This ensures pending bookings don't affect availability until payment is confirmed
         
+        // Send admin notification about new booking
+        try {
+            require_once __DIR__ . '/email_helper.php';
+            $user = $db->fetchOne("SELECT name, email FROM users WHERE id = ?", [$userId]);
+            $listing = $db->fetchOne("SELECT title FROM listings WHERE id = ?", [$listingId]);
+            $baseUrl = app_url('');
+            sendAdminNotification(
+                "New Booking Request - Booking #{$bookingId}",
+                "New Booking Request",
+                "A new booking request has been submitted and is pending payment confirmation.",
+                [
+                    'Booking ID' => '#' . $bookingId,
+                    'User Name' => $user['name'] ?? 'Unknown',
+                    'User Email' => $user['email'] ?? 'N/A',
+                    'Property' => $listing['title'] ?? 'Unknown',
+                    'Start Date' => date('F d, Y', strtotime($bookingStartDate)),
+                    'Duration' => $durationMonths . ' month(s)',
+                    'Total Amount' => '₹' . number_format($totalAmountWithGst, 2),
+                    'Status' => 'Pending Payment'
+                ],
+                $baseUrl . 'admin/bookings',
+                'View Booking'
+            );
+        } catch (Exception $e) {
+            error_log("Failed to send admin notification for new booking: " . $e->getMessage());
+        }
+        
         // Create payment record with security deposit amount and GST
         $db->execute(
             "INSERT INTO payments (booking_id, amount, gst_amount, provider, status)

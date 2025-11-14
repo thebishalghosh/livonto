@@ -79,6 +79,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
             );
         }
         
+        $contactId = $db->lastInsertId();
+        
+        // Send admin notification about new contact enquiry
+        try {
+            require_once __DIR__ . '/../app/email_helper.php';
+            $baseUrl = app_url('');
+            sendAdminNotification(
+                "New Contact Enquiry - {$subject}",
+                "New Contact Enquiry",
+                "A new contact enquiry has been submitted through the contact form.",
+                [
+                    'Name' => $name,
+                    'Email' => $email,
+                    'Subject' => $subject,
+                    'Message' => substr($message, 0, 200) . (strlen($message) > 200 ? '...' : ''),
+                    'Submitted' => date('F d, Y, h:i A')
+                ],
+                $baseUrl . 'admin/enquiries',
+                'View Enquiry'
+            );
+        } catch (Exception $e) {
+            error_log("Failed to send admin notification for contact enquiry: " . $e->getMessage());
+        }
+        
         // Success
         $_SESSION['contact_success'] = 'Thank you! Your message has been sent. We\'ll get back to you soon.';
         unset($_SESSION['contact_form_data']);

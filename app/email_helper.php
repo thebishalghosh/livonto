@@ -509,3 +509,221 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
         return false;
     }
 }
+
+/**
+ * Get admin email from site settings
+ * @return string Admin email address
+ */
+function getAdminEmail() {
+    require_once __DIR__ . '/functions.php';
+    return getSetting('admin_email', 'admin@livonto.com');
+}
+
+/**
+ * Send admin notification email
+ * Generic function to send notifications to admin
+ * 
+ * @param string $subject Email subject
+ * @param string $title Notification title
+ * @param string $message Notification message/body
+ * @param array $details Additional details to display (key-value pairs)
+ * @param string $actionUrl Optional URL for action button
+ * @param string $actionText Optional text for action button
+ * @return bool True on success, false on failure
+ */
+function sendAdminNotification($subject, $title, $message, $details = [], $actionUrl = null, $actionText = 'View Details') {
+    try {
+        $adminEmail = getAdminEmail();
+        
+        if (empty($adminEmail) || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
+            Logger::error("Invalid admin email for notification", ['email' => $adminEmail]);
+            return false;
+        }
+        
+        $siteName = getSetting('site_name', 'Livonto');
+        $supportEmail = getSetting('support_email', 'support@livonto.com');
+        
+        // Build details HTML
+        $detailsHtml = '';
+        if (!empty($details)) {
+            $detailsHtml = '<div class="details-card">
+                <div class="details-title">Details</div>
+                <table class="details-table">';
+            foreach ($details as $key => $value) {
+                $detailsHtml .= '<tr>
+                    <td>' . htmlspecialchars($key) . '</td>
+                    <td>' . htmlspecialchars($value) . '</td>
+                </tr>';
+            }
+            $detailsHtml .= '</table>
+            </div>';
+        }
+        
+        // Build action button HTML
+        $actionButtonHtml = '';
+        if (!empty($actionUrl)) {
+            $actionButtonHtml = '<div style="text-align: center; margin: 32px 0;">
+                <a href="' . htmlspecialchars($actionUrl) . '" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(139, 107, 209, 0.3);">' . htmlspecialchars($actionText) . '</a>
+            </div>';
+        }
+        
+        $emailBody = "
+        <!DOCTYPE html>
+        <html lang='en'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>{$title}</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #1a202c;
+                    background-color: #f0f4f8;
+                    padding: 20px 0;
+                }
+                .email-container {
+                    max-width: 640px;
+                    margin: 0 auto;
+                    background-color: #ffffff;
+                    border-radius: 16px;
+                    overflow: hidden;
+                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+                }
+                .email-header {
+                    background: linear-gradient(135deg, #8b6bd1 0%, #6f55b2 100%);
+                    padding: 50px 40px;
+                    text-align: center;
+                }
+                .logo-text {
+                    font-size: 32px;
+                    font-weight: 700;
+                    color: #ffffff;
+                    margin-bottom: 24px;
+                    letter-spacing: 2px;
+                }
+                .email-header h1 {
+                    color: #ffffff;
+                    font-size: 28px;
+                    font-weight: 700;
+                    margin: 0;
+                }
+                .email-body {
+                    padding: 50px 40px;
+                }
+                .greeting {
+                    font-size: 18px;
+                    color: #2d3748;
+                    margin-bottom: 24px;
+                    font-weight: 500;
+                }
+                .message-text {
+                    font-size: 16px;
+                    color: #4a5568;
+                    margin-bottom: 32px;
+                    line-height: 1.8;
+                }
+                .details-card {
+                    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+                    border-radius: 16px;
+                    padding: 32px;
+                    margin: 32px 0;
+                    border: 2px solid #e9ecef;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+                }
+                .details-title {
+                    font-size: 14px;
+                    color: #718096;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                    font-weight: 600;
+                    margin-bottom: 24px;
+                    padding-bottom: 12px;
+                    border-bottom: 1px solid #e9ecef;
+                }
+                .details-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                .details-table tr {
+                    border-bottom: 1px solid #f1f3f5;
+                }
+                .details-table tr:last-child {
+                    border-bottom: none;
+                }
+                .details-table td {
+                    padding: 16px 0;
+                    vertical-align: middle;
+                }
+                .details-table td:first-child {
+                    font-size: 15px;
+                    color: #718096;
+                    font-weight: 500;
+                }
+                .details-table td:last-child {
+                    text-align: right;
+                    font-size: 16px;
+                    color: #2d3748;
+                    font-weight: 600;
+                }
+                .email-footer {
+                    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+                    padding: 40px;
+                    text-align: center;
+                    border-top: 2px solid #e9ecef;
+                }
+                .footer-text {
+                    font-size: 14px;
+                    color: #718096;
+                    line-height: 1.8;
+                    margin-bottom: 12px;
+                }
+                @media only screen and (max-width: 600px) {
+                    .email-body { padding: 30px 24px; }
+                    .email-header { padding: 40px 24px; }
+                    .details-card { padding: 24px; }
+                    .details-table td {
+                        display: block;
+                        text-align: left !important;
+                        padding: 12px 0;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div class='email-container'>
+                <div class='email-header'>
+                    <div class='logo-text'>{$siteName}</div>
+                    <h1>{$title}</h1>
+                </div>
+                <div class='email-body'>
+                    <div class='greeting'>Hello Admin,</div>
+                    <div class='message-text'>{$message}</div>
+                    {$detailsHtml}
+                    {$actionButtonHtml}
+                </div>
+                <div class='email-footer'>
+                    <div class='footer-text'>This is an automated notification from {$siteName}.</div>
+                    <div class='footer-text'>Need help? Contact: <a href='mailto:{$supportEmail}' style='color: #8b6bd1;'>{$supportEmail}</a></div>
+                </div>
+            </div>
+        </body>
+        </html>
+        ";
+        
+        $result = sendEmail($adminEmail, $subject, $emailBody);
+        
+        if ($result) {
+            Logger::info("Admin notification email sent", ['subject' => $subject, 'admin_email' => $adminEmail]);
+        } else {
+            Logger::error("Failed to send admin notification email", ['subject' => $subject, 'admin_email' => $adminEmail]);
+        }
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        Logger::error("Error sending admin notification", ['error' => $e->getMessage(), 'subject' => $subject]);
+        return false;
+    }
+}

@@ -150,16 +150,8 @@ try {
         $availableForText = ucfirst($listing['gender_allowed']);
     }
     
-    // Get reviews for display
-    $reviews = $db->fetchAll(
-        "SELECT r.*, u.name as user_name, u.profile_image
-         FROM reviews r
-         LEFT JOIN users u ON r.user_id = u.id
-         WHERE r.listing_id = ?
-         ORDER BY r.created_at DESC
-         LIMIT 5",
-        [$listingId]
-    );
+    // Get current user ID for review functionality
+    $currentUserId = getCurrentUserId();
     
 } catch (Exception $e) {
     error_log("Error loading listing: " . $e->getMessage());
@@ -167,6 +159,9 @@ try {
     exit;
 }
 ?>
+
+<!-- Data attributes for JavaScript -->
+<div data-listing-id="<?= $listingId ?>" data-current-user-id="<?= $currentUserId ?>" style="display: none;"></div>
 
 <!-- Breadcrumb -->
 <nav aria-label="breadcrumb" class="mb-4">
@@ -468,46 +463,40 @@ try {
             </div>
         <?php endif; ?>
 
-        <!-- Reviews -->
-        <?php if (!empty($reviews)): ?>
-            <div class="card pg mb-4">
-                <div class="card-body">
-                    <div class="kicker mb-2">Reviews</div>
-                    <h5 class="mb-4 listing-section-heading">
-                        <i class="bi bi-star-fill me-2"></i>What Others Say
-                    </h5>
-                    <?php foreach ($reviews as $review): ?>
-                        <div class="border-bottom pb-4 mb-4 theme-border-color">
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="me-3">
-                                    <?php if (!empty($review['profile_image'])): ?>
-                                        <img src="<?= htmlspecialchars(strpos($review['profile_image'], 'http') === 0 ? $review['profile_image'] : app_url($review['profile_image'])) ?>" 
-                                             class="rounded-circle review-profile-img"
-                                             alt="<?= htmlspecialchars($review['user_name']) ?>"
-                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                                        <i class="bi bi-person-circle review-profile-icon" style="display: none;"></i>
-                                    <?php else: ?>
-                                        <i class="bi bi-person-circle review-profile-icon"></i>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <div class="fw-semibold mb-1"><?= htmlspecialchars($review['user_name'] ?? 'Anonymous') ?></div>
-                                    <div class="small text-muted">
-                                        <?php for ($i = 1; $i <= 5; $i++): ?>
-                                            <i class="bi bi-star<?= $i <= $review['rating'] ? '-fill text-warning' : '' ?>"></i>
-                                        <?php endfor; ?>
-                                        <span class="ms-2"><?= date('M d, Y', strtotime($review['created_at'])) ?></span>
-                                    </div>
-                                </div>
-                            </div>
-                            <?php if (!empty($review['comment'])): ?>
-                                <p class="mb-0 text-muted text-line-height-md"><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
-                            <?php endif; ?>
+        <!-- Reviews Section -->
+        <div id="reviews-section" class="card pg mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <div class="kicker mb-2">Reviews</div>
+                        <h5 class="mb-0 listing-section-heading">
+                            <i class="bi bi-star-fill me-2"></i>What Others Say
+                        </h5>
+                    </div>
+                    <?php if (isLoggedIn()): ?>
+                        <button type="button" id="write-review-btn" class="btn btn-primary">
+                            <i class="bi bi-pencil me-2"></i>Write a Review
+                        </button>
+                    <?php else: ?>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">
+                            <i class="bi bi-pencil me-2"></i>Write a Review
+                        </button>
+                    <?php endif; ?>
+                </div>
+                
+                <!-- Review Form Container (for dynamic form insertion) -->
+                <div id="review-form-container"></div>
+                
+                <!-- Reviews Container (populated by JavaScript) -->
+                <div id="reviews-container">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading reviews...</span>
                         </div>
-                    <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
-        <?php endif; ?>
+        </div>
     </div>
 
     <!-- Sidebar -->
@@ -579,6 +568,19 @@ try {
         </div>
     </div>
 </div>
+
+<?php 
+// Add reviews.js script for this page
+$jsBasePath = ($baseUrl === '' || $baseUrl === '/') ? '/public/assets/js/' : ($baseUrl . '/public/assets/js/');
+if (substr($jsBasePath, 0, 1) !== '/') {
+    $jsBasePath = '/' . ltrim($jsBasePath, '/');
+}
+?>
+<script>
+  // Set baseUrl for reviews.js
+  window.appBaseUrl = '<?= htmlspecialchars($baseUrl) ?>';
+</script>
+<script src="<?= htmlspecialchars($jsBasePath . 'reviews.js') ?>"></script>
 
 <?php require __DIR__ . '/../app/includes/footer.php'; ?>
 

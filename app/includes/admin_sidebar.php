@@ -88,8 +88,8 @@ $navItems = [
         'id' => 'reviews',
         'title' => 'Reviews',
         'icon' => 'bi-star',
-        'url' => '#',
-        'page' => 'reviews.php'
+        'url' => app_url('admin/reviews'),
+        'route' => 'admin/reviews'
     ],
     [
         'id' => 'divider2',

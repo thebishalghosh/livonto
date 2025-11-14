@@ -32,13 +32,14 @@ try {
     
     // Initialize defaults
     $user = null;
-    $userStats = ['listings_count' => 0, 'bookings_count' => 0, 'visit_bookings_count' => 0, 'referrals_count' => 0, 'total_spent' => 0, 'kyc_count' => 0];
+    $userStats = ['listings_count' => 0, 'bookings_count' => 0, 'visit_bookings_count' => 0, 'referrals_count' => 0, 'total_spent' => 0, 'kyc_count' => 0, 'reviews_count' => 0];
     $listings = [];
     $bookings = [];
     $visitBookings = [];
     $kycDocuments = [];
     $referrals = [];
     $payments = [];
+    $reviews = [];
     
     // Get user basic information
     $user = $db->fetchOne(
@@ -91,6 +92,12 @@ try {
         $userStats['kyc_count'] = (int)$db->fetchValue("SELECT COUNT(*) FROM user_kyc WHERE user_id = ?", [$userId]) ?: 0;
     } catch (Exception $e) {
         $userStats['kyc_count'] = 0;
+    }
+    
+    try {
+        $userStats['reviews_count'] = (int)$db->fetchValue("SELECT COUNT(*) FROM reviews WHERE user_id = ?", [$userId]) ?: 0;
+    } catch (Exception $e) {
+        $userStats['reviews_count'] = 0;
     }
     
     // Get user listings
@@ -291,6 +298,24 @@ try {
         ) ?: [];
     } catch (Exception $e) {
         $payments = [];
+    }
+    
+    // Get user reviews
+    try {
+        $reviews = $db->fetchAll(
+            "SELECT r.id, r.listing_id, r.rating, r.comment, r.created_at,
+                    l.title as listing_title, l.status as listing_status,
+                    loc.city as listing_city, loc.pin_code as listing_pincode
+             FROM reviews r
+             LEFT JOIN listings l ON r.listing_id = l.id
+             LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+             WHERE r.user_id = ?
+             ORDER BY r.created_at DESC
+             LIMIT 50",
+            [$userId]
+        ) ?: [];
+    } catch (Exception $e) {
+        $reviews = [];
     }
     
 } catch (Exception $e) {
@@ -514,6 +539,11 @@ $flashMessage = getFlashMessage();
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button" role="tab">
                 <i class="bi bi-credit-card me-2"></i>Payments (<?= count($payments) ?>)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="reviews-tab" data-bs-toggle="tab" data-bs-target="#reviews" type="button" role="tab">
+                <i class="bi bi-star me-2"></i>Reviews (<?= count($reviews) ?>)
             </button>
         </li>
     </ul>
@@ -950,6 +980,77 @@ $flashMessage = getFlashMessage();
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Reviews Tab -->
+        <div class="tab-pane fade" id="reviews" role="tabpanel">
+            <?php if (empty($reviews)): ?>
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-star fs-1 d-block mb-2"></i>
+                    <p>No reviews found</p>
+                </div>
+            <?php else: ?>
+                <div class="row g-3">
+                    <?php foreach ($reviews as $review): ?>
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <div>
+                                            <h6 class="card-title mb-1">
+                                                <a href="<?= htmlspecialchars(app_url('listings/' . $review['listing_id'])) ?>" 
+                                                   target="_blank" 
+                                                   class="text-decoration-none">
+                                                    <?= htmlspecialchars($review['listing_title'] ?: 'Unknown Listing') ?>
+                                                </a>
+                                            </h6>
+                                            <?php if (!empty($review['listing_city'])): ?>
+                                                <small class="text-muted">
+                                                    <i class="bi bi-geo-alt"></i> 
+                                                    <?= htmlspecialchars($review['listing_city']) ?>
+                                                    <?php if (!empty($review['listing_pincode'])): ?>
+                                                        - <?= htmlspecialchars($review['listing_pincode']) ?>
+                                                    <?php endif; ?>
+                                                </small>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="text-end">
+                                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                <i class="bi bi-star<?= $i <= $review['rating'] ? '-fill text-warning' : '' ?>"></i>
+                                            <?php endfor; ?>
+                                            <div class="small text-muted mt-1"><?= $review['rating'] ?>/5</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <?php if (!empty($review['comment'])): ?>
+                                        <p class="card-text mb-3"><?= nl2br(htmlspecialchars($review['comment'])) ?></p>
+                                    <?php else: ?>
+                                        <p class="card-text text-muted mb-3"><em>No comment provided</em></p>
+                                    <?php endif; ?>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">
+                                            <i class="bi bi-calendar"></i> 
+                                            <?= formatDate($review['created_at'], 'd M Y h:i A') ?>
+                                        </small>
+                                        <div>
+                                            <a href="<?= htmlspecialchars(app_url('listings/' . $review['listing_id'])) ?>" 
+                                               target="_blank" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-eye me-1"></i>View Listing
+                                            </a>
+                                            <a href="<?= htmlspecialchars(app_url('admin/reviews?search=' . urlencode($review['listing_title']))) ?>" 
+                                               class="btn btn-sm btn-outline-info">
+                                                <i class="bi bi-list me-1"></i>All Reviews
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         </div>

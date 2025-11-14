@@ -740,6 +740,50 @@ footer .d-flex.gap-3 a:hover { transform: translateY(-4px); opacity: 1; }
   color: var(--primary);
 }
 
+/* Rating input styles */
+.rating-input {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.rating-input input[type="radio"] {
+  display: none;
+}
+
+.rating-input .rating-star {
+  cursor: pointer;
+  font-size: 1.75rem;
+  color: #ddd;
+  transition: color 0.2s, transform 0.1s;
+  display: inline-block;
+}
+
+.rating-input .rating-star:hover,
+.rating-input .rating-star:hover ~ .rating-star {
+  color: #ffc107;
+}
+
+.rating-input input[type="radio"]:checked ~ .rating-star {
+  color: #ffc107;
+}
+
+.rating-input .rating-star i {
+  display: block;
+}
+
+/* Review actions */
+.review-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.review-item {
+  position: relative;
+}
+
 /* Text line height utilities */
 .text-line-height-lg {
   line-height: 1.8;

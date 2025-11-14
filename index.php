@@ -66,6 +66,7 @@ $routes = [
     'invoice-api' => 'app/invoice_api.php',
     'change-password-api' => 'app/change_password_api.php',
     'listing-images-api' => 'app/listing_images_api.php',
+    'reviews-api' => 'app/reviews_api.php',
 ];
 
 // Owner routes
@@ -98,6 +99,7 @@ $adminRoutes = [
     'admin/visit-bookings' => 'admin/visit_bookings_manage.php',
     'admin/bookings' => 'admin/bookings_manage.php',
     'admin/payments' => 'admin/payments_manage.php',
+    'admin/reviews' => 'admin/reviews_manage.php',
     'admin/settings' => 'admin/settings.php',
 ];
 

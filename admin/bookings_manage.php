@@ -253,6 +253,7 @@ try {
     // Build SELECT clause with conditional duration_months
     $durationField = $hasDurationMonths ? 'b.duration_months,' : '1 as duration_months,';
     
+    // Simplified query to avoid JOIN issues - get latest payment and invoice separately if needed
     $bookings = $db->fetchAll(
         "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, {$durationField}
                 b.total_amount, b.gst_amount, b.status, b.special_requests, b.created_at, b.updated_at,
@@ -260,15 +261,17 @@ try {
                 l.title as listing_title,
                 loc.city as listing_city, loc.pin_code as listing_pincode,
                 rc.room_type, rc.rent_per_month,
-                p.id as payment_id, p.status as payment_status, p.provider, p.provider_payment_id,
-                i.id as invoice_id, i.invoice_number
+                (SELECT id FROM payments WHERE booking_id = b.id ORDER BY id DESC LIMIT 1) as payment_id,
+                (SELECT status FROM payments WHERE booking_id = b.id ORDER BY id DESC LIMIT 1) as payment_status,
+                (SELECT provider FROM payments WHERE booking_id = b.id ORDER BY id DESC LIMIT 1) as provider,
+                (SELECT provider_payment_id FROM payments WHERE booking_id = b.id ORDER BY id DESC LIMIT 1) as provider_payment_id,
+                (SELECT id FROM invoices WHERE booking_id = b.id ORDER BY id DESC LIMIT 1) as invoice_id,
+                (SELECT invoice_number FROM invoices WHERE booking_id = b.id ORDER BY id DESC LIMIT 1) as invoice_number
          FROM bookings b
          LEFT JOIN users u ON b.user_id = u.id
          LEFT JOIN listings l ON b.listing_id = l.id
          LEFT JOIN listing_locations loc ON l.id = loc.listing_id
          LEFT JOIN room_configurations rc ON b.room_config_id = rc.id
-         LEFT JOIN payments p ON b.id = p.booking_id
-         LEFT JOIN invoices i ON b.id = i.booking_id AND p.id = i.payment_id
          {$whereClause}
          ORDER BY {$sort} {$order}
          LIMIT ? OFFSET ?",
@@ -299,12 +302,23 @@ try {
     ];
     
 } catch (Exception $e) {
-    error_log("Error in bookings_manage.php: " . $e->getMessage());
+    // Log detailed error information
+    $errorMsg = $e->getMessage();
+    $errorFile = $e->getFile();
+    $errorLine = $e->getLine();
+    error_log("Error in bookings_manage.php: {$errorMsg} in {$errorFile} on line {$errorLine}");
+    error_log("Stack trace: " . $e->getTraceAsString());
+    
     $bookings = [];
     $stats = ['total' => 0, 'pending' => 0, 'confirmed' => 0, 'completed' => 0, 'cancelled' => 0, 'today' => 0, 'this_month' => 0, 'total_revenue' => 0];
     $totalBookings = 0;
     $totalPages = 0;
-    $_SESSION['flash_message'] = 'Error loading bookings';
+    
+    // Show detailed error in development, generic message in production
+    $errorMessage = (getenv('APP_DEBUG') === 'true' || !empty($_ENV['APP_DEBUG'])) 
+        ? "Error loading bookings: {$errorMsg}" 
+        : 'Error loading bookings. Please check server logs for details.';
+    $_SESSION['flash_message'] = $errorMessage;
     $_SESSION['flash_type'] = 'danger';
 }
 

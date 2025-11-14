@@ -318,12 +318,13 @@ if ($action === 'submit_booking') {
             $checkMonth = $checkDate->format('Y-m'); // Format to match DATE_FORMAT output
             
             // Count booked beds for this room config for this month (each booking = 1 bed)
+            // Only confirmed bookings affect availability
             $bookedBeds = $db->fetchOne(
                 "SELECT COUNT(*) as count 
                  FROM bookings 
                  WHERE room_config_id = ? 
                  AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
-                 AND status IN ('pending', 'confirmed')",
+                 AND status = 'confirmed'",
                 [$roomConfigId, $checkMonth]
             );
             
@@ -352,6 +353,17 @@ if ($action === 'submit_booking') {
             exit;
         }
         
+        // Calculate GST if enabled
+        $gstEnabled = function_exists('getSetting') && getSetting('gst_enabled', '0') == '1';
+        $gstPercentage = $gstEnabled ? floatval(getSetting('gst_percentage', '18')) : 0;
+        $gstAmount = 0;
+        $totalAmountWithGst = $securityDepositAmount;
+        
+        if ($gstEnabled && $gstPercentage > 0) {
+            $gstAmount = ($securityDepositAmount * $gstPercentage) / 100;
+            $totalAmountWithGst = $securityDepositAmount + $gstAmount;
+        }
+        
         // Add duration_months column if it doesn't exist (for backward compatibility)
         try {
             $db->execute("ALTER TABLE bookings ADD COLUMN duration_months INT DEFAULT 1 AFTER booking_start_date");
@@ -359,35 +371,46 @@ if ($action === 'submit_booking') {
             // Column might already exist, ignore
         }
         
-        // Create booking with duration
+        // Add GST columns if they don't exist
+        try {
+            $db->execute("ALTER TABLE bookings ADD COLUMN gst_amount DECIMAL(10,2) DEFAULT 0 AFTER total_amount");
+        } catch (Exception $e) {
+            // Column might already exist, ignore
+        }
+        
+        try {
+            $db->execute("ALTER TABLE payments ADD COLUMN gst_amount DECIMAL(10,2) DEFAULT 0 AFTER amount");
+        } catch (Exception $e) {
+            // Column might already exist, ignore
+        }
+        
+        // Create booking with duration and GST
         $db->execute(
             "INSERT INTO bookings (user_id, listing_id, room_config_id, booking_start_date, duration_months,
-                                  total_amount, kyc_id, agreed_to_tnc, tnc_accepted_at, special_requests, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, NOW(), ?, 'pending')",
-            [$userId, $listingId, $roomConfigId, $bookingStartDate, $durationMonths, $securityDepositAmount, $kycId, $specialRequests]
+                                  total_amount, gst_amount, kyc_id, agreed_to_tnc, tnc_accepted_at, special_requests, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, NOW(), ?, 'pending')",
+            [$userId, $listingId, $roomConfigId, $bookingStartDate, $durationMonths, $securityDepositAmount, $gstAmount, $kycId, $specialRequests]
         );
         
         $bookingId = $db->lastInsertId();
         
-        // Decrease available_rooms by 1 when booking is created (even if pending)
-        // This ensures availability is updated in real-time and respects owner's manual setting
-        $db->execute(
-            "UPDATE room_configurations 
-             SET available_rooms = GREATEST(0, available_rooms - 1) 
-             WHERE id = ?",
-            [$roomConfigId]
-        );
+        // Note: Availability is NOT decreased for pending bookings
+        // Availability will only decrease when booking status changes to 'confirmed'
+        // This ensures pending bookings don't affect availability until payment is confirmed
         
-        // Create payment record with security deposit amount
+        // Create payment record with security deposit amount and GST
         $db->execute(
-            "INSERT INTO payments (booking_id, amount, provider, status)
-             VALUES (?, ?, 'razorpay', 'initiated')",
-            [$bookingId, $securityDepositAmount]
+            "INSERT INTO payments (booking_id, amount, gst_amount, provider, status)
+             VALUES (?, ?, ?, 'razorpay', 'initiated')",
+            [$bookingId, $securityDepositAmount, $gstAmount]
         );
         
         jsonSuccess('Booking created successfully', [
             'booking_id' => $bookingId,
-            'amount' => $securityDepositAmount,
+            'amount' => $totalAmountWithGst,
+            'base_amount' => $securityDepositAmount,
+            'gst_amount' => $gstAmount,
+            'gst_percentage' => $gstPercentage,
             'redirect' => app_url('payment?booking_id=' . $bookingId)
         ]);
         

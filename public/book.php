@@ -581,7 +581,15 @@ require __DIR__ . '/../app/includes/header.php';
                         <span id="duration">0 months</span>
                     </div>
                     <div class="price-row">
-                        <span>Total Amount:</span>
+                        <span>Security Deposit:</span>
+                        <span id="securityDeposit">₹0</span>
+                    </div>
+                    <div class="price-row" id="gstRow" style="display: none;">
+                        <span>GST (<span id="gstPercentage">0</span>%):</span>
+                        <span id="gstAmount">₹0</span>
+                    </div>
+                    <div class="price-row">
+                        <span>Total Amount to Pay:</span>
                         <span id="totalAmount">₹0</span>
                     </div>
                 </div>
@@ -623,11 +631,30 @@ function previewFile(input, previewId) {
     }
 }
 
+// Get GST settings from PHP
+const gstEnabled = <?= (function_exists('getSetting') && getSetting('gst_enabled', '0') == '1') ? 'true' : 'false' ?>;
+const gstPercentage = <?= (function_exists('getSetting') ? floatval(getSetting('gst_percentage', '18')) : 18) ?>;
+
+// Get security deposit amount from listing
+<?php
+$securityDepositAmount = 0;
+if ($listing && !empty($listing['security_deposit_amount'])) {
+    $depositStr = trim($listing['security_deposit_amount']);
+    if (strtolower($depositStr) !== 'no deposit') {
+        $depositStr = preg_replace('/[₹,\s]/', '', $depositStr);
+        $securityDepositAmount = floatval($depositStr);
+    }
+}
+// If no security deposit specified, default to 1 month rent (will be calculated per room)
+?>
+const defaultSecurityDeposit = <?= $securityDepositAmount ?>;
+
 // Calculate price based on room selection and start date (1 month booking)
 document.addEventListener('DOMContentLoaded', function() {
     const roomSelect = document.getElementById('roomConfigSelect');
     const bookingStartDate = document.getElementById('bookingStartDate');
     const priceSummary = document.getElementById('priceSummary');
+    const gstRow = document.getElementById('gstRow');
     
     function calculatePrice() {
         if (!roomSelect || !bookingStartDate) return;
@@ -653,12 +680,42 @@ document.addEventListener('DOMContentLoaded', function() {
             const startDateStr = actualStartDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
             const endDateStr = endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
             
-            // Calculate total rent for the duration (for display only, not charged)
+            // Calculate total rent for the duration (for information only, not charged upfront)
             const totalRent = monthlyRent * duration;
             
+            // Calculate security deposit (use default from listing, or fallback to 1 month rent)
+            const securityDeposit = defaultSecurityDeposit > 0 ? defaultSecurityDeposit : monthlyRent;
+            
+            // Calculate GST if enabled (GST is calculated on security deposit, not rent)
+            let gstAmount = 0;
+            let totalPayable = securityDeposit;
+            
+            if (gstEnabled && gstPercentage > 0) {
+                gstAmount = (securityDeposit * gstPercentage) / 100;
+                totalPayable = securityDeposit + gstAmount;
+                
+                // Show GST row
+                if (gstRow) {
+                    document.getElementById('gstPercentage').textContent = gstPercentage;
+                    document.getElementById('gstAmount').textContent = '₹' + gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    gstRow.style.display = 'flex';
+                }
+            } else {
+                // Hide GST row if disabled
+                if (gstRow) {
+                    gstRow.style.display = 'none';
+                }
+            }
+            
+            // Display rent information (for reference only)
             document.getElementById('monthlyRent').textContent = '₹' + monthlyRent.toLocaleString('en-IN') + '/month × ' + duration;
             document.getElementById('duration').textContent = `${duration} month${duration > 1 ? 's' : ''} (${startDateStr} to ${endDateStr})`;
-            document.getElementById('totalAmount').textContent = '₹' + totalRent.toLocaleString('en-IN') + ' (Security deposit will be charged separately)';
+            
+            // Display security deposit
+            document.getElementById('securityDeposit').textContent = '₹' + securityDeposit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            // Display total payable amount (Security Deposit + GST)
+            document.getElementById('totalAmount').textContent = '₹' + totalPayable.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             priceSummary.style.display = 'block';
         } else {
             priceSummary.style.display = 'none';

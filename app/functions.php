@@ -167,10 +167,10 @@ function getAvailableBedsForRoomConfig($roomConfigId) {
             return 0;
         }
         
-        // Count actual booked beds (pending + confirmed bookings)
+        // Count actual booked beds (only confirmed bookings affect availability)
         $bookedBeds = (int)$db->fetchValue(
             "SELECT COUNT(*) FROM bookings 
-             WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
+             WHERE room_config_id = ? AND status = 'confirmed'",
             [$roomConfigId]
         );
         
@@ -420,7 +420,7 @@ function getListingById($listingId, $requireActive = true) {
     try {
         $whereClause = $requireActive ? "WHERE l.id = ? AND l.status = 'active'" : "WHERE l.id = ?";
         return db()->fetchOne(
-            "SELECT l.id, l.title, l.description, l.status, loc.city, loc.pin_code
+            "SELECT l.id, l.title, l.description, l.status, l.security_deposit_amount, loc.city, loc.pin_code
              FROM listings l
              LEFT JOIN listing_locations loc ON l.id = loc.listing_id
              {$whereClause}",

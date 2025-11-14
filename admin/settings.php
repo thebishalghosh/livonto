@@ -224,6 +224,32 @@ $flashMessage = getFlashMessage();
                 </div>
             </div>
 
+            <!-- GST Settings -->
+            <div class="mb-4">
+                <h6 class="mb-3" style="color: var(--primary-700); border-bottom: 2px solid var(--accent); padding-bottom: 8px;">
+                    <i class="bi bi-receipt me-2"></i>GST (Tax) Settings
+                </h6>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="gst_enabled" class="form-label">Enable GST</label>
+                        <select class="form-control" id="gst_enabled" name="settings[gst_enabled]">
+                            <option value="1" <?= (isset($currentSettings['gst_enabled']) && $currentSettings['gst_enabled'] == '1') ? 'selected' : '' ?>>Enabled</option>
+                            <option value="0" <?= (!isset($currentSettings['gst_enabled']) || $currentSettings['gst_enabled'] == '0') ? 'selected' : '' ?>>Disabled</option>
+                        </select>
+                        <small class="text-muted">Enable or disable GST calculation for bookings</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="gst_percentage" class="form-label">GST Percentage (%)</label>
+                        <input type="number" class="form-control" id="gst_percentage" name="settings[gst_percentage]" 
+                               value="<?= htmlspecialchars($currentSettings['gst_percentage'] ?? '18') ?>" 
+                               placeholder="18" step="0.01" min="0" max="100">
+                        <small class="text-muted">GST percentage to be applied (e.g., 18 for 18%)</small>
+                    </div>
+                </div>
+            </div>
+
             <!-- Social Media Links -->
             <div class="mb-4">
                 <h6 class="mb-3" style="color: var(--primary-700); border-bottom: 2px solid var(--accent); padding-bottom: 8px;">

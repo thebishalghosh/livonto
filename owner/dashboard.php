@@ -42,7 +42,7 @@ try {
         "SELECT rc.*, 
                 (SELECT COUNT(*) FROM bookings b 
                  WHERE b.room_config_id = rc.id 
-                 AND b.status IN ('pending', 'confirmed')) as booked_beds
+                 AND b.status = 'confirmed') as booked_beds
          FROM room_configurations rc
          WHERE rc.listing_id = ?
          ORDER BY rc.room_type, rc.rent_per_month",

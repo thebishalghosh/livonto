@@ -426,13 +426,19 @@ $baseUrl = rtrim(app_url(''), '/');
           <td>Security Deposit:</td>
           <td>₹<?= number_format($invoice['total_amount'], 2) ?></td>
         </tr>
+        <?php 
+        $gstAmount = isset($invoice['gst_amount']) ? floatval($invoice['gst_amount']) : 0;
+        $gstPercentage = isset($invoice['gst_percentage']) ? floatval($invoice['gst_percentage']) : 0;
+        if ($gstAmount > 0): 
+        ?>
         <tr>
-          <td>Tax (GST):</td>
-          <td>₹0.00</td>
+          <td>Tax (GST <?= number_format($gstPercentage, 2) ?>%):</td>
+          <td>₹<?= number_format($gstAmount, 2) ?></td>
         </tr>
+        <?php endif; ?>
         <tr class="total-row">
-          <td>Total Amount Paid (Security Deposit):</td>
-          <td>₹<?= number_format($invoice['total_amount'], 2) ?></td>
+          <td>Total Amount Paid (Security Deposit<?= $gstAmount > 0 ? ' + GST' : '' ?>):</td>
+          <td>₹<?= number_format($invoice['total_amount'] + $gstAmount, 2) ?></td>
         </tr>
       </table>
       <p style="margin-top: 10px; font-size: 10px; color: #666; font-style: italic;">

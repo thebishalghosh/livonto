@@ -66,7 +66,7 @@ try {
     
     // Verify booking belongs to user
     $booking = $db->fetchOne(
-        "SELECT id, total_amount, status FROM bookings WHERE id = ? AND user_id = ?",
+        "SELECT id, total_amount, gst_amount, status FROM bookings WHERE id = ? AND user_id = ?",
         [$bookingId, $userId]
     );
     
@@ -83,8 +83,12 @@ try {
         exit;
     }
     
-    // Verify amount matches
-    if (abs($booking['total_amount'] - $amount) > 0.01) {
+    // Calculate total amount with GST
+    $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
+    $totalAmountWithGst = $booking['total_amount'] + $gstAmount;
+    
+    // Verify amount matches (should match total with GST)
+    if (abs($totalAmountWithGst - $amount) > 0.01) {
         ob_end_clean();
         jsonError('Amount mismatch', [], 400);
         exit;
@@ -158,15 +162,15 @@ try {
     
     if ($payment) {
         $db->execute(
-            "UPDATE payments SET provider = 'razorpay', provider_payment_id = ? WHERE id = ?",
-            [$razorpayOrder['id'], $payment['id']]
+            "UPDATE payments SET provider = 'razorpay', provider_payment_id = ?, amount = ?, gst_amount = ? WHERE id = ?",
+            [$razorpayOrder['id'], $booking['total_amount'], $gstAmount, $payment['id']]
         );
     } else {
         // Create payment record if it doesn't exist
         $db->execute(
-            "INSERT INTO payments (booking_id, amount, provider, provider_payment_id, status)
-             VALUES (?, ?, 'razorpay', ?, 'initiated')",
-            [$bookingId, $amount, $razorpayOrder['id']]
+            "INSERT INTO payments (booking_id, amount, gst_amount, provider, provider_payment_id, status)
+             VALUES (?, ?, ?, 'razorpay', ?, 'initiated')",
+            [$bookingId, $booking['total_amount'], $gstAmount, $razorpayOrder['id']]
         );
     }
     

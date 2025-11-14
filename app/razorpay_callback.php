@@ -113,7 +113,7 @@ try {
     
     // Verify booking belongs to user
     $booking = $db->fetchOne(
-        "SELECT id, total_amount, status, room_config_id FROM bookings WHERE id = ? AND user_id = ?",
+        "SELECT id, total_amount, gst_amount, status, room_config_id FROM bookings WHERE id = ? AND user_id = ?",
         [$bookingId, $userId]
     );
     
@@ -176,9 +176,13 @@ try {
         exit;
     }
     
-    // Verify amount matches
+    // Calculate total amount with GST for verification
+    $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
+    $totalAmountWithGst = $booking['total_amount'] + $gstAmount;
+    
+    // Verify amount matches (should match total with GST)
     $paidAmount = floatval($paymentData['amount'] / 100); // Convert from paise
-    if (abs($booking['total_amount'] - $paidAmount) > 0.01) {
+    if (abs($totalAmountWithGst - $paidAmount) > 0.01) {
         ob_end_clean();
         jsonError('Amount mismatch', [], 400);
         exit;
@@ -220,15 +224,35 @@ try {
             [$razorpayPaymentId, $paymentId]
         );
         
-        // Update booking status
-        $db->execute(
+        // Get booking details before updating status
+        $booking = $db->fetchOne(
+            "SELECT room_config_id, status FROM bookings WHERE id = ?",
+            [$bookingId]
+        );
+        
+        // Update booking status from pending to confirmed
+        $rowsAffected = $db->execute(
             "UPDATE bookings SET status = 'confirmed' WHERE id = ? AND status = 'pending'",
             [$bookingId]
         );
         
-        // Note: available_rooms was already decreased when booking was created (pending)
-        // So we don't need to decrease again when confirmed, as it's already accounted for
-        // The availability was already updated in app/book_api.php when the booking was created
+        // Decrease availability only when status successfully changes from pending to confirmed
+        if ($rowsAffected > 0 && $booking && $booking['status'] === 'pending' && $booking['room_config_id']) {
+            $roomConfig = $db->fetchOne(
+                "SELECT total_rooms, room_type FROM room_configurations WHERE id = ?",
+                [$booking['room_config_id']]
+            );
+            
+            if ($roomConfig) {
+                $totalBeds = calculateTotalBeds($roomConfig['total_rooms'], $roomConfig['room_type']);
+                $db->execute(
+                    "UPDATE room_configurations 
+                     SET available_rooms = GREATEST(0, available_rooms - 1) 
+                     WHERE id = ?",
+                    [$booking['room_config_id']]
+                );
+            }
+        }
         
         $db->commit();
         ob_end_clean();

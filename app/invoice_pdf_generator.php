@@ -483,14 +483,23 @@ function generateInvoiceHTML($invoice, $baseUrl, $logoBase64 = '') {
         <tr>
           <td>Security Deposit:</td>
           <td>&#8377;' . number_format($invoice['total_amount'], 2) . '</td>
-        </tr>
+        </tr>';
+    
+    $gstAmount = isset($invoice['gst_amount']) ? floatval($invoice['gst_amount']) : 0;
+    $gstPercentage = isset($invoice['gst_percentage']) ? floatval($invoice['gst_percentage']) : 0;
+    
+    if ($gstAmount > 0) {
+        $html .= '
         <tr>
-          <td>Tax (GST):</td>
-          <td>&#8377;0.00</td>
-        </tr>
+          <td>Tax (GST ' . number_format($gstPercentage, 2) . '%):</td>
+          <td>&#8377;' . number_format($gstAmount, 2) . '</td>
+        </tr>';
+    }
+    
+    $html .= '
         <tr class="total-row">
-          <td>Total Amount Paid (Security Deposit):</td>
-          <td>&#8377;' . number_format($invoice['total_amount'], 2) . '</td>
+          <td>Total Amount Paid (Security Deposit' . ($gstAmount > 0 ? ' + GST' : '') . '):</td>
+          <td>&#8377;' . number_format($invoice['total_amount'] + $gstAmount, 2) . '</td>
         </tr>
       </table>
       <p style="margin-top: 10px; font-size: 10px; color: #666; font-style: italic;">

@@ -27,12 +27,13 @@ try {
     $db = db();
     
     $booking = $db->fetchOne(
-        "SELECT b.*, u.name as user_name, u.email as user_email, u.phone as user_phone,
+        "SELECT b.*, b.gst_amount as booking_gst_amount, 
+                u.name as user_name, u.email as user_email, u.phone as user_phone,
                 l.title as listing_title, loc.complete_address as listing_address,
                 loc.city as listing_city, loc.pin_code as listing_pincode,
                 rc.room_type, rc.rent_per_month,
-                p.id as payment_id, p.amount as payment_amount, p.status as payment_status,
-                p.provider, p.provider_payment_id
+                p.id as payment_id, p.amount as payment_amount, p.gst_amount as payment_gst_amount, 
+                p.status as payment_status, p.provider, p.provider_payment_id
          FROM bookings b
          INNER JOIN users u ON b.user_id = u.id
          INNER JOIN listings l ON b.listing_id = l.id
@@ -63,9 +64,15 @@ try {
         'rent_per_month' => $booking['rent_per_month']
     ] : null;
     
+    // Calculate total amount with GST
+    $gstAmount = isset($booking['booking_gst_amount']) ? floatval($booking['booking_gst_amount']) : 
+                 (isset($booking['payment_gst_amount']) ? floatval($booking['payment_gst_amount']) : 0);
+    $totalAmountWithGst = isset($booking['total_amount']) ? (floatval($booking['total_amount']) + $gstAmount) : 0;
+    
     $payment = $booking['payment_id'] ? [
         'id' => $booking['payment_id'],
         'amount' => $booking['payment_amount'],
+        'gst_amount' => $gstAmount,
         'status' => $booking['payment_status'],
         'provider' => $booking['provider'],
         'provider_payment_id' => $booking['provider_payment_id']
@@ -164,9 +171,22 @@ $isLocalhost = in_array($host, ['localhost', '127.0.0.1']) || strpos($host, 'loc
                     
                     <hr>
                     
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Total Amount:</h5>
-                        <h4 class="mb-0 text-primary">₹<?= number_format($booking['total_amount'], 2) ?></h4>
+                    <div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Security Deposit:</span>
+                            <span>₹<?= number_format($booking['total_amount'], 2) ?></span>
+                        </div>
+                        <?php if ($gstAmount > 0): ?>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>GST:</span>
+                            <span>₹<?= number_format($gstAmount, 2) ?></span>
+                        </div>
+                        <?php endif; ?>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Total Amount:</h5>
+                            <h4 class="mb-0 text-primary">₹<?= number_format($totalAmountWithGst, 2) ?></h4>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -181,7 +201,7 @@ $isLocalhost = in_array($host, ['localhost', '127.0.0.1']) || strpos($host, 'loc
                 <div class="card-body">
                     <form id="paymentForm">
                         <input type="hidden" id="bookingId" value="<?= $bookingId ?>">
-                        <input type="hidden" id="amount" value="<?= $booking['total_amount'] ?>">
+                        <input type="hidden" id="amount" value="<?= $totalAmountWithGst ?>">
                         
                         <div class="alert alert-info">
                             <i class="bi bi-info-circle me-2"></i>
@@ -190,7 +210,7 @@ $isLocalhost = in_array($host, ['localhost', '127.0.0.1']) || strpos($host, 'loc
                         
                         <div class="d-grid">
                             <button type="button" id="payButton" class="btn btn-primary btn-lg">
-                                <i class="bi bi-lock me-2"></i>Pay ₹<?= number_format($booking['total_amount'], 2) ?>
+                                <i class="bi bi-lock me-2"></i>Pay ₹<?= number_format($totalAmountWithGst, 2) ?>
                             </button>
                         </div>
                     </form>

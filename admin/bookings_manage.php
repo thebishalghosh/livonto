@@ -66,8 +66,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                     if ($roomConfig) {
                         $totalBeds = calculateTotalBeds($roomConfig['total_rooms'], $roomConfig['room_type']);
                         
-                        // If changing from pending/confirmed to cancelled, increase available beds by 1
-                        if (in_array($oldStatus, ['pending', 'confirmed']) && $newStatus === 'cancelled') {
+                        // If changing from pending to confirmed, decrease available beds by 1
+                        if ($oldStatus === 'pending' && $newStatus === 'confirmed') {
+                            $db->execute(
+                                "UPDATE room_configurations 
+                                 SET available_rooms = GREATEST(0, available_rooms - 1) 
+                                 WHERE id = ?",
+                                [$roomConfigId]
+                            );
+                        }
+                        // If changing from confirmed to cancelled, increase available beds by 1
+                        elseif ($oldStatus === 'confirmed' && $newStatus === 'cancelled') {
                             $db->execute(
                                 "UPDATE room_configurations 
                                  SET available_rooms = LEAST(?, available_rooms + 1) 
@@ -76,7 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                             );
                         }
                         // If changing from cancelled to confirmed, decrease available beds by 1
-                        // Note: pending -> confirmed doesn't need to decrease because it was already decreased when booking was created
                         elseif ($oldStatus === 'cancelled' && $newStatus === 'confirmed') {
                             $db->execute(
                                 "UPDATE room_configurations 
@@ -94,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                                 [$totalBeds, $roomConfigId]
                             );
                         }
+                        // Note: pending -> cancelled doesn't change availability (pending bookings don't affect availability)
                     }
                 }
                 
@@ -204,7 +213,7 @@ try {
     
     $bookings = $db->fetchAll(
         "SELECT b.id, b.listing_id, b.user_id, b.room_config_id, b.booking_start_date, {$durationField}
-                b.total_amount, b.status, b.special_requests, b.created_at, b.updated_at,
+                b.total_amount, b.gst_amount, b.status, b.special_requests, b.created_at, b.updated_at,
                 u.name as user_name, u.email as user_email, u.phone as user_phone,
                 l.title as listing_title,
                 loc.city as listing_city, loc.pin_code as listing_pincode,
@@ -462,7 +471,9 @@ $flashMessage = getFlashMessage();
                             <th>Listing</th>
                             <th>Start Date</th>
                             <th>Room Type</th>
-                            <th>Amount</th>
+                            <th>Security Deposit</th>
+                            <th>GST</th>
+                            <th>Total Amount</th>
                             <th>Payment</th>
                             <th>Status</th>
                             <th>Created</th>
@@ -517,6 +528,23 @@ $flashMessage = getFlashMessage();
                                 </td>
                                 <td><?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?></td>
                                 <td><strong>₹<?= number_format($booking['total_amount'], 2) ?></strong></td>
+                                <td>
+                                    <?php 
+                                    $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
+                                    if ($gstAmount > 0): 
+                                    ?>
+                                        <strong>₹<?= number_format($gstAmount, 2) ?></strong>
+                                    <?php else: ?>
+                                        <span class="text-muted">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php 
+                                    $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
+                                    $totalWithGst = $booking['total_amount'] + $gstAmount;
+                                    ?>
+                                    <strong>₹<?= number_format($totalWithGst, 2) ?></strong>
+                                </td>
                                 <td>
                                     <?php if ($booking['payment_status'] === 'success'): ?>
                                         <span class="badge bg-success">Paid</span>
@@ -624,7 +652,15 @@ $flashMessage = getFlashMessage();
                                     <i class="bi bi-door-open"></i> <?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?>
                                 </div>
                                 <div class="small">
-                                    <strong>₹<?= number_format($booking['total_amount'], 2) ?></strong>
+                                    <?php 
+                                    $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
+                                    $totalWithGst = $booking['total_amount'] + $gstAmount;
+                                    ?>
+                                    <div><strong>Security Deposit:</strong> ₹<?= number_format($booking['total_amount'], 2) ?></div>
+                                    <?php if ($gstAmount > 0): ?>
+                                        <div><strong>GST:</strong> ₹<?= number_format($gstAmount, 2) ?></div>
+                                    <?php endif; ?>
+                                    <div><strong>Total:</strong> ₹<?= number_format($totalWithGst, 2) ?></div>
                                     <?php if ($booking['payment_status'] === 'success'): ?>
                                         <span class="badge bg-success ms-2">Paid</span>
                                     <?php endif; ?>
@@ -723,7 +759,14 @@ $flashMessage = getFlashMessage();
                             <p class="mb-1"><strong>End Date:</strong> <?= $endDate->format('F d, Y') ?></p>
                             <p class="mb-1"><strong>Duration:</strong> <?= $durationMonths ?> Month<?= $durationMonths > 1 ? 's' : '' ?></p>
                             <p class="mb-1"><strong>Room Type:</strong> <?= htmlspecialchars($booking['room_type'] ?? 'N/A') ?></p>
-                            <p class="mb-1"><strong>Amount (Security Deposit):</strong> ₹<?= number_format($booking['total_amount'], 2) ?></p>
+                            <p class="mb-1"><strong>Security Deposit:</strong> ₹<?= number_format($booking['total_amount'], 2) ?></p>
+                            <?php 
+                            $gstAmount = isset($booking['gst_amount']) ? floatval($booking['gst_amount']) : 0;
+                            if ($gstAmount > 0): 
+                            ?>
+                                <p class="mb-1"><strong>GST:</strong> ₹<?= number_format($gstAmount, 2) ?></p>
+                                <p class="mb-1"><strong>Total Amount:</strong> ₹<?= number_format($booking['total_amount'] + $gstAmount, 2) ?></p>
+                            <?php endif; ?>
                             <p class="mb-1">
                                 <strong>Status:</strong> 
                                 <?php

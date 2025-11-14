@@ -64,10 +64,10 @@ if ($listingId > 0) {
                 $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
                 $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
                 
-                // Count actual booked beds (pending + confirmed)
+                // Count actual booked beds (only confirmed bookings affect availability)
                 $bookedBeds = (int)db()->fetchValue(
                     "SELECT COUNT(*) FROM bookings 
-                     WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
+                     WHERE room_config_id = ? AND status = 'confirmed'",
                     [$room['id']]
                 );
                 

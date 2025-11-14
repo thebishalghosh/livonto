@@ -162,13 +162,13 @@ function getInvoiceData($invoiceId, $userId = null) {
         $db = db();
         
         $sql = "SELECT i.*,
-                       b.booking_start_date, b.duration_months, b.special_requests,
+                       b.booking_start_date, b.duration_months, b.special_requests, b.gst_amount as booking_gst_amount,
                        u.name as user_name, u.email as user_email, u.phone as user_phone,
                        u.address as user_address, u.city as user_city, u.state as user_state, u.pincode as user_pincode,
                        l.title as listing_title, l.owner_name,
                        loc.complete_address as listing_address, loc.city as listing_city, loc.pin_code as listing_pincode,
                        rc.room_type, rc.rent_per_month,
-                       p.amount, p.provider, p.provider_payment_id, p.created_at as payment_date
+                       p.amount, p.gst_amount as payment_gst_amount, p.provider, p.provider_payment_id, p.created_at as payment_date
                 FROM invoices i
                 INNER JOIN bookings b ON i.booking_id = b.id
                 INNER JOIN users u ON i.user_id = u.id
@@ -204,6 +204,18 @@ function getInvoiceData($invoiceId, $userId = null) {
         
         $invoice['booking_end_date'] = $endDate->format('Y-m-d');
         $invoice['duration_months'] = $durationMonths;
+        
+        // Get GST amount (prefer payment gst_amount, fallback to booking gst_amount)
+        $gstAmount = isset($invoice['payment_gst_amount']) ? floatval($invoice['payment_gst_amount']) : 
+                     (isset($invoice['booking_gst_amount']) ? floatval($invoice['booking_gst_amount']) : 0);
+        $invoice['gst_amount'] = $gstAmount;
+        
+        // Calculate GST percentage if GST amount exists
+        if ($gstAmount > 0 && isset($invoice['total_amount']) && $invoice['total_amount'] > 0) {
+            $invoice['gst_percentage'] = ($gstAmount / $invoice['total_amount']) * 100;
+        } else {
+            $invoice['gst_percentage'] = 0;
+        }
         
         return $invoice;
         

@@ -380,7 +380,7 @@ $flashMessage = getFlashMessage();
 
 <!-- Statistics Cards -->
 <div class="row g-3 mb-4">
-    <div class="col-xl-4 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                 <i class="bi bi-calendar-check"></i>
@@ -391,7 +391,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
                 <i class="bi bi-clock-history"></i>
@@ -402,7 +402,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
                 <i class="bi bi-check-circle"></i>
@@ -413,7 +413,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
                 <i class="bi bi-check-circle-fill"></i>
@@ -424,7 +424,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
                 <i class="bi bi-calendar-day"></i>
@@ -435,7 +435,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);">
                 <i class="bi bi-calendar-month"></i>
@@ -446,7 +446,7 @@ $flashMessage = getFlashMessage();
             </div>
         </div>
     </div>
-    <div class="col-xl-4 col-md-4 col-6">
+    <div class="col-xl-4 col-lg-4 col-md-6 col-sm-6 col-6">
         <div class="admin-stat-card">
             <div class="admin-stat-card-icon" style="background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);">
                 <i class="bi bi-currency-rupee"></i>
@@ -463,7 +463,7 @@ $flashMessage = getFlashMessage();
 <div class="admin-card mb-4">
     <div class="admin-card-body">
         <form method="GET" action="<?= htmlspecialchars(app_url('admin/bookings')) ?>" class="row g-3">
-            <div class="col-md-4">
+            <div class="col-12 col-md-6 col-lg-4">
                 <label class="form-label">Search</label>
                 <input type="text" 
                        class="form-control form-control-sm" 
@@ -472,7 +472,7 @@ $flashMessage = getFlashMessage();
                        value="<?= htmlspecialchars($search) ?>"
                        style="height: 38px;">
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-3 col-lg-2">
                 <label class="form-label">Status</label>
                 <select class="form-control form-control-sm filter-select" name="status" style="height: 38px;">
                     <option value="">All Status</option>
@@ -482,7 +482,7 @@ $flashMessage = getFlashMessage();
                     <option value="cancelled" <?= $status === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-3 col-lg-2">
                 <label class="form-label">Sort By</label>
                 <select class="form-control form-control-sm filter-select" name="sort" style="height: 38px;">
                     <option value="b.created_at" <?= $sort === 'b.created_at' ? 'selected' : '' ?>>Date</option>
@@ -493,16 +493,16 @@ $flashMessage = getFlashMessage();
                     <option value="b.total_amount" <?= $sort === 'b.total_amount' ? 'selected' : '' ?>>Amount</option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-6 col-md-3 col-lg-2">
                 <label class="form-label">Order</label>
                 <select class="form-control form-control-sm filter-select" name="order" style="height: 38px;">
                     <option value="DESC" <?= $order === 'DESC' ? 'selected' : '' ?>>Newest First</option>
                     <option value="ASC" <?= $order === 'ASC' ? 'selected' : '' ?>>Oldest First</option>
                 </select>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
+            <div class="col-6 col-md-3 col-lg-2 d-flex align-items-end">
                 <button type="submit" class="btn btn-primary btn-sm w-100" style="height: 38px;">
-                    <i class="bi bi-search me-1"></i>Filter
+                    <i class="bi bi-search me-1"></i><span class="d-none d-sm-inline">Filter</span>
                 </button>
             </div>
         </form>
@@ -518,8 +518,8 @@ $flashMessage = getFlashMessage();
                 <p class="text-muted mt-3">No bookings found</p>
             </div>
         <?php else: ?>
-            <div class="table-responsive d-none d-lg-block">
-                <table class="table table-hover admin-table mb-0">
+            <div class="table-responsive d-none d-md-block" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table class="table table-hover admin-table mb-0" style="min-width: 1200px;">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -663,7 +663,7 @@ $flashMessage = getFlashMessage();
                 </table>
             </div>
             
-            <div class="d-lg-none">
+            <div class="d-md-none">
                 <?php foreach ($bookings as $booking): ?>
                     <?php
                     $durationMonths = isset($booking['duration_months']) ? (int)$booking['duration_months'] : 1;

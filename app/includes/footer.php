@@ -258,6 +258,29 @@ $fullBaseUrl = $protocol . '://' . $host . ($baseUrl ?: '');
 <!-- Map JS (loaded conditionally) -->
 <script src="<?= htmlspecialchars($jsBasePath . 'map.js') ?>"></script>
 
+<!-- WhatsApp Floating Button -->
+<?php
+// Get WhatsApp settings from admin panel
+$whatsappNumber = function_exists('getSetting') ? getSetting('whatsapp_number', '916293010501') : '916293010501';
+$whatsappMessage = function_exists('getSetting') ? getSetting('whatsapp_message', 'Hello! I would like to know more about your PG listings.') : 'Hello! I would like to know more about your PG listings.';
+
+// Clean the WhatsApp number (remove all non-numeric characters)
+$whatsappNumber = preg_replace('/[^0-9]/', '', $whatsappNumber);
+
+// Build WhatsApp URL with message
+$whatsappUrl = 'https://wa.me/' . $whatsappNumber;
+if (!empty($whatsappMessage)) {
+    $whatsappUrl .= '?text=' . urlencode($whatsappMessage);
+}
+?>
+<a href="<?= htmlspecialchars($whatsappUrl) ?>" 
+   target="_blank" 
+   rel="noopener" 
+   class="whatsapp-float" 
+   title="Chat on WhatsApp">
+    <i class="bi bi-whatsapp"></i>
+</a>
+
 <!-- Autocomplete JS -->
 <script src="<?= htmlspecialchars($jsBasePath . 'autocomplete.js') ?>"></script>
 

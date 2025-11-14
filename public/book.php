@@ -189,12 +189,29 @@ require __DIR__ . '/../app/includes/header.php';
 
 .form-check-input {
     background-color: var(--card-bg);
-    border-color: var(--border);
+    border: 2px solid var(--primary);
+    width: 1.25em;
+    height: 1.25em;
+    cursor: pointer;
 }
 
 .form-check-input:checked {
     background-color: var(--primary);
     border-color: var(--primary);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
+}
+
+/* Dark mode checkbox styling */
+:root[data-theme="dark"] .form-check-input {
+    background-color: var(--card-bg);
+    border: 2px solid var(--primary);
+    border-color: var(--primary) !important;
+}
+
+:root[data-theme="dark"] .form-check-input:checked {
+    background-color: var(--primary);
+    border-color: var(--primary) !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%230f1020' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
 }
 
 .file-upload-area {
@@ -330,16 +347,21 @@ require __DIR__ . '/../app/includes/header.php';
     color: var(--bs-body-color);
 }
 
-:root[data-theme="dark"] .form-check-label {
+.form-check-label {
     color: var(--bs-body-color);
+    cursor: pointer;
+}
+
+:root[data-theme="dark"] .form-check-label {
+    color: #efeaff !important;
 }
 
 :root[data-theme="dark"] .form-check-label a {
-    color: var(--primary);
+    color: var(--primary) !important;
 }
 
 :root[data-theme="dark"] .form-check-label a:hover {
-    color: var(--primary-700);
+    color: var(--primary-700) !important;
 }
 </style>
 
@@ -890,7 +912,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     let errorMsg = data.message || 'Error creating booking.';
                     if (data.errors) {
-                        const errorList = Object.values(data.errors).filter(err => err !== 'debug').join(', ');
+                        const errorList = Object.values(data.errors).join(', ');
                         if (errorList) {
                             errorMsg += '\n\n' + errorList;
                         }

@@ -119,6 +119,16 @@
     width: 100%;
 }
 
+/* Dark mode: ensure filter dropdown options are visible */
+:root[data-theme="dark"] .filter-group select option {
+    background-color: var(--card-bg) !important;
+    color: #efeaff !important;
+}
+
+:root[data-theme="dark"] .filter-group select {
+    color: #efeaff !important;
+}
+
 .results-header {
     display: flex;
     justify-content: space-between;

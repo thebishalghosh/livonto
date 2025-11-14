@@ -272,7 +272,14 @@ body {
 .listing-card-body .btn-outline-primary:hover {
   background-color: var(--primary);
   border-color: var(--primary);
-  color: white;
+  color: white !important;
+}
+
+/* Dark mode: ensure text is visible on hover for outline buttons in listing cards */
+:root[data-theme="dark"] .listing-card-body .btn-outline-primary:hover {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #0f1020 !important; /* Dark text for better contrast on light purple background */
 }
 
 /* Outline primary button hover states - override Bootstrap blue */
@@ -281,11 +288,28 @@ body {
   color: var(--primary);
   transition: background-color .12s ease, border-color .12s ease, color .12s ease, transform .12s ease;
 }
+
+/* Override text-white class for outline buttons in light mode */
+.btn-outline-primary.text-white {
+  color: var(--primary) !important;
+}
 .btn-outline-primary:hover {
   background-color: var(--primary);
   border-color: var(--primary);
-  color: white;
+  color: white !important;
   transform: translateY(-1px);
+}
+
+/* Dark mode: ensure text is visible on hover for outline buttons */
+:root[data-theme="dark"] .btn-outline-primary:hover {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #0f1020 !important; /* Dark text for better contrast on light purple background */
+}
+
+/* Dark mode: allow text-white for outline buttons (light purple background needs dark text) */
+:root[data-theme="dark"] .btn-outline-primary.text-white {
+  color: #0f1020 !important;
 }
 .btn-outline-primary:focus,
 .btn-outline-primary:active {
@@ -312,10 +336,13 @@ body {
   padding: 0.6rem 1rem;
   border-radius: 10px;
   transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
-  color: #fff;
+  color: #fff !important;
 }
 :root[data-theme="dark"] .btn-primary {
-  box-shadow: 0 8px 30px rgba(86,60,150,0.18);
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-700) 100%) !important;
+  box-shadow: 0 8px 30px rgba(191, 176, 255, 0.3) !important;
+  color: #0f1020 !important;
+  border: 1px solid rgba(191, 176, 255, 0.2);
 }
 .btn-primary:hover { 
   transform: translateY(-2px); 
@@ -323,11 +350,22 @@ body {
   background: linear-gradient(90deg, var(--primary-700) 0%, var(--primary) 100%);
   color: #fff;
 }
+:root[data-theme="dark"] .btn-primary:hover {
+  background: linear-gradient(90deg, var(--primary-700) 0%, var(--primary) 100%) !important;
+  box-shadow: 0 16px 40px rgba(191, 176, 255, 0.4) !important;
+  color: #0f1020 !important;
+}
 .btn-primary:focus,
 .btn-primary:active {
   background: linear-gradient(90deg, var(--primary-700) 0%, var(--primary) 100%);
   color: #fff;
   border: none;
+}
+:root[data-theme="dark"] .btn-primary:focus,
+:root[data-theme="dark"] .btn-primary:active {
+  background: linear-gradient(90deg, var(--primary-700) 0%, var(--primary) 100%) !important;
+  color: #0f1020 !important;
+  border: 1px solid rgba(191, 176, 255, 0.3);
 }
 .btn-outline-secondary {
   border-radius: 10px;
@@ -342,7 +380,7 @@ body {
 /* Forms */
 .form-control, .form-select {
   border-radius: 10px;
-  border: 1px solid rgba(124,109,176,0.08);
+  border: 1.5px solid rgba(124,109,176,0.2);
   box-shadow: none;
   padding: .6rem .75rem;
   background: #fff;
@@ -362,6 +400,26 @@ body {
 :root[data-theme="dark"] .form-control:focus,
 :root[data-theme="dark"] .form-select:focus {
   box-shadow: 0 6px 20px rgba(139,107,209,0.08);
+}
+
+/* Dark mode: ensure dropdown options are visible */
+:root[data-theme="dark"] .form-select option,
+:root[data-theme="dark"] select option {
+  background-color: var(--card-bg) !important;
+  color: #efeaff !important;
+}
+
+/* Ensure select dropdown text is visible in dark mode */
+:root[data-theme="dark"] .form-select,
+:root[data-theme="dark"] select {
+  color: #efeaff !important;
+}
+
+/* Dark mode: style for when dropdown is open (some browsers) */
+:root[data-theme="dark"] .form-select option:checked,
+:root[data-theme="dark"] select option:checked {
+  background-color: var(--primary) !important;
+  color: #0f1020 !important;
 }
 
 /* Footer (4-column) */
@@ -937,4 +995,66 @@ footer .d-flex.gap-3 a:hover { transform: translateY(-4px); opacity: 1; }
 
 :root[data-theme="dark"] .navbar .navbar-toggler:hover .navbar-toggler-icon {
   opacity: 1;
+}
+
+/* ======================================================
+   WhatsApp Floating Button
+   ====================================================== */
+.whatsapp-float {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background: #25D366;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+  z-index: 1000;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  animation: pulse 2s infinite;
+}
+
+.whatsapp-float:hover {
+  background: #20BA5A;
+  transform: scale(1.1);
+  box-shadow: 0 6px 25px rgba(37, 211, 102, 0.6);
+  color: white;
+  text-decoration: none;
+}
+
+.whatsapp-float:active {
+  transform: scale(0.95);
+}
+
+.whatsapp-float i {
+  color: white;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(37, 211, 102, 0.8), 0 0 0 10px rgba(37, 211, 102, 0.1);
+  }
+  100% {
+    box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .whatsapp-float {
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+    bottom: 20px;
+    right: 20px;
+  }
 }

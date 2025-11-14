@@ -199,6 +199,31 @@ $flashMessage = getFlashMessage();
                 </div>
             </div>
 
+            <!-- WhatsApp Settings -->
+            <div class="mb-4">
+                <h6 class="mb-3" style="color: var(--primary-700); border-bottom: 2px solid var(--accent); padding-bottom: 8px;">
+                    <i class="bi bi-whatsapp me-2"></i>WhatsApp Settings
+                </h6>
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="whatsapp_number" class="form-label">WhatsApp Number</label>
+                        <input type="tel" class="form-control" id="whatsapp_number" name="settings[whatsapp_number]" 
+                               value="<?= htmlspecialchars($currentSettings['whatsapp_number'] ?? '916293010501') ?>" 
+                               placeholder="916293010501">
+                        <small class="text-muted">WhatsApp number with country code (e.g., 916293010501 for +91 6293010501)</small>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="whatsapp_message" class="form-label">Default WhatsApp Message</label>
+                        <input type="text" class="form-control" id="whatsapp_message" name="settings[whatsapp_message]" 
+                               value="<?= htmlspecialchars($currentSettings['whatsapp_message'] ?? 'Hello! I would like to know more about your PG listings.') ?>" 
+                               placeholder="Hello! I would like to know more about your PG listings.">
+                        <small class="text-muted">Pre-filled message when users click WhatsApp button</small>
+                    </div>
+                </div>
+            </div>
+
             <!-- Social Media Links -->
             <div class="mb-4">
                 <h6 class="mb-3" style="color: var(--primary-700); border-bottom: 2px solid var(--accent); padding-bottom: 8px;">

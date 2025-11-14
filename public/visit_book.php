@@ -116,11 +116,42 @@ require __DIR__ . '/../app/includes/header.php';
     font-size: 0.9rem;
 }
 
+:root[data-theme="dark"] .form-label {
+    color: #efeaff !important;
+}
+
 .form-control, .form-select {
     border-radius: 8px;
     border: 1.5px solid var(--border);
     padding: 0.75rem 1rem;
     transition: all 0.2s ease;
+}
+
+/* Dark mode: Make date and time input icons white */
+:root[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(2) contrast(1.2);
+    cursor: pointer;
+    opacity: 1 !important;
+}
+
+:root[data-theme="dark"] input[type="date"]::-webkit-inner-spin-button,
+:root[data-theme="dark"] input[type="time"]::-webkit-inner-spin-button {
+    filter: invert(1) brightness(2) contrast(1.2);
+    opacity: 1 !important;
+}
+
+/* Firefox dark mode for date/time inputs */
+:root[data-theme="dark"] input[type="date"],
+:root[data-theme="dark"] input[type="time"] {
+    color-scheme: dark;
+}
+
+/* Ensure icons are white on hover */
+:root[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator:hover,
+:root[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    filter: invert(1) brightness(2.5) contrast(1.2);
+    opacity: 1 !important;
 }
 
 .form-control:focus, .form-select:focus {

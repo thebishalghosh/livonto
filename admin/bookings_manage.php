@@ -115,7 +115,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                 // Send admin notification for booking status change (if completed or cancelled)
                 if (in_array($newStatus, ['completed', 'cancelled'])) {
                     try {
-                        require_once __DIR__ . '/../app/email_helper.php';
+                        // Only include if function doesn't exist to avoid issues
+                        if (!function_exists('sendAdminNotification')) {
+                            require_once __DIR__ . '/../app/email_helper.php';
+                        }
                         $bookingInfo = $db->fetchOne(
                             "SELECT b.id, b.total_amount, u.name as user_name, u.email as user_email, l.title as listing_title
                              FROM bookings b
@@ -124,24 +127,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $bookingId) {
                              WHERE b.id = ?",
                             [$bookingId]
                         );
-                        $baseUrl = app_url('');
-                        sendAdminNotification(
-                            "Booking {$newStatus} - Booking #{$bookingId}",
-                            "Booking " . ucfirst($newStatus),
-                            "A booking has been marked as {$newStatus}.",
-                            [
-                                'Booking ID' => '#' . $bookingId,
-                                'User Name' => $bookingInfo['user_name'] ?? 'Unknown',
-                                'User Email' => $bookingInfo['user_email'] ?? 'N/A',
-                                'Property' => $bookingInfo['listing_title'] ?? 'Unknown',
-                                'Total Amount' => '₹' . number_format($bookingInfo['total_amount'] ?? 0, 2),
-                                'Status' => ucfirst($newStatus)
-                            ],
-                            $baseUrl . 'admin/bookings',
-                            'View Booking'
-                        );
+                        if ($bookingInfo && function_exists('sendAdminNotification')) {
+                            $baseUrl = app_url('');
+                            sendAdminNotification(
+                                "Booking {$newStatus} - Booking #{$bookingId}",
+                                "Booking " . ucfirst($newStatus),
+                                "A booking has been marked as {$newStatus}.",
+                                [
+                                    'Booking ID' => '#' . $bookingId,
+                                    'User Name' => $bookingInfo['user_name'] ?? 'Unknown',
+                                    'User Email' => $bookingInfo['user_email'] ?? 'N/A',
+                                    'Property' => $bookingInfo['listing_title'] ?? 'Unknown',
+                                    'Total Amount' => '₹' . number_format($bookingInfo['total_amount'] ?? 0, 2),
+                                    'Status' => ucfirst($newStatus)
+                                ],
+                                $baseUrl . 'admin/bookings',
+                                'View Booking'
+                            );
+                        }
                     } catch (Exception $e) {
+                        // Log error but don't break the flow
                         error_log("Failed to send admin notification for booking status change: " . $e->getMessage());
+                    } catch (Error $e) {
+                        // Catch fatal errors too
+                        error_log("Fatal error sending admin notification for booking status change: " . $e->getMessage());
                     }
                 }
                 

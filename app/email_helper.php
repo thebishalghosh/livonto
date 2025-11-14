@@ -515,8 +515,16 @@ function sendInvoiceEmail($invoiceId, $recipientEmail, $recipientName) {
  * @return string Admin email address
  */
 function getAdminEmail() {
-    require_once __DIR__ . '/functions.php';
-    return getSetting('admin_email', 'admin@livonto.com');
+    // Check if getSetting function exists, if not load functions.php
+    if (!function_exists('getSetting')) {
+        require_once __DIR__ . '/functions.php';
+    }
+    try {
+        return getSetting('admin_email', 'admin@livonto.com');
+    } catch (Exception $e) {
+        Logger::error("Error getting admin email from settings", ['error' => $e->getMessage()]);
+        return 'admin@livonto.com'; // Fallback default
+    }
 }
 
 /**
@@ -533,6 +541,11 @@ function getAdminEmail() {
  */
 function sendAdminNotification($subject, $title, $message, $details = [], $actionUrl = null, $actionText = 'View Details') {
     try {
+        // Check if getSetting function exists
+        if (!function_exists('getSetting')) {
+            require_once __DIR__ . '/functions.php';
+        }
+        
         $adminEmail = getAdminEmail();
         
         if (empty($adminEmail) || !filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {

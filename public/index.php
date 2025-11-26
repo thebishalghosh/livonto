@@ -61,7 +61,8 @@ try {
             $params
         );
     } else {
-        // Get latest active listings (limit 9)
+        // Get top-rated active listings (limit 9)
+        // Note: Listings without reviews will naturally appear after rated listings
         $latestListings = $db->fetchAll(
             "SELECT l.id, l.title, l.description, l.cover_image, l.available_for, l.gender_allowed,
                     loc.city, loc.pin_code,
@@ -72,7 +73,7 @@ try {
              FROM listings l
              LEFT JOIN listing_locations loc ON l.id = loc.listing_id
              WHERE l.status = 'active'
-             ORDER BY l.created_at DESC
+             ORDER BY (avg_rating IS NULL), avg_rating DESC, reviews_count DESC, l.created_at DESC
              LIMIT 9"
         );
     }
@@ -232,7 +233,7 @@ try {
             <small class="text-muted">for "<?= htmlspecialchars($searchQuery ?: $searchCity) ?>"</small>
         <?php endif; ?>
     <?php else: ?>
-        Latest Listings
+        Top Rated PGs
     <?php endif; ?>
   </h3>
   <div id="featuredDefault" class="row g-4">

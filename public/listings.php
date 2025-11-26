@@ -28,8 +28,12 @@ $searchQuery = trim($_GET['q'] ?? '');
 $city = trim($_GET['city'] ?? '');
 $availableFor = $_GET['available_for'] ?? ''; // boys, girls, both
 $genderAllowed = $_GET['gender_allowed'] ?? ''; // male, female, unisex
-$minPrice = isset($_GET['min_price']) ? floatval($_GET['min_price']) : null;
-$maxPrice = isset($_GET['max_price']) ? floatval($_GET['max_price']) : null;
+$minPrice = (isset($_GET['min_price']) && $_GET['min_price'] !== '' && $_GET['min_price'] !== null)
+    ? floatval($_GET['min_price'])
+    : null;
+$maxPrice = (isset($_GET['max_price']) && $_GET['max_price'] !== '' && $_GET['max_price'] !== null)
+    ? floatval($_GET['max_price'])
+    : null;
 $sortBy = $_GET['sort'] ?? 'newest'; // newest, oldest, price_low, price_high, rating
 
 // Pagination
@@ -57,10 +61,20 @@ try {
     }
     
     if (!empty($city)) {
-        $where[] = '(LOWER(TRIM(loc.city)) = LOWER(TRIM(?)) OR LOWER(loc.city) LIKE LOWER(?))';
+        // Make city filter more flexible: match city, address, title, or description
         $cityTrimmed = trim($city);
         $cityParam = "%{$cityTrimmed}%";
+        $where[] = '('
+            . 'LOWER(TRIM(loc.city)) = LOWER(TRIM(?)) '
+            . 'OR LOWER(loc.city) LIKE LOWER(?) '
+            . 'OR LOWER(loc.complete_address) LIKE LOWER(?) '
+            . 'OR LOWER(l.title) LIKE LOWER(?) '
+            . 'OR LOWER(l.description) LIKE LOWER(?)'
+            . ')';
         $params[] = $cityTrimmed;
+        $params[] = $cityParam;
+        $params[] = $cityParam;
+        $params[] = $cityParam;
         $params[] = $cityParam;
     }
     

@@ -28,9 +28,8 @@ $baseUrl = app_url('');
               ensuring students can effortlessly find and secure suitable housing while also benefiting PG owners.
             </p>
             <p class="mb-0">
-              Leading the tech innovation, CTO Amaan Ansari is developing a robust platform that enables students to
-              explore PGs seamlessly from anywhere, redefining the student housing experience with efficiency and
-              reliability.
+              The team is focused on building a robust platform that enables students to explore PGs seamlessly from
+              anywhere, redefining the student housing experience with efficiency and reliability.
             </p>
           </div>
         </div>

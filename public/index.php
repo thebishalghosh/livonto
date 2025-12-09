@@ -13,13 +13,14 @@ $baseUrl = app_url('');
 // Check if there's a search query
 $searchQuery = trim($_GET['q'] ?? $_GET['search'] ?? '');
 $searchCity = trim($_GET['city'] ?? '');
+$hasSearchFilters = (!empty($searchQuery) || !empty($searchCity));
 
 // Fetch dynamic data
 try {
     $db = db();
     
     // If there's a search query, get search results, otherwise get latest listings
-    if (!empty($searchQuery) || !empty($searchCity)) {
+    if ($hasSearchFilters) {
         $query = $searchQuery ?: $searchCity;
         $city = $searchCity ?: $searchQuery;
         
@@ -227,7 +228,7 @@ try {
 <!-- Default Listings Section (full width) -->
 <div id="defaultListingsSection" class="mt-4">
   <h3 class="mb-3" id="listingsTitleDefault">
-    <?php if (!empty($searchQuery) || !empty($searchCity)): ?>
+    <?php if ($hasSearchFilters): ?>
         Search Results
         <?php if (!empty($searchQuery) || !empty($searchCity)): ?>
             <small class="text-muted">for "<?= htmlspecialchars($searchQuery ?: $searchCity) ?>"</small>
@@ -236,139 +237,256 @@ try {
         Top Rated PGs
     <?php endif; ?>
   </h3>
-  <div id="featuredDefault" class="row g-4">
   <?php if (empty($latestListings)): ?>
-    <div class="col-12">
-      <div class="alert alert-info">
-        <p class="mb-0">No listings available at the moment. Check back soon!</p>
+    <div class="row g-4">
+      <div class="col-12">
+        <div class="alert alert-info">
+          <p class="mb-0">No listings available at the moment. Check back soon!</p>
+        </div>
       </div>
     </div>
   <?php else: ?>
-    <?php foreach ($latestListings as $listing): ?>
-      <?php 
-      // Build listing URL
-      $listingUrl = app_url('listings/' . $listing['id']);
-      
-      // Format price
-      $priceText = '';
-      if ($listing['min_rent']) {
-          if ($listing['min_rent'] == $listing['max_rent']) {
-              $priceText = '₹' . number_format($listing['min_rent']);
-          } else {
-              $priceText = '₹' . number_format($listing['min_rent']) . ' - ₹' . number_format($listing['max_rent']);
+    <?php if ($hasSearchFilters): ?>
+      <div id="featuredDefault" class="row g-4">
+        <?php foreach ($latestListings as $listing): ?>
+          <?php 
+          // Build listing URL
+          $listingUrl = app_url('listings/' . $listing['id']);
+          
+          // Format price
+          $priceText = '';
+          if ($listing['min_rent']) {
+              if ($listing['min_rent'] == $listing['max_rent']) {
+                  $priceText = '₹' . number_format($listing['min_rent']);
+              } else {
+                  $priceText = '₹' . number_format($listing['min_rent']) . ' - ₹' . number_format($listing['max_rent']);
+              }
           }
-      }
-      
-      // Format description (truncate if too long)
-      $description = !empty($listing['description']) ? $listing['description'] : 'Comfortable PG accommodation.';
-      $description = mb_substr($description, 0, 100);
-      if (mb_strlen($listing['description'] ?? '') > 100) {
-          $description .= '...';
-      }
-      
-      // Format location
-      $location = '';
-      if (!empty($listing['city'])) {
-          $location = $listing['city'];
-          if (!empty($listing['pin_code'])) {
-              $location .= ' • ' . $listing['pin_code'];
+          
+          // Format description (truncate if too long)
+          $description = !empty($listing['description']) ? $listing['description'] : 'Comfortable PG accommodation.';
+          $description = mb_substr($description, 0, 100);
+          if (mb_strlen($listing['description'] ?? '') > 100) {
+              $description .= '...';
           }
-      }
-      if (empty($location)) {
-          $location = 'Location not specified';
-      }
-      
-      // Format gender/available for
-      $genderInfo = '';
-      if (!empty($listing['available_for']) && $listing['available_for'] !== 'both') {
-          $genderInfo = ucfirst($listing['available_for']);
-      } elseif (!empty($listing['gender_allowed'])) {
-          $genderInfo = ucfirst($listing['gender_allowed']);
-      }
-      if ($genderInfo) {
-          $location .= ' • ' . $genderInfo;
-      }
-      ?>
-      <div class="col-md-4">
-        <div class="card pg shadow-sm h-100">
-          <!-- Image Carousel -->
-          <a href="<?= htmlspecialchars($listingUrl) ?>" class="text-decoration-none">
-            <div class="listing-carousel position-relative" data-listing-id="<?= $listing['id'] ?>">
-              <div class="carousel-container">
-                <?php foreach ($listing['images'] as $index => $imgUrl): ?>
-                  <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>" 
-                       style="display: <?= $index === 0 ? 'block' : 'none' ?>; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-                    <img src="<?= htmlspecialchars($imgUrl) ?>" 
-                         class="w-100 h-100" 
-                         style="object-fit: cover;"
-                         alt="<?= htmlspecialchars($listing['title']) ?> - Image <?= $index + 1 ?>"
-                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+          
+          // Format location
+          $location = '';
+          if (!empty($listing['city'])) {
+              $location = $listing['city'];
+              if (!empty($listing['pin_code'])) {
+                  $location .= ' • ' . $listing['pin_code'];
+              }
+          }
+          if (empty($location)) {
+              $location = 'Location not specified';
+          }
+          
+          // Format gender/available for
+          $genderInfo = '';
+          if (!empty($listing['available_for']) && $listing['available_for'] !== 'both') {
+              $genderInfo = ucfirst($listing['available_for']);
+          } elseif (!empty($listing['gender_allowed'])) {
+              $genderInfo = ucfirst($listing['gender_allowed']);
+          }
+          if ($genderInfo) {
+              $location .= ' • ' . $genderInfo;
+          }
+          ?>
+          <div class="col-md-4">
+            <div class="card pg shadow-sm h-100">
+              <!-- Image Carousel -->
+              <a href="<?= htmlspecialchars($listingUrl) ?>" class="text-decoration-none">
+                <div class="listing-carousel position-relative" data-listing-id="<?= $listing['id'] ?>">
+                  <div class="carousel-container">
+                    <?php foreach ($listing['images'] as $index => $imgUrl): ?>
+                      <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>" 
+                           style="display: <?= $index === 0 ? 'block' : 'none' ?>; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                        <img src="<?= htmlspecialchars($imgUrl) ?>" 
+                             class="w-100 h-100" 
+                             style="object-fit: cover;"
+                             alt="<?= htmlspecialchars($listing['title']) ?> - Image <?= $index + 1 ?>"
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                      </div>
+                    <?php endforeach; ?>
                   </div>
-                <?php endforeach; ?>
-              </div>
-              
-              <!-- Navigation Arrows -->
-              <?php if (count($listing['images']) > 1): ?>
-                <button class="carousel-btn carousel-prev" 
-                        onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, -1)"
-                        aria-label="Previous image">
-                  <i class="bi bi-chevron-left"></i>
-                </button>
-                <button class="carousel-btn carousel-next" 
-                        onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, 1)"
-                        aria-label="Next image">
-                  <i class="bi bi-chevron-right"></i>
-                </button>
-                
-                <!-- Image Count Badge -->
-                <div class="carousel-badge">
-                  <?= count($listing['images']) ?> Photo<?= count($listing['images']) !== 1 ? 's' : '' ?>
+                  
+                  <!-- Navigation Arrows -->
+                  <?php if (count($listing['images']) > 1): ?>
+                    <button class="carousel-btn carousel-prev" 
+                            onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, -1)"
+                            aria-label="Previous image">
+                      <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button class="carousel-btn carousel-next" 
+                            onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, 1)"
+                            aria-label="Next image">
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
+                    
+                    <!-- Image Count Badge -->
+                    <div class="carousel-badge">
+                      <?= count($listing['images']) ?> Photo<?= count($listing['images']) !== 1 ? 's' : '' ?>
+                    </div>
+                  <?php endif; ?>
                 </div>
-              <?php endif; ?>
-            </div>
-          </a>
-          <div class="card-body d-flex flex-column listing-card-body">
-            <h5 class="listing-title mb-2"><?= htmlspecialchars($listing['title']) ?></h5>
-            <p class="small text-muted mb-3 flex-grow-1"><?= htmlspecialchars($description) ?></p>
-            <div class="d-flex gap-2 mt-auto">
-              <?php if (isLoggedIn()): ?>
-                <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
-                   class="btn btn-outline-primary btn-sm flex-fill text-center"
-                   onclick="event.stopPropagation();"
-                   style="border-color: var(--primary); color: var(--primary);">
-                  Book a Visit
-                </a>
-                <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
-                   class="btn btn-primary btn-sm flex-fill text-white text-center"
-                   onclick="event.stopPropagation();">
-                  Book Now
-                </a>
-              <?php else: ?>
-                <button type="button"
-                        class="btn btn-outline-primary btn-sm flex-fill text-center"
-                        onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>');"
-                        style="border-color: var(--primary); color: var(--primary);">
-                  Book a Visit
-                </button>
-                <button type="button"
-                        class="btn btn-primary btn-sm flex-fill text-white text-center"
-                        onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars($listingUrl . '?action=book') ?>');">
-                  Book Now
-                </button>
-              <?php endif; ?>
+              </a>
+              <div class="card-body d-flex flex-column listing-card-body">
+                <h5 class="listing-title mb-2"><?= htmlspecialchars($listing['title']) ?></h5>
+                <p class="small text-muted mb-3 flex-grow-1"><?= htmlspecialchars($description) ?></p>
+                <div class="d-flex gap-2 mt-auto">
+                  <?php if (isLoggedIn()): ?>
+                    <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
+                       class="btn btn-outline-primary btn-sm flex-fill text-center"
+                       onclick="event.stopPropagation();"
+                       style="border-color: var(--primary); color: var(--primary);">
+                      Book a Visit
+                    </a>
+                    <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
+                       class="btn btn-primary btn-sm flex-fill text-white text-center"
+                       onclick="event.stopPropagation();">
+                      Book Now
+                    </a>
+                  <?php else: ?>
+                    <button type="button"
+                            class="btn btn-outline-primary btn-sm flex-fill text-center"
+                            onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>');"
+                            style="border-color: var(--primary); color: var(--primary);">
+                      Book a Visit
+                    </button>
+                    <button type="button"
+                            class="btn btn-primary btn-sm flex-fill text-white text-center"
+                            onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars($listingUrl . '?action=book') ?>');">
+                      Book Now
+                    </button>
+                  <?php endif; ?>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        <?php endforeach; ?>
       </div>
-    <?php endforeach; ?>
+    <?php else: ?>
+      <div class="top-rated-carousel-wrapper" data-card-carousel>
+        <button type="button" class="top-rated-carousel-nav" data-carousel-prev aria-label="Scroll top rated PGs left">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <div id="featuredDefault" class="top-rated-carousel-scroll" role="region" aria-label="Top rated PG carousel">
+          <?php foreach ($latestListings as $listing): ?>
+            <?php 
+            $listingUrl = app_url('listings/' . $listing['id']);
+            $priceText = '';
+            if ($listing['min_rent']) {
+                if ($listing['min_rent'] == $listing['max_rent']) {
+                    $priceText = '₹' . number_format($listing['min_rent']);
+                } else {
+                    $priceText = '₹' . number_format($listing['min_rent']) . ' - ₹' . number_format($listing['max_rent']);
+                }
+            }
+            $description = !empty($listing['description']) ? $listing['description'] : 'Comfortable PG accommodation.';
+            $description = mb_substr($description, 0, 100);
+            if (mb_strlen($listing['description'] ?? '') > 100) {
+                $description .= '...';
+            }
+            $location = '';
+            if (!empty($listing['city'])) {
+                $location = $listing['city'];
+                if (!empty($listing['pin_code'])) {
+                    $location .= ' • ' . $listing['pin_code'];
+                }
+            }
+            if (empty($location)) {
+                $location = 'Location not specified';
+            }
+            $genderInfo = '';
+            if (!empty($listing['available_for']) && $listing['available_for'] !== 'both') {
+                $genderInfo = ucfirst($listing['available_for']);
+            } elseif (!empty($listing['gender_allowed'])) {
+                $genderInfo = ucfirst($listing['gender_allowed']);
+            }
+            if ($genderInfo) {
+                $location .= ' • ' . $genderInfo;
+            }
+            ?>
+            <div class="top-rated-card">
+              <div class="card pg shadow-sm h-100">
+                <a href="<?= htmlspecialchars($listingUrl) ?>" class="text-decoration-none">
+                  <div class="listing-carousel position-relative" data-listing-id="<?= $listing['id'] ?>">
+                    <div class="carousel-container">
+                      <?php foreach ($listing['images'] as $index => $imgUrl): ?>
+                        <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>" 
+                             style="display: <?= $index === 0 ? 'block' : 'none' ?>; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                          <img src="<?= htmlspecialchars($imgUrl) ?>" 
+                               class="w-100 h-100" 
+                               style="object-fit: cover;"
+                               alt="<?= htmlspecialchars($listing['title']) ?> - Image <?= $index + 1 ?>"
+                               onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                        </div>
+                      <?php endforeach; ?>
+                    </div>
+                    <?php if (count($listing['images']) > 1): ?>
+                      <button class="carousel-btn carousel-prev" 
+                              onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, -1)"
+                              aria-label="Previous image">
+                        <i class="bi bi-chevron-left"></i>
+                      </button>
+                      <button class="carousel-btn carousel-next" 
+                              onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, 1)"
+                              aria-label="Next image">
+                        <i class="bi bi-chevron-right"></i>
+                      </button>
+                      <div class="carousel-badge">
+                        <?= count($listing['images']) ?> Photo<?= count($listing['images']) !== 1 ? 's' : '' ?>
+                      </div>
+                    <?php endif; ?>
+                  </div>
+                </a>
+                <div class="card-body d-flex flex-column listing-card-body">
+                  <h5 class="listing-title mb-2"><?= htmlspecialchars($listing['title']) ?></h5>
+                  <p class="small text-muted mb-3 flex-grow-1"><?= htmlspecialchars($description) ?></p>
+                  <div class="d-flex gap-2 mt-auto">
+                    <?php if (isLoggedIn()): ?>
+                      <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
+                         class="btn btn-outline-primary btn-sm flex-fill text-center"
+                         onclick="event.stopPropagation();"
+                         style="border-color: var(--primary); color: var(--primary);">
+                        Book a Visit
+                      </a>
+                      <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
+                         class="btn btn-primary btn-sm flex-fill text-white text-center"
+                         onclick="event.stopPropagation();">
+                        Book Now
+                      </a>
+                    <?php else: ?>
+                      <button type="button"
+                              class="btn btn-outline-primary btn-sm flex-fill text-center"
+                              onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>');"
+                              style="border-color: var(--primary); color: var(--primary);">
+                        Book a Visit
+                      </button>
+                      <button type="button"
+                              class="btn btn-primary btn-sm flex-fill text-white text-center"
+                              onclick="event.stopPropagation(); showLoginModal('<?= htmlspecialchars($listingUrl . '?action=book') ?>');">
+                        Book Now
+                      </button>
+                    <?php endif; ?>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+        <button type="button" class="top-rated-carousel-nav" data-carousel-next aria-label="Scroll top rated PGs right">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    <?php endif; ?>
   <?php endif; ?>
-</div>
-
-<?php if (!empty($latestListings) && count($latestListings) >= 9): ?>
-  <div class="text-center mt-4">
-    <a href="<?= htmlspecialchars(app_url('listings')) ?>" class="btn btn-outline-primary">View All Listings</a>
-  </div>
-<?php endif; ?>
+  <?php if (!empty($latestListings) && count($latestListings) >= 9): ?>
+    <div class="text-center mt-4">
+      <a href="<?= htmlspecialchars(app_url('listings')) ?>" class="btn btn-outline-primary">View All Listings</a>
+    </div>
+  <?php endif; ?>
 </div>
 
 <!-- Feature highlights -->

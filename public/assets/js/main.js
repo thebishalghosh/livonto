@@ -38,7 +38,74 @@ function navigateCarousel(listingId, direction) {
 // Make function globally available
 window.navigateCarousel = navigateCarousel;
 
+/**
+ * Initialize horizontal card carousel on homepage
+ */
+function initTopRatedCarousel() {
+  const wrappers = document.querySelectorAll('[data-card-carousel]');
+  if (!wrappers.length) return;
+
+  wrappers.forEach((wrapper) => {
+    const scroller = wrapper.querySelector('.top-rated-carousel-scroll');
+    if (!scroller) return;
+
+    const prevBtn = wrapper.querySelector('[data-carousel-prev]');
+    const nextBtn = wrapper.querySelector('[data-carousel-next]');
+    const slides = scroller.querySelectorAll('.top-rated-card');
+
+    if (!slides.length) {
+      if (prevBtn) prevBtn.classList.add('d-none');
+      if (nextBtn) nextBtn.classList.add('d-none');
+      return;
+    }
+
+    const getScrollAmount = () => Math.max(scroller.clientWidth * 0.9, slides[0].clientWidth || 0);
+
+    const updateNavState = () => {
+      const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth - 4);
+      const atStart = scroller.scrollLeft <= 4;
+      const atEnd = scroller.scrollLeft >= maxScroll;
+
+      if (prevBtn) {
+        prevBtn.disabled = atStart;
+        prevBtn.classList.toggle('d-none', maxScroll <= 0);
+      }
+      if (nextBtn) {
+        nextBtn.disabled = atEnd;
+        nextBtn.classList.toggle('d-none', maxScroll <= 0);
+      }
+    };
+
+    const scrollByAmount = (direction) => {
+      scroller.scrollBy({
+        left: direction * getScrollAmount(),
+        behavior: 'smooth'
+      });
+    };
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => scrollByAmount(-1));
+    }
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => scrollByAmount(1));
+    }
+
+    scroller.addEventListener('scroll', () => {
+      window.requestAnimationFrame(updateNavState);
+    }, { passive: true });
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(updateNavState, 150);
+    });
+
+    updateNavState();
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  initTopRatedCarousel();
   const searchForm = document.getElementById('searchForm');
   if (searchForm) {
     searchForm.addEventListener('submit', async function(e){

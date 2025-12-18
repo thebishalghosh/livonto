@@ -205,6 +205,34 @@ try {
             </div>
         <?php endif; ?>
 
+        <!-- Property Gallery Section -->
+        <?php if (!empty($imageUrls) && count($imageUrls) > 1): ?>
+            <div class="card pg mb-4">
+                <div class="card-body">
+                    <div class="kicker mb-2">Gallery</div>
+                    <h5 class="mb-4 listing-section-heading">
+                        <i class="bi bi-images me-2"></i>All Property Images
+                    </h5>
+                    <div class="property-gallery-grid">
+                        <?php foreach ($imageUrls as $index => $imgUrl): ?>
+                            <div class="gallery-item" data-image-index="<?= $index ?>">
+                                <div class="gallery-item-wrapper">
+                                    <img src="<?= htmlspecialchars($imgUrl) ?>" 
+                                         alt="<?= htmlspecialchars($listing['title']) ?> - Image <?= $index + 1 ?>"
+                                         class="gallery-thumbnail"
+                                         loading="lazy"
+                                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
+                                    <div class="gallery-overlay">
+                                        <i class="bi bi-zoom-in"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <!-- Title and Basic Info -->
         <div class="card pg mb-4">
             <div class="card-body">
@@ -497,6 +525,35 @@ try {
                 </div>
             </div>
         </div>
+
+        <!-- Image Zoom Modal -->
+        <?php if (!empty($imageUrls)): ?>
+        <div class="modal fade" id="imageZoomModal" tabindex="-1" aria-labelledby="imageZoomModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-xl">
+                <div class="modal-content bg-dark border-0">
+                    <div class="modal-header border-0 pb-0">
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-0 position-relative">
+                        <?php if (count($imageUrls) > 1): ?>
+                        <button type="button" class="gallery-nav-btn gallery-nav-prev" id="galleryPrevBtn" aria-label="Previous image">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <?php endif; ?>
+                        <img id="zoomedImage" src="" alt="Zoomed image" class="img-fluid w-100">
+                        <?php if (count($imageUrls) > 1): ?>
+                        <button type="button" class="gallery-nav-btn gallery-nav-next" id="galleryNextBtn" aria-label="Next image">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                        <div class="gallery-image-counter">
+                            <span id="currentImageIndex">1</span> / <span id="totalImages"><?= count($imageUrls) ?></span>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- Sidebar -->
@@ -581,6 +638,110 @@ if (substr($jsBasePath, 0, 1) !== '/') {
   window.appBaseUrl = '<?= htmlspecialchars($baseUrl) ?>';
 </script>
 <script src="<?= htmlspecialchars($jsBasePath . 'reviews.js') ?>"></script>
+
+<!-- Gallery Zoom Script -->
+<script>
+(function() {
+  'use strict';
+  
+  const galleryItems = document.querySelectorAll('.gallery-item');
+  const carouselImages = document.querySelectorAll('#listingImageGallery .carousel-item img');
+  const zoomModal = document.getElementById('imageZoomModal');
+  const zoomedImage = document.getElementById('zoomedImage');
+  const currentImageIndexSpan = document.getElementById('currentImageIndex');
+  const totalImagesSpan = document.getElementById('totalImages');
+  const prevBtn = document.getElementById('galleryPrevBtn');
+  const nextBtn = document.getElementById('galleryNextBtn');
+  
+  if (!zoomModal) return;
+  
+  const imageUrls = <?= json_encode($imageUrls, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  let currentImageIndex = 0;
+  
+  // Set total images count
+  if (totalImagesSpan) {
+    totalImagesSpan.textContent = imageUrls.length;
+  }
+  
+  // Function to open modal with specific image
+  function openImageModal(index) {
+    if (index < 0 || index >= imageUrls.length) return;
+    
+    currentImageIndex = index;
+    if (zoomedImage) {
+      zoomedImage.src = imageUrls[index];
+    }
+    if (currentImageIndexSpan) {
+      currentImageIndexSpan.textContent = index + 1;
+    }
+    
+    const modal = new bootstrap.Modal(zoomModal);
+    modal.show();
+  }
+  
+  // Function to navigate to next image
+  function showNextImage() {
+    const nextIndex = (currentImageIndex + 1) % imageUrls.length;
+    openImageModal(nextIndex);
+  }
+  
+  // Function to navigate to previous image
+  function showPrevImage() {
+    const prevIndex = (currentImageIndex - 1 + imageUrls.length) % imageUrls.length;
+    openImageModal(prevIndex);
+  }
+  
+  // Add click handlers to gallery items
+  galleryItems.forEach((item, index) => {
+    item.addEventListener('click', function() {
+      openImageModal(index);
+    });
+  });
+  
+  // Add click handlers to carousel images (main image)
+  carouselImages.forEach((img, index) => {
+    img.style.cursor = 'pointer';
+    img.addEventListener('click', function() {
+      openImageModal(index);
+    });
+  });
+  
+  // Add navigation button handlers
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      showNextImage();
+    });
+  }
+  
+  if (prevBtn) {
+    prevBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      showPrevImage();
+    });
+  }
+  
+  // Keyboard navigation
+  zoomModal.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight') {
+      showNextImage();
+    } else if (e.key === 'ArrowLeft') {
+      showPrevImage();
+    } else if (e.key === 'Escape') {
+      const modalInstance = bootstrap.Modal.getInstance(zoomModal);
+      if (modalInstance) {
+        modalInstance.hide();
+      }
+    }
+  });
+  
+  // Hide navigation buttons if only one image
+  if (imageUrls.length <= 1) {
+    if (prevBtn) prevBtn.style.display = 'none';
+    if (nextBtn) nextBtn.style.display = 'none';
+  }
+})();
+</script>
 
 <?php require __DIR__ . '/../app/includes/footer.php'; ?>
 

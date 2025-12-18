@@ -28,6 +28,7 @@ $searchQuery = trim($_GET['q'] ?? '');
 $city = trim($_GET['city'] ?? '');
 $availableFor = $_GET['available_for'] ?? ''; // boys, girls, both
 $genderAllowed = $_GET['gender_allowed'] ?? ''; // male, female, unisex
+$foodAvailability = $_GET['food_availability'] ?? ''; // vegetarian, non-vegetarian, both, not available
 $minPrice = (isset($_GET['min_price']) && $_GET['min_price'] !== '' && $_GET['min_price'] !== null)
     ? floatval($_GET['min_price'])
     : null;
@@ -44,7 +45,7 @@ $offset = ($page - 1) * $perPage;
 $listings = [];
 $totalListings = 0;
 $totalPages = 0;
-$hasFilters = !empty($searchQuery) || !empty($city) || !empty($availableFor) || !empty($genderAllowed) || $minPrice !== null || $maxPrice !== null;
+$hasFilters = !empty($searchQuery) || !empty($city) || !empty($availableFor) || !empty($genderAllowed) || !empty($foodAvailability) || $minPrice !== null || $maxPrice !== null;
 
 try {
     $db = db();
@@ -86,6 +87,11 @@ try {
     if (!empty($genderAllowed) && in_array($genderAllowed, ['male', 'female', 'unisex'])) {
         $where[] = 'l.gender_allowed = ?';
         $params[] = $genderAllowed;
+    }
+    
+    if (!empty($foodAvailability) && in_array($foodAvailability, ['vegetarian', 'non-vegetarian', 'both', 'not available'])) {
+        $where[] = 'EXISTS (SELECT 1 FROM listing_additional_info add_info WHERE add_info.listing_id = l.id AND add_info.food_availability = ?)';
+        $params[] = $foodAvailability;
     }
     
     // Price filter (based on room configurations)
@@ -220,6 +226,7 @@ try {
         <!-- Filters -->
         <div class="filters-card">
             <form method="GET" action="<?= app_url('listings') ?>" id="filtersForm">
+                <!-- First Row -->
                 <div class="filter-row">
                     <div class="filter-group">
                         <label for="searchQuery">Search</label>
@@ -229,16 +236,6 @@ try {
                                name="q" 
                                value="<?= htmlspecialchars($searchQuery) ?>" 
                                placeholder="Search by name or description...">
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label for="cityFilter">City</label>
-                        <input type="text" 
-                               class="form-control" 
-                               id="cityFilter" 
-                               name="city" 
-                               value="<?= htmlspecialchars($city) ?>" 
-                               placeholder="Enter city...">
                     </div>
                     
                     <div class="filter-group">
@@ -258,6 +255,17 @@ try {
                             <option value="male" <?= $genderAllowed === 'male' ? 'selected' : '' ?>>Male</option>
                             <option value="female" <?= $genderAllowed === 'female' ? 'selected' : '' ?>>Female</option>
                             <option value="unisex" <?= $genderAllowed === 'unisex' ? 'selected' : '' ?>>Unisex</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="foodAvailability">Food Preference</label>
+                        <select class="form-select" id="foodAvailability" name="food_availability">
+                            <option value="">All</option>
+                            <option value="vegetarian" <?= $foodAvailability === 'vegetarian' ? 'selected' : '' ?>>Vegetarian</option>
+                            <option value="non-vegetarian" <?= $foodAvailability === 'non-vegetarian' ? 'selected' : '' ?>>Non-Vegetarian</option>
+                            <option value="both" <?= $foodAvailability === 'both' ? 'selected' : '' ?>>Both</option>
+                            <option value="not available" <?= $foodAvailability === 'not available' ? 'selected' : '' ?>>Not Available</option>
                         </select>
                     </div>
                     
@@ -283,6 +291,19 @@ try {
                                placeholder="Max" 
                                min="0" 
                                step="100">
+                    </div>
+                </div>
+                
+                <!-- Second Row -->
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="cityFilter">City</label>
+                        <input type="text" 
+                               class="form-control" 
+                               id="cityFilter" 
+                               name="city" 
+                               value="<?= htmlspecialchars($city) ?>" 
+                               placeholder="Enter city...">
                     </div>
                     
                     <div class="filter-group">

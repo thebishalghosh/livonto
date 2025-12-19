@@ -677,7 +677,7 @@ require __DIR__ . '/../app/includes/header.php';
                     <h5 class="mb-3" style="color: var(--primary-700);">
                         <i class="bi bi-gift me-2"></i>Referral Code
                     </h5>
-                    <?php if (!empty($user['referral_code'])): ?>
+                    <?php if (!empty($user['referral_code']) && $userStats['confirmed_bookings'] > 0): ?>
                     <div class="mb-3">
                         <div class="kicker mb-2">Your Code</div>
                         <h3 class="mb-2 fw-bold" style="color: var(--primary); letter-spacing: 2px;"><?= htmlspecialchars($user['referral_code']) ?></h3>
@@ -688,6 +688,10 @@ require __DIR__ . '/../app/includes/header.php';
                     <a href="<?= htmlspecialchars(app_url('refer')) ?>" class="btn btn-primary btn-sm text-white">
                         <i class="bi bi-share me-1"></i>Share & Earn
                     </a>
+                    <?php elseif (!empty($user['referral_code']) && $userStats['confirmed_bookings'] <= 0): ?>
+                    <p class="text-muted small mb-0">
+                        Your referral code will be visible after your first successful booking is confirmed.
+                    </p>
                     <?php else: ?>
                     <p class="text-muted small mb-0">No referral code assigned</p>
                     <?php endif; ?>

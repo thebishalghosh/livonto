@@ -180,7 +180,7 @@ $flashMessage = getFlashMessage();
                 <i class="bi bi-envelope-open"></i>
             </div>
             <div class="admin-stat-card-content">
-                <div class="admin-stat-card-label">Read</div>
+                <div class="admin-stat-card-label">Pending</div>
                 <div class="admin-stat-card-value"><?= number_format($stats['read']) ?></div>
             </div>
         </div>
@@ -238,7 +238,7 @@ $flashMessage = getFlashMessage();
                 <select class="form-control form-control-sm filter-select" name="status" style="height: 38px;">
                     <option value="">All Status</option>
                     <option value="new" <?= $status === 'new' ? 'selected' : '' ?>>New</option>
-                    <option value="read" <?= $status === 'read' ? 'selected' : '' ?>>Read</option>
+                    <option value="read" <?= $status === 'read' ? 'selected' : '' ?>>Pending</option>
                     <option value="replied" <?= $status === 'replied' ? 'selected' : '' ?>>Replied</option>
                 </select>
             </div>
@@ -318,9 +318,10 @@ $flashMessage = getFlashMessage();
                                         'replied' => 'success'
                                     ];
                                     $statusColor = $statusColors[$enquiry['status']] ?? 'secondary';
+                                    $statusLabel = ($enquiry['status'] === 'read') ? 'Pending' : ucfirst($enquiry['status']);
                                     ?>
                                     <span class="badge bg-<?= $statusColor ?>">
-                                        <?= ucfirst($enquiry['status']) ?>
+                                        <?= $statusLabel ?>
                                     </span>
                                 </td>
                                 <td>
@@ -347,7 +348,7 @@ $flashMessage = getFlashMessage();
                                                     <form method="POST" action="?action=update_status&id=<?= $enquiry['id'] ?>" class="d-inline">
                                                         <input type="hidden" name="new_status" value="read">
                                                         <button type="submit" class="dropdown-item">
-                                                            <i class="bi bi-envelope-open me-2"></i>Mark as Read
+                                                            <i class="bi bi-envelope-open me-2"></i>Mark as Pending
                                                         </button>
                                                     </form>
                                                 </li>
@@ -386,6 +387,7 @@ $flashMessage = getFlashMessage();
                         'replied' => 'success'
                     ];
                     $statusColor = $statusColors[$enquiry['status']] ?? 'secondary';
+                    $statusLabel = ($enquiry['status'] === 'read') ? 'Pending' : ucfirst($enquiry['status']);
                     ?>
                     <div class="card mb-3 border-start border-4 border-<?= $statusColor ?>">
                         <div class="card-body">
@@ -395,7 +397,7 @@ $flashMessage = getFlashMessage();
                                     <small class="text-muted">ID: <?= htmlspecialchars($enquiry['id']) ?></small>
                                 </div>
                                 <span class="badge bg-<?= $statusColor ?>">
-                                    <?= ucfirst($enquiry['status']) ?>
+                                    <?= $statusLabel ?>
                                 </span>
                             </div>
                             
@@ -440,7 +442,7 @@ $flashMessage = getFlashMessage();
                                             <form method="POST" action="?action=update_status&id=<?= $enquiry['id'] ?>" class="d-inline">
                                                 <input type="hidden" name="new_status" value="read">
                                                 <button type="submit" class="dropdown-item">
-                                                    <i class="bi bi-envelope-open me-2"></i>Mark as Read
+                                                    <i class="bi bi-envelope-open me-2"></i>Mark as Pending
                                                 </button>
                                             </form>
                                         </li>
@@ -476,6 +478,7 @@ $flashMessage = getFlashMessage();
                     'replied' => 'success'
                 ];
                 $statusColor = $statusColors[$enquiry['status']] ?? 'secondary';
+                $statusLabel = ($enquiry['status'] === 'read') ? 'Pending' : ucfirst($enquiry['status']);
                 ?>
                 <div class="modal fade" id="enquiryModal<?= $enquiry['id'] ?>" tabindex="-1">
                     <div class="modal-dialog modal-lg">
@@ -512,7 +515,7 @@ $flashMessage = getFlashMessage();
                                         <label class="form-label text-muted">Status</label>
                                         <p class="mb-0">
                                             <span class="badge bg-<?= $statusColor ?>">
-                                                <?= ucfirst($enquiry['status']) ?>
+                                                <?= $statusLabel ?>
                                             </span>
                                         </p>
                                     </div>

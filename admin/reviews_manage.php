@@ -18,11 +18,11 @@ if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
 $action = $_GET['action'] ?? '';
 $reviewId = intval($_GET['id'] ?? 0);
 
-// Handle delete action
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete' && $reviewId) {
+// Handle admin review actions (delete, edit)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $reviewId) {
     try {
         $db = db();
-        
+
         $review = $db->fetchOne("SELECT id FROM reviews WHERE id = ?", [$reviewId]);
         if (!$review) {
             $_SESSION['flash_message'] = 'Review not found';
@@ -30,18 +30,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete' && $reviewId) 
             header('Location: ' . app_url('admin/reviews'));
             exit;
         }
-        
-        if (isset($_POST['confirm_delete'])) {
-            // Delete review
+
+        // Delete review
+        if ($action === 'delete' && isset($_POST['confirm_delete'])) {
             $db->execute("DELETE FROM reviews WHERE id = ?", [$reviewId]);
-            
+
             $_SESSION['flash_message'] = 'Review deleted successfully';
             $_SESSION['flash_type'] = 'success';
             header('Location: ' . app_url('admin/reviews'));
             exit;
         }
+
+        // Edit / update review (admin can override any review)
+        if ($action === 'edit' && isset($_POST['save_review'])) {
+            $newRating = intval($_POST['rating'] ?? 0);
+            $newComment = trim($_POST['comment'] ?? '');
+
+            if ($newRating < 1 || $newRating > 5) {
+                $_SESSION['flash_message'] = 'Rating must be between 1 and 5.';
+                $_SESSION['flash_type'] = 'danger';
+            } elseif (empty($newComment)) {
+                $_SESSION['flash_message'] = 'Comment cannot be empty.';
+                $_SESSION['flash_type'] = 'danger';
+            } elseif (mb_strlen($newComment) > 1000) {
+                $_SESSION['flash_message'] = 'Comment must be less than 1000 characters.';
+                $_SESSION['flash_type'] = 'danger';
+            } else {
+                $db->execute(
+                    "UPDATE reviews SET rating = ?, comment = ? WHERE id = ?",
+                    [$newRating, $newComment, $reviewId]
+                );
+
+                $_SESSION['flash_message'] = 'Review updated successfully';
+                $_SESSION['flash_type'] = 'success';
+                header('Location: ' . app_url('admin/reviews'));
+                exit;
+            }
+        }
     } catch (Exception $e) {
-        $_SESSION['flash_message'] = 'Error deleting review: ' . $e->getMessage();
+        $_SESSION['flash_message'] = 'Error updating review: ' . $e->getMessage();
         $_SESSION['flash_type'] = 'danger';
     }
 }
@@ -395,6 +422,13 @@ try {
                                             <i class="bi bi-person"></i>
                                         </a>
                                         <button type="button" 
+                                                class="btn btn-sm btn-outline-secondary" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editModal<?= $review['id'] ?>"
+                                                title="Edit Review">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" 
                                                 class="btn btn-sm btn-outline-danger" 
                                                 data-bs-toggle="modal" 
                                                 data-bs-target="#deleteModal<?= $review['id'] ?>"
@@ -403,6 +437,39 @@ try {
                                         </button>
                                     </div>
                                     
+                                    <!-- Edit Modal -->
+                                    <div class="modal fade" id="editModal<?= $review['id'] ?>" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Edit Review</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <form method="POST" action="<?= htmlspecialchars(app_url('admin/reviews?action=edit&id=' . $review['id'])) ?>">
+                                                    <div class="modal-body">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Rating</label>
+                                                            <select name="rating" class="form-select" required>
+                                                                <?php for ($i = 5; $i >= 1; $i--): ?>
+                                                                    <option value="<?= $i ?>" <?= $i == $review['rating'] ? 'selected' : '' ?>><?= $i ?> Star<?= $i > 1 ? 's' : '' ?></option>
+                                                                <?php endfor; ?>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Comment</label>
+                                                            <textarea name="comment" class="form-control" rows="4" maxlength="1000" required><?= htmlspecialchars($review['comment'] ?? '') ?></textarea>
+                                                            <small class="text-muted">Max 1000 characters.</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" name="save_review" value="1" class="btn btn-primary">Save Changes</button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Delete Modal -->
                                     <div class="modal fade" id="deleteModal<?= $review['id'] ?>" tabindex="-1">
                                         <div class="modal-dialog">

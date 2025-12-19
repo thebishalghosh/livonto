@@ -13,12 +13,20 @@ $refLink = $referralCode ? app_url('register?ref=' . urlencode($referralCode)) :
 // Get user's referral statistics if logged in
 $referralStats = null;
 $myReferrals = [];
+$hasSuccessfulBooking = false;
 
 if ($isLoggedIn && $userId) {
     try {
         $db = db();
+
+        // Check if user has at least one successful (confirmed) booking
+        $confirmedBookingsCount = (int)$db->fetchValue(
+            "SELECT COUNT(*) FROM bookings WHERE user_id = ? AND status = 'confirmed'",
+            [$userId]
+        );
+        $hasSuccessfulBooking = $confirmedBookingsCount > 0;
         
-        // Get user's referral statistics
+        // Get user's referral statistics (only used/displayed if referral is unlocked)
         $referralStats = [
             'total_referrals' => (int)$db->fetchValue("SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", [$userId]) ?: 0,
             'pending_referrals' => (int)$db->fetchValue("SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND status = 'pending'", [$userId]) ?: 0,
@@ -55,6 +63,7 @@ if ($isLoggedIn && $userId) {
             'total_rewards' => 0,
             'pending_rewards' => 0,
         ];
+        $hasSuccessfulBooking = false;
     }
 }
 ?>
@@ -66,7 +75,7 @@ if ($isLoggedIn && $userId) {
             <h1 class="display-5 mb-3">Refer your Friends and Win Rewards</h1>
             <p class="lead text-muted mb-4">When your friend makes a purchase, they will get <strong>₹500 off</strong> instantly, &amp; you will get <strong>₹1,500</strong> cash within 7 working days.</p>
 
-            <?php if ($isLoggedIn && $referralCode): ?>
+            <?php if ($isLoggedIn && $referralCode && $hasSuccessfulBooking): ?>
                 <!-- Referral Code Card -->
                 <div class="card pg mb-4">
                     <div class="card-body p-4">
@@ -178,7 +187,7 @@ if ($isLoggedIn && $userId) {
                 <?php endif; ?>
                 <?php endif; ?>
 
-            <?php else: ?>
+            <?php elseif (!$isLoggedIn): ?>
                 <div class="card pg mb-4">
                     <div class="card-body p-4">
                         <div class="d-flex align-items-center mb-3">
@@ -191,6 +200,23 @@ if ($isLoggedIn && $userId) {
                         <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#loginModal">
                             <i class="bi bi-box-arrow-in-right me-2"></i>Login Now
                         </button>
+                    </div>
+                </div>
+            <?php elseif ($isLoggedIn && !$hasSuccessfulBooking): ?>
+                <div class="card pg mb-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-3">
+                            <i class="bi bi-lock me-3 fs-1" style="color: var(--primary);"></i>
+                            <div>
+                                <h5 class="mb-1" style="color: var(--primary-700);">Referral code locked</h5>
+                                <p class="text-muted mb-0 small">
+                                    Complete at least one successful booking to unlock your referral code and start earning rewards.
+                                </p>
+                            </div>
+                        </div>
+                        <a href="<?= app_url('listings') ?>" class="btn btn-primary btn-lg">
+                            <i class="bi bi-search me-2"></i>Browse Listings
+                        </a>
                     </div>
                 </div>
             <?php endif; ?>

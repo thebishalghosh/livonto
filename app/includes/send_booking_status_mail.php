@@ -17,13 +17,14 @@ function sendBookingStatusMail($userEmail, $status, $bookingId) {
         // Get database instance
         $db = db();
         
-        // Fetch booking details with user, listing, room config, and payment info
+        // Fetch booking details with user, listing, location, room config, and payment info
         $booking = $db->fetchOne(
             "SELECT b.id, b.booking_start_date, b.total_amount, b.status, b.special_requests,
                     b.duration_months,
                     u.name as user_name, u.email as user_email, u.phone as user_phone,
                     l.title as listing_title,
                     loc.city as listing_city, loc.complete_address as listing_address, loc.pin_code as listing_pincode,
+                    loc.google_maps_link as listing_maps_link,
                     rc.room_type, rc.rent_per_month,
                     p.id as payment_id, p.status as payment_status, p.amount as payment_amount,
                     i.invoice_number
@@ -433,6 +434,25 @@ function sendBookingStatusMail($userEmail, $status, $bookingId) {
                             <tr>
                                 <td>Location</td>
                                 <td>{$booking['listing_city']}" . (!empty($booking['listing_pincode']) ? " - {$booking['listing_pincode']}" : "") . "</td>
+                            </tr>
+                            " : "") . "
+                            " . (!empty($booking['listing_address']) ? "
+                            <tr>
+                                <td>Full Address</td>
+                                <td>" . nl2br(htmlspecialchars($booking['listing_address'])) . "</td>
+                            </tr>
+                            " : "") . "
+                            " . (!empty($booking['listing_maps_link']) ? "
+                            <tr>
+                                <td>Google Maps</td>
+                                <td>
+                                    <a href='" . htmlspecialchars($booking['listing_maps_link']) . "' 
+                                       target='_blank' 
+                                       rel='noopener' 
+                                       style='color:#8b6bd1; text-decoration:underline;'>
+                                        View on Google Maps
+                                    </a>
+                                </td>
                             </tr>
                             " : "") . "
                             <tr>

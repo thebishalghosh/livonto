@@ -398,11 +398,21 @@ if ($action === 'submit_booking') {
         // Availability will only decrease when booking status changes to 'confirmed'
         // This ensures pending bookings don't affect availability until payment is confirmed
         
-        // Send admin notification about new booking
+        // Send admin notification about new booking with full PG details
         try {
             require_once __DIR__ . '/email_helper.php';
             $user = $db->fetchOne("SELECT name, email FROM users WHERE id = ?", [$userId]);
-            $listing = $db->fetchOne("SELECT title FROM listings WHERE id = ?", [$listingId]);
+            $listingDetails = $db->fetchOne(
+                "SELECT l.title,
+                        loc.complete_address,
+                        loc.city,
+                        loc.pin_code,
+                        loc.google_maps_link
+                 FROM listings l
+                 LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+                 WHERE l.id = ?",
+                [$listingId]
+            );
             $baseUrl = app_url('');
             sendAdminNotification(
                 "New Booking Request - Booking #{$bookingId}",
@@ -412,7 +422,11 @@ if ($action === 'submit_booking') {
                     'Booking ID' => '#' . $bookingId,
                     'User Name' => $user['name'] ?? 'Unknown',
                     'User Email' => $user['email'] ?? 'N/A',
-                    'Property' => $listing['title'] ?? 'Unknown',
+                    'Property' => $listingDetails['title'] ?? 'Unknown',
+                    'Address' => $listingDetails['complete_address'] ?? 'N/A',
+                    'City / PIN' => trim(($listingDetails['city'] ?? '') .
+                        (!empty($listingDetails['pin_code']) ? ' - ' . $listingDetails['pin_code'] : '')) ?: 'N/A',
+                    'Google Maps' => $listingDetails['google_maps_link'] ?? 'N/A',
                     'Start Date' => date('F d, Y', strtotime($bookingStartDate)),
                     'Duration' => $durationMonths . ' month(s)',
                     'Total Amount' => '₹' . number_format($totalAmountWithGst, 2),
@@ -505,12 +519,15 @@ if ($action === 'check_availability') {
                 $checkMonth = $checkDate->format('Y-m'); // Format to match DATE_FORMAT output
                 
                 // Count booked beds for this room config for this month (each booking = 1 bed)
+                // IMPORTANT: Only confirmed bookings should block availability.
+                // Pending/unpaid bookings must NOT reduce availability to avoid
+                // locking beds when payment fails or is abandoned.
                 $bookedBedsForMonth = $db->fetchOne(
                     "SELECT COUNT(*) as count 
                      FROM bookings 
                      WHERE room_config_id = ? 
                      AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
-                     AND status IN ('pending', 'confirmed')",
+                     AND status = 'confirmed'",
                     [$room['id'], $checkMonth]
                 );
                 

@@ -17,12 +17,13 @@ function sendStatusMail($userEmail, $status, $bookingId) {
         // Get database instance
         $db = db();
         
-        // Fetch visit booking details with user and listing info
+        // Fetch visit booking details with user, listing and location info
         $booking = $db->fetchOne(
             "SELECT vb.id, vb.preferred_date, vb.preferred_time, vb.message, vb.status,
                     u.name as user_name, u.email as user_email,
                     l.title as listing_title,
-                    loc.city as listing_city, loc.complete_address as listing_address
+                    loc.city as listing_city, loc.complete_address as listing_address, loc.pin_code as listing_pincode,
+                    loc.google_maps_link as listing_maps_link
              FROM visit_bookings vb
              LEFT JOIN users u ON vb.user_id = u.id
              LEFT JOIN listings l ON vb.listing_id = l.id
@@ -395,7 +396,26 @@ function sendStatusMail($userEmail, $status, $bookingId) {
                             " . (!empty($booking['listing_city']) ? "
                             <tr>
                                 <td>Location</td>
-                                <td>{$booking['listing_city']}</td>
+                                <td>{$booking['listing_city']}" . (!empty($booking['listing_pincode']) ? " - {$booking['listing_pincode']}" : "") . "</td>
+                            </tr>
+                            " : "") . "
+                            " . (!empty($booking['listing_address']) ? "
+                            <tr>
+                                <td>Full Address</td>
+                                <td>" . nl2br(htmlspecialchars($booking['listing_address'])) . "</td>
+                            </tr>
+                            " : "") . "
+                            " . (!empty($booking['listing_maps_link']) ? "
+                            <tr>
+                                <td>Google Maps</td>
+                                <td>
+                                    <a href='" . htmlspecialchars($booking['listing_maps_link']) . "' 
+                                       target='_blank' 
+                                       rel='noopener' 
+                                       style='color:#8b6bd1; text-decoration:underline;'>
+                                        View on Google Maps
+                                    </a>
+                                </td>
                             </tr>
                             " : "") . "
                         </table>

@@ -32,6 +32,11 @@ if (!$invoice) {
 
 $pageTitle = "Invoice #" . htmlspecialchars($invoice['invoice_number']);
 $baseUrl = rtrim(app_url(''), '/');
+
+// Determine where the back button should go based on role
+// - Admin: back to admin panel (bookings list)
+// - Normal user: back to profile
+$backUrl = $isAdmin ? app_url('admin/bookings') : app_url('profile');
 ?>
 <!doctype html>
 <html lang="en">
@@ -329,7 +334,7 @@ $baseUrl = rtrim(app_url(''), '/');
   <div class="invoice-container">
     <!-- Actions -->
     <div class="actions no-print">
-      <a href="<?= app_url('profile') ?>" class="btn btn-outline">
+      <a href="<?= htmlspecialchars($backUrl) ?>" class="btn btn-outline">
         <i class="bi bi-arrow-left"></i> Back to Profile
       </a>
       <div style="display: flex; gap: 10px;">

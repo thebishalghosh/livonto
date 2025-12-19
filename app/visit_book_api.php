@@ -106,11 +106,21 @@ try {
     
     $visitBookingId = $db->lastInsertId();
     
-    // Send admin notification about new visit booking
+    // Send admin notification about new visit booking with full PG details
     try {
         require_once __DIR__ . '/email_helper.php';
         $user = $db->fetchOne("SELECT name, email FROM users WHERE id = ?", [$userId]);
-        $listing = $db->fetchOne("SELECT title FROM listings WHERE id = ?", [$listingId]);
+        $listingDetails = $db->fetchOne(
+            "SELECT l.title,
+                    loc.complete_address,
+                    loc.city,
+                    loc.pin_code,
+                    loc.google_maps_link
+             FROM listings l
+             LEFT JOIN listing_locations loc ON l.id = loc.listing_id
+             WHERE l.id = ?",
+            [$listingId]
+        );
         $baseUrl = app_url('');
         sendAdminNotification(
             "New Visit Booking Request - Visit #{$visitBookingId}",
@@ -120,7 +130,11 @@ try {
                 'Visit ID' => '#' . $visitBookingId,
                 'User Name' => $user['name'] ?? 'Unknown',
                 'User Email' => $user['email'] ?? 'N/A',
-                'Property' => $listing['title'] ?? 'Unknown',
+                'Property' => $listingDetails['title'] ?? 'Unknown',
+                'Address' => $listingDetails['complete_address'] ?? 'N/A',
+                'City / PIN' => trim(($listingDetails['city'] ?? '') .
+                    (!empty($listingDetails['pin_code']) ? ' - ' . $listingDetails['pin_code'] : '')) ?: 'N/A',
+                'Google Maps' => $listingDetails['google_maps_link'] ?? 'N/A',
                 'Preferred Date' => date('F d, Y', strtotime($date)),
                 'Preferred Time' => date('h:i A', strtotime($time)),
                 'Status' => 'Pending'

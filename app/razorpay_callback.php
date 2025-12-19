@@ -258,10 +258,17 @@ try {
         try {
             require_once __DIR__ . '/email_helper.php';
             $bookingDetails = $db->fetchOne(
-                "SELECT b.id, b.total_amount, u.name as user_name, u.email as user_email, l.title as listing_title
+                "SELECT b.id, b.total_amount,
+                        u.name as user_name, u.email as user_email,
+                        l.title as listing_title,
+                        loc.complete_address,
+                        loc.city,
+                        loc.pin_code,
+                        loc.google_maps_link
                  FROM bookings b
                  LEFT JOIN users u ON b.user_id = u.id
                  LEFT JOIN listings l ON b.listing_id = l.id
+                 LEFT JOIN listing_locations loc ON l.id = loc.listing_id
                  WHERE b.id = ?",
                 [$bookingId]
             );
@@ -279,6 +286,10 @@ try {
                     'User Name' => $bookingDetails['user_name'] ?? 'Unknown',
                     'User Email' => $bookingDetails['user_email'] ?? 'N/A',
                     'Property' => $bookingDetails['listing_title'] ?? 'Unknown',
+                    'Address' => $bookingDetails['complete_address'] ?? 'N/A',
+                    'City / PIN' => trim(($bookingDetails['city'] ?? '') .
+                        (!empty($bookingDetails['pin_code']) ? ' - ' . $bookingDetails['pin_code'] : '')) ?: 'N/A',
+                    'Google Maps' => $bookingDetails['google_maps_link'] ?? 'N/A',
                     'Payment Amount' => '₹' . number_format($paymentDetails['amount'] ?? 0, 2),
                     'GST Amount' => '₹' . number_format($paymentDetails['gst_amount'] ?? 0, 2),
                     'Total Amount' => '₹' . number_format($bookingDetails['total_amount'] ?? 0, 2),

@@ -800,11 +800,12 @@ $baseUrl = app_url('');
                                             </td>
                                             <?php
                                             $startDate = $booking['booking_start_date'] ?? null;
+                                            $duration = intval($booking['duration_months'] ?? 1);
                                             $endDate = null;
                                             if ($startDate) {
                                                 $start = new DateTime($startDate);
                                                 $end = clone $start;
-                                                $end->modify('+1 month');
+                                                $end->modify('+' . $duration . ' month');
                                                 $endDate = $end->format('Y-m-d');
                                             }
                                             ?>

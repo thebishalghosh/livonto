@@ -129,7 +129,7 @@ CREATE TABLE listing_additional_info (
 CREATE TABLE room_configurations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   listing_id INT,
-  room_type ENUM('single sharing', 'double sharing', 'triple sharing'),
+  room_type ENUM('single sharing', 'double sharing', 'triple sharing', '4 sharing'),
   rent_per_month DECIMAL(10,2),
   total_rooms INT,
   available_rooms INT,

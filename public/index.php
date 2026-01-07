@@ -82,9 +82,9 @@ try {
     // Fetch all images for each listing
     foreach ($latestListings as &$listing) {
         $listingImages = $db->fetchAll(
-            "SELECT image_path, image_order, is_cover 
-             FROM listing_images 
-             WHERE listing_id = ? 
+            "SELECT image_path, image_order, is_cover
+             FROM listing_images
+             WHERE listing_id = ?
              ORDER BY is_cover DESC, image_order ASC",
             [$listing['id']]
         );
@@ -94,7 +94,7 @@ try {
         foreach ($listingImages as $img) {
             $imagePath = trim($img['image_path']);
             if (empty($imagePath)) continue;
-            
+
             if (strpos($imagePath, 'http') === 0 || strpos($imagePath, '//') === 0) {
                 $images[] = $imagePath;
             } else {
@@ -135,14 +135,14 @@ try {
          ORDER BY listing_count DESC
          LIMIT 10"
     );
-    
+
     // Get statistics
     $stats = [
         'total_listings' => (int)$db->fetchValue("SELECT COUNT(*) FROM listings WHERE status = 'active'") ?: 0,
         'total_cities' => (int)$db->fetchValue("SELECT COUNT(DISTINCT city) FROM listing_locations WHERE city IS NOT NULL AND city != ''") ?: 0,
         'total_bookings' => (int)$db->fetchValue("SELECT COUNT(*) FROM bookings WHERE status = 'confirmed'") ?: 0
     ];
-    
+
     // Get testimonials from reviews (if available)
     $testimonials = $db->fetchAll(
         "SELECT r.comment, r.rating, u.name as user_name, l.title as listing_title, loc.city
@@ -190,8 +190,8 @@ try {
   <div class="col-md-5 text-center">
     <div id="mapPlaceholder" style="display: block;">
       <?php
-      $imagePath = ($baseUrl === '' || $baseUrl === '/') 
-          ? '/public/assets/images/livonto-image.jpg' 
+      $imagePath = ($baseUrl === '' || $baseUrl === '/')
+          ? '/public/assets/images/livonto-image.jpg'
           : ($baseUrl . '/public/assets/images/livonto-image.jpg');
       ?>
       <img src="<?= htmlspecialchars($imagePath) ?>" alt="Livonto" class="img-fluid" style="max-height:260px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
@@ -249,10 +249,10 @@ try {
     <?php if ($hasSearchFilters): ?>
       <div id="featuredDefault" class="row g-4">
         <?php foreach ($latestListings as $listing): ?>
-          <?php 
+          <?php
           // Build listing URL
           $listingUrl = app_url('listings/' . $listing['id']);
-          
+
           // Format price
           $priceText = '';
           if ($listing['min_rent']) {
@@ -262,14 +262,14 @@ try {
                   $priceText = '₹' . number_format($listing['min_rent']) . ' - ₹' . number_format($listing['max_rent']);
               }
           }
-          
+
           // Format description (truncate if too long)
           $description = !empty($listing['description']) ? $listing['description'] : 'Comfortable PG accommodation.';
           $description = mb_substr($description, 0, 100);
           if (mb_strlen($listing['description'] ?? '') > 100) {
               $description .= '...';
           }
-          
+
           // Format location
           $location = '';
           if (!empty($listing['city'])) {
@@ -281,7 +281,7 @@ try {
           if (empty($location)) {
               $location = 'Location not specified';
           }
-          
+
           // Format gender/available for
           $genderInfo = '';
           if (!empty($listing['available_for']) && $listing['available_for'] !== 'both') {
@@ -300,30 +300,30 @@ try {
                 <div class="listing-carousel position-relative" data-listing-id="<?= $listing['id'] ?>">
                   <div class="carousel-container">
                     <?php foreach ($listing['images'] as $index => $imgUrl): ?>
-                      <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>" 
+                      <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>"
                            style="display: <?= $index === 0 ? 'block' : 'none' ?>; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-                        <img src="<?= htmlspecialchars($imgUrl) ?>" 
-                             class="w-100 h-100" 
+                        <img src="<?= htmlspecialchars($imgUrl) ?>"
+                             class="w-100 h-100"
                              style="object-fit: cover;"
                              alt="<?= htmlspecialchars($listing['title']) ?> - Image <?= $index + 1 ?>"
                              onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
                       </div>
                     <?php endforeach; ?>
                   </div>
-                  
+
                   <!-- Navigation Arrows -->
                   <?php if (count($listing['images']) > 1): ?>
-                    <button class="carousel-btn carousel-prev" 
+                    <button class="carousel-btn carousel-prev"
                             onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, -1)"
                             aria-label="Previous image">
                       <i class="bi bi-chevron-left"></i>
                     </button>
-                    <button class="carousel-btn carousel-next" 
+                    <button class="carousel-btn carousel-next"
                             onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, 1)"
                             aria-label="Next image">
                       <i class="bi bi-chevron-right"></i>
                     </button>
-                    
+
                     <!-- Image Count Badge -->
                     <div class="carousel-badge">
                       <?= count($listing['images']) ?> Photo<?= count($listing['images']) !== 1 ? 's' : '' ?>
@@ -336,13 +336,13 @@ try {
                 <p class="small text-muted mb-3 flex-grow-1"><?= htmlspecialchars($description) ?></p>
                 <div class="d-flex gap-2 mt-auto">
                   <?php if (isLoggedIn()): ?>
-                    <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
+                    <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>"
                        class="btn btn-outline-primary btn-sm flex-fill text-center"
                        onclick="event.stopPropagation();"
                        style="border-color: var(--primary); color: var(--primary);">
                       Book a Visit
                     </a>
-                    <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
+                    <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>"
                        class="btn btn-primary btn-sm flex-fill text-white text-center"
                        onclick="event.stopPropagation();">
                       Book Now
@@ -373,7 +373,7 @@ try {
         </button>
         <div id="featuredDefault" class="top-rated-carousel-scroll" role="region" aria-label="Top rated PG carousel">
           <?php foreach ($latestListings as $listing): ?>
-            <?php 
+            <?php
             $listingUrl = app_url('listings/' . $listing['id']);
             $priceText = '';
             if ($listing['min_rent']) {
@@ -414,10 +414,10 @@ try {
                   <div class="listing-carousel position-relative" data-listing-id="<?= $listing['id'] ?>">
                     <div class="carousel-container">
                       <?php foreach ($listing['images'] as $index => $imgUrl): ?>
-                        <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>" 
+                        <div class="carousel-slide <?= $index === 0 ? 'active' : '' ?>"
                              style="display: <?= $index === 0 ? 'block' : 'none' ?>; position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-                          <img src="<?= htmlspecialchars($imgUrl) ?>" 
-                               class="w-100 h-100" 
+                          <img src="<?= htmlspecialchars($imgUrl) ?>"
+                               class="w-100 h-100"
                                style="object-fit: cover;"
                                alt="<?= htmlspecialchars($listing['title']) ?> - Image <?= $index + 1 ?>"
                                onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg=='">
@@ -425,12 +425,12 @@ try {
                       <?php endforeach; ?>
                     </div>
                     <?php if (count($listing['images']) > 1): ?>
-                      <button class="carousel-btn carousel-prev" 
+                      <button class="carousel-btn carousel-prev"
                               onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, -1)"
                               aria-label="Previous image">
                         <i class="bi bi-chevron-left"></i>
                       </button>
-                      <button class="carousel-btn carousel-next" 
+                      <button class="carousel-btn carousel-next"
                               onclick="event.preventDefault(); event.stopPropagation(); navigateCarousel(<?= $listing['id'] ?>, 1)"
                               aria-label="Next image">
                         <i class="bi bi-chevron-right"></i>
@@ -446,13 +446,13 @@ try {
                   <p class="small text-muted mb-3 flex-grow-1"><?= htmlspecialchars($description) ?></p>
                   <div class="d-flex gap-2 mt-auto">
                     <?php if (isLoggedIn()): ?>
-                      <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>" 
+                      <a href="<?= htmlspecialchars(app_url('visit-book?id=' . $listing['id'])) ?>"
                          class="btn btn-outline-primary btn-sm flex-fill text-center"
                          onclick="event.stopPropagation();"
                          style="border-color: var(--primary); color: var(--primary);">
                         Book a Visit
                       </a>
-                      <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>" 
+                      <a href="<?= htmlspecialchars($listingUrl . '?action=book') ?>"
                          class="btn btn-primary btn-sm flex-fill text-white text-center"
                          onclick="event.stopPropagation();">
                         Book Now
@@ -576,10 +576,10 @@ try {
         <div class="card-body">
           <div class="d-flex align-items-start gap-3">
             <span class="badge-soft">Step 2</span>
-            <i class="bi bi-chat-dots fs-4 text-primary"></i>
+            <i class="bi bi-check2-circle fs-4 text-primary"></i>
           </div>
-          <h6 class="mt-3">Connect</h6>
-          <p class="text-muted small mb-0">Message the host, clarify details and schedule a quick visit.</p>
+          <h6 class="mt-3">Book</h6>
+          <p class="text-muted small mb-0">Reserve instantly with secure payment and get digital confirmation.</p>
         </div>
       </div>
     </div>
@@ -588,10 +588,10 @@ try {
         <div class="card-body">
           <div class="d-flex align-items-start gap-3">
             <span class="badge-soft">Step 3</span>
-            <i class="bi bi-check2-circle fs-4 text-primary"></i>
+            <i class="bi bi-chat-dots fs-4 text-primary"></i>
           </div>
-          <h6 class="mt-3">Book</h6>
-          <p class="text-muted small mb-0">Reserve instantly with secure payment and get digital confirmation.</p>
+          <h6 class="mt-3">Connect</h6>
+          <p class="text-muted small mb-0">Message the host, clarify details and schedule a quick visit.</p>
         </div>
       </div>
     </div>

@@ -120,6 +120,8 @@ function getBedsPerRoom($roomType) {
             return 2;
         case 'triple sharing':
             return 3;
+        case '4 sharing':
+            return 4;
         default:
             return 1; // Default to 1 bed if unknown
     }
@@ -648,4 +650,3 @@ function renderAdminPagination($currentPage, $totalPages, $totalItems, $perPage,
     
     return $html;
 }
-

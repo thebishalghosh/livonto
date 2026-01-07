@@ -757,6 +757,7 @@ function addRoomConfig() {
                 <option value="single sharing">Single Sharing</option>
                 <option value="double sharing">Double Sharing</option>
                 <option value="triple sharing">Triple Sharing</option>
+                <option value="4 sharing">4 Sharing</option>
             </select>
         </div>
         <div class="col-md-3">
@@ -768,7 +769,7 @@ function addRoomConfig() {
             <input type="number" class="form-control" name="room_configs[${roomConfigCount}][total_rooms]" required min="1" value="1">
         </div>
         <div class="col-md-2">
-            <label class="form-label">Available Rooms <span class="text-danger">*</span></label>
+            <label class="form-label">Available Beds <span class="text-danger">*</span></label>
             <input type="number" class="form-control" name="room_configs[${roomConfigCount}][available_rooms]" required min="0" value="1">
         </div>
         <div class="col-md-2 d-flex align-items-end">

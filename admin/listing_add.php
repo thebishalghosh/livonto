@@ -533,9 +533,16 @@ $flashMessage = getFlashMessage();
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Security Deposit</label>
-                    <input type="text" class="form-control" name="security_deposit_amount" 
-                           placeholder="e.g., ₹10,000 or No Deposit" value="No Deposit">
+                    <label class="form-label">Security Deposit (Months)</label>
+                    <select class="form-control filter-select" name="security_deposit_amount">
+                        <option value="No Deposit">No Deposit</option>
+                        <option value="1">1 Month Rent</option>
+                        <option value="2">2 Months Rent</option>
+                        <option value="3">3 Months Rent</option>
+                        <option value="4">4 Months Rent</option>
+                        <option value="5">5 Months Rent</option>
+                        <option value="6">6 Months Rent</option>
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Notice Period (days)</label>

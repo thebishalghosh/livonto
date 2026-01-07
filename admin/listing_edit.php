@@ -611,10 +611,16 @@ $flashMessage = getFlashMessage();
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label">Security Deposit</label>
-                    <input type="text" class="form-control" name="security_deposit_amount" 
-                           value="<?= htmlspecialchars($listing['security_deposit_amount'] ?? 'No Deposit') ?>"
-                           placeholder="e.g., ₹10,000 or No Deposit">
+                    <label class="form-label">Security Deposit (Months)</label>
+                    <select class="form-control filter-select" name="security_deposit_amount">
+                        <option value="No Deposit" <?= ($listing['security_deposit_amount'] ?? '') === 'No Deposit' ? 'selected' : '' ?>>No Deposit</option>
+                        <option value="1" <?= ($listing['security_deposit_amount'] ?? '') == '1' ? 'selected' : '' ?>>1 Month Rent</option>
+                        <option value="2" <?= ($listing['security_deposit_amount'] ?? '') == '2' ? 'selected' : '' ?>>2 Months Rent</option>
+                        <option value="3" <?= ($listing['security_deposit_amount'] ?? '') == '3' ? 'selected' : '' ?>>3 Months Rent</option>
+                        <option value="4" <?= ($listing['security_deposit_amount'] ?? '') == '4' ? 'selected' : '' ?>>4 Months Rent</option>
+                        <option value="5" <?= ($listing['security_deposit_amount'] ?? '') == '5' ? 'selected' : '' ?>>5 Months Rent</option>
+                        <option value="6" <?= ($listing['security_deposit_amount'] ?? '') == '6' ? 'selected' : '' ?>>6 Months Rent</option>
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Notice Period (days)</label>
@@ -1261,3 +1267,4 @@ document.querySelectorAll('.image-item').forEach(item => {
 </script>
 
 <?php require __DIR__ . '/../app/includes/admin_footer.php'; ?>
+

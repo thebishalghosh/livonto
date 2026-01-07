@@ -4,22 +4,31 @@
  * List, search, filter, and manage users
  */
 
-$pageTitle = "Users Management";
-require __DIR__ . '/../app/includes/admin_header.php';
-// functions.php is already included in admin_header.php
+// Start session if not already started (needed for flash messages and auth check)
+if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Get filter parameters
-$search = trim($_GET['search'] ?? '');
-$role = $_GET['role'] ?? '';
-$sort = $_GET['sort'] ?? 'created_at';
-$order = $_GET['order'] ?? 'DESC';
-$page = max(1, intval($_GET['page'] ?? 1));
-$perPage = 20;
-$offset = ($page - 1) * $perPage;
+// Load config and functions first (needed for db() and app_url())
+require_once __DIR__ . '/../app/config.php';
+require_once __DIR__ . '/../app/functions.php';
 
-// Handle actions
-$action = $_GET['action'] ?? '';
-$userId = intval($_GET['id'] ?? 0);
+// Check for AJAX request
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+
+// Ensure admin is logged in (auth check before any action)
+if (empty($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+        exit;
+    }
+    header('Location: ' . app_url('admin/login'));
+    exit;
+}
+
+// Handle actions - Process POST requests BEFORE including header
+// Check both GET and POST for action and ID
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+$userId = intval($_GET['id'] ?? $_POST['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $userId) {
     // Handle POST actions (delete, change role, etc.)
@@ -32,13 +41,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $userId) {
                 // Delete user (cascade will handle related records)
                 $db->execute("DELETE FROM users WHERE id = ?", [$userId]);
                 error_log("Admin deleted user: ID {$userId} ({$user['email']}) by Admin ID {$_SESSION['user_id']}");
+
+                if ($isAjax) {
+                    // Clear buffer to ensure no previous output
+                    while (ob_get_level()) ob_end_clean();
+                    header('Content-Type: application/json');
+                    echo json_encode(['status' => 'success', 'message' => 'User deleted successfully']);
+                    exit;
+                }
+
                 $_SESSION['flash_message'] = 'User deleted successfully';
                 $_SESSION['flash_type'] = 'success';
                 header('Location: ' . app_url('admin/users'));
                 exit;
+            } else {
+                if ($isAjax) {
+                    while (ob_get_level()) ob_end_clean();
+                    header('Content-Type: application/json');
+                    echo json_encode(['status' => 'error', 'message' => 'User not found']);
+                    exit;
+                }
             }
         } catch (Exception $e) {
             error_log("Error deleting user: " . $e->getMessage());
+
+            if ($isAjax) {
+                while (ob_get_level()) ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['status' => 'error', 'message' => 'Error deleting user']);
+                exit;
+            }
+
             $_SESSION['flash_message'] = 'Error deleting user';
             $_SESSION['flash_type'] = 'danger';
         }
@@ -49,18 +82,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action && $userId) {
                 $db = db();
                 $db->execute("UPDATE users SET role = ? WHERE id = ?", [$newRole, $userId]);
                 error_log("Admin changed user role: ID {$userId} to {$newRole} by Admin ID {$_SESSION['user_id']}");
+
+                if ($isAjax) {
+                    while (ob_get_level()) ob_end_clean();
+                    header('Content-Type: application/json');
+                    echo json_encode(['status' => 'success', 'message' => 'User role updated successfully']);
+                    exit;
+                }
+
                 $_SESSION['flash_message'] = 'User role updated successfully';
                 $_SESSION['flash_type'] = 'success';
                 header('Location: ' . app_url('admin/users'));
                 exit;
             } catch (Exception $e) {
                 error_log("Error changing user role: " . $e->getMessage());
+
+                if ($isAjax) {
+                    while (ob_get_level()) ob_end_clean();
+                    header('Content-Type: application/json');
+                    echo json_encode(['status' => 'error', 'message' => 'Error updating user role']);
+                    exit;
+                }
+
                 $_SESSION['flash_message'] = 'Error updating user role';
                 $_SESSION['flash_type'] = 'danger';
             }
         }
     }
 }
+
+// Now include header for display
+$pageTitle = "Users Management";
+require __DIR__ . '/../app/includes/admin_header.php';
+
+// Get filter parameters
+$search = trim($_GET['search'] ?? '');
+$role = $_GET['role'] ?? '';
+$sort = $_GET['sort'] ?? 'created_at';
+$order = $_GET['order'] ?? 'DESC';
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 20;
+$offset = ($page - 1) * $perPage;
 
 try {
     $db = db();
@@ -306,7 +368,7 @@ $flashMessage = getFlashMessage();
                     </thead>
                     <tbody>
                         <?php foreach ($users as $user): ?>
-                            <tr>
+                            <tr id="user-row-<?= $user['id'] ?>">
                                 <td><?= htmlspecialchars($user['id']) ?></td>
                                 <td>
                                     <div class="d-flex align-items-center">
@@ -422,7 +484,7 @@ $flashMessage = getFlashMessage();
 <div class="modal fade" id="changeRoleModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="<?= app_url('admin/users') ?>">
+            <form id="changeRoleForm" method="POST" action="<?= app_url('admin/users') ?>">
                 <input type="hidden" name="action" value="change_role">
                 <input type="hidden" name="id" id="changeRoleUserId">
                 <div class="modal-header">
@@ -441,7 +503,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Change Role</button>
+                    <button type="submit" class="btn btn-primary" id="confirmRoleBtn">Change Role</button>
                 </div>
             </form>
         </div>
@@ -452,7 +514,7 @@ $flashMessage = getFlashMessage();
 <div class="modal fade" id="deleteUserModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form method="POST" action="<?= app_url('admin/users') ?>">
+            <form id="deleteUserForm" method="POST" action="<?= app_url('admin/users') ?>">
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="id" id="deleteUserId">
                 <input type="hidden" name="confirm_delete" value="1">
@@ -466,7 +528,7 @@ $flashMessage = getFlashMessage();
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-danger">Delete User</button>
+                    <button type="submit" class="btn btn-danger" id="confirmDeleteBtn">Delete User</button>
                 </div>
             </form>
         </div>
@@ -487,6 +549,99 @@ function deleteUser(userId, userName) {
     new bootstrap.Modal(document.getElementById('deleteUserModal')).show();
 }
 
+// Handle delete form submission via AJAX
+document.getElementById('deleteUserForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const form = this;
+    const btn = document.getElementById('confirmDeleteBtn');
+    const originalText = btn.innerHTML;
+    const userId = document.getElementById('deleteUserId').value;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...';
+
+    const formData = new FormData(form);
+
+    fetch(form.getAttribute('action'), {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteUserModal'));
+            modal.hide();
+
+            // Remove row from table
+            const row = document.getElementById('user-row-' + userId);
+            if (row) {
+                row.remove();
+            }
+
+            // Show success message (optional, could use a toast)
+            alert(data.message);
+        } else {
+            alert(data.message || 'Error deleting user');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while deleting the user');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+});
+
+// Handle change role form submission via AJAX
+document.getElementById('changeRoleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const form = this;
+    const btn = document.getElementById('confirmRoleBtn');
+    const originalText = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+
+    const formData = new FormData(form);
+
+    fetch(form.getAttribute('action'), {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('changeRoleModal'));
+            modal.hide();
+
+            // Reload page to reflect changes (simpler than updating DOM for role change)
+            window.location.reload();
+        } else {
+            alert(data.message || 'Error updating role');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while updating the role');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+});
+
 function viewUser(userId) {
     window.location.href = '<?= htmlspecialchars(app_url('admin/users/view')) ?>?id=' + userId;
 }
@@ -498,4 +653,3 @@ function exportUsers() {
 </script>
 
 <?php require __DIR__ . '/../app/includes/admin_footer.php'; ?>
-

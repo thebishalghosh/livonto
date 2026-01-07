@@ -397,7 +397,16 @@ try {
                                 <i class="bi bi-shield-check me-3 mt-1 info-item-icon"></i>
                                 <div>
                                     <div class="fw-semibold mb-1">Security Deposit</div>
-                                    <div class="text-muted small"><?= htmlspecialchars($listing['security_deposit_amount']) ?></div>
+                                    <div class="text-muted small">
+                                        <?php
+                                        $deposit = $listing['security_deposit_amount'];
+                                        if (is_numeric($deposit) && intval($deposit) >= 1 && intval($deposit) <= 6) {
+                                            echo intval($deposit) . ' Month' . (intval($deposit) > 1 ? 's' : '') . ' Rent';
+                                        } else {
+                                            echo htmlspecialchars($deposit);
+                                        }
+                                        ?>
+                                    </div>
                                 </div>
                             </div>
                         </div>

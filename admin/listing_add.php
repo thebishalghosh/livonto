@@ -162,8 +162,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 empty($config['total_rooms']) || !isset($config['available_rooms'])) {
                 $errors[] = "Room configuration #" . ($index + 1) . " is incomplete";
             }
-            if (isset($config['available_rooms']) && intval($config['available_rooms']) > intval($config['total_rooms'])) {
-                $errors[] = "Available rooms cannot exceed total rooms in configuration #" . ($index + 1);
+
+            // Calculate total beds based on room type
+            $bedsPerRoom = 1;
+            if ($config['room_type'] === 'double sharing') {
+                $bedsPerRoom = 2;
+            } elseif ($config['room_type'] === 'triple sharing') {
+                $bedsPerRoom = 3;
+            } elseif ($config['room_type'] === '4 sharing') {
+                $bedsPerRoom = 4;
+            }
+
+            $totalBeds = intval($config['total_rooms']) * $bedsPerRoom;
+            $availableBeds = intval($config['available_rooms']);
+
+            // Validate: available beds cannot exceed total beds
+            if ($availableBeds > $totalBeds) {
+                $errors[] = "Available beds cannot exceed total beds in configuration #" . ($index + 1) . " (Total: {$totalBeds} beds, Available: {$availableBeds} beds)";
             }
         }
     }
@@ -882,4 +897,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php require __DIR__ . '/../app/includes/admin_footer.php'; ?>
-

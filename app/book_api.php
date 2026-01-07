@@ -295,7 +295,7 @@ if ($action === 'submit_booking') {
             exit;
         }
         
-        // Get room configuration to check availability (bed-based)
+        // Get room configuration to check availability (bed-based) and rent
         $roomConfig = $db->fetchOne(
             "SELECT rent_per_month, total_rooms, room_type FROM room_configurations WHERE id = ? AND listing_id = ?",
             [$roomConfigId, $listingId]
@@ -339,18 +339,32 @@ if ($action === 'submit_booking') {
             }
         }
         
-        // Parse security deposit amount
+        // Calculate Security Deposit
         $securityDepositAmount = 0;
         $depositStr = trim($listing['security_deposit_amount'] ?? '');
-        if (!empty($depositStr) && strtolower($depositStr) !== 'no deposit') {
-            // Extract numeric value from string like "₹10,000" or "10000" or "₹ 10,000"
-            $depositStr = preg_replace('/[₹,\s]/', '', $depositStr);
-            $securityDepositAmount = floatval($depositStr);
+
+        // Check if deposit is a number of months (1-6)
+        if (is_numeric($depositStr) && intval($depositStr) >= 1 && intval($depositStr) <= 6) {
+            // Dynamic calculation: Rent * Months
+            $months = intval($depositStr);
+            $rentPerMonth = floatval($roomConfig['rent_per_month']);
+            $securityDepositAmount = $rentPerMonth * $months;
+        } else {
+            // Fallback to fixed amount parsing
+            if (!empty($depositStr) && strtolower($depositStr) !== 'no deposit') {
+                // Extract numeric value from string like "₹10,000" or "10000"
+                $depositStr = preg_replace('/[₹,\s]/', '', $depositStr);
+                $securityDepositAmount = floatval($depositStr);
+            }
         }
         
         if ($securityDepositAmount <= 0) {
-            jsonError('Security deposit is required for this listing. Please contact support.', [], 400);
-            exit;
+            // Allow 0 deposit if explicitly set to "No Deposit" or 0 months, but warn if it seems like an error
+            // For now, we'll assume 0 is valid if configured that way, or default to 1 month rent if invalid
+            if (strtolower(trim($listing['security_deposit_amount'] ?? '')) !== 'no deposit') {
+                 // Fallback: 1 month rent
+                 $securityDepositAmount = floatval($roomConfig['rent_per_month']);
+            }
         }
         
         // Calculate GST if enabled

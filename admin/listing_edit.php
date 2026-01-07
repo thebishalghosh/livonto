@@ -1261,4 +1261,3 @@ document.querySelectorAll('.image-item').forEach(item => {
 </script>
 
 <?php require __DIR__ . '/../app/includes/admin_footer.php'; ?>
-

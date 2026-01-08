@@ -106,7 +106,7 @@ $navItems = [
         'id' => 'website',
         'title' => 'View Website',
         'icon' => 'bi-globe',
-        'url' => $baseUrl . '/public/',
+        'url' => app_url('/public/'),
         'page' => '',
         'external' => true
     ]

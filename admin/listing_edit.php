@@ -85,11 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (isset($_FILES['new_images']) && is_array($_FILES['new_images']['name'])) {
         $fileCount = count($_FILES['new_images']['name']);
         
-        // Check total images (existing + new) don't exceed 4
+        // Check total images (existing + new) don't exceed 8
         $db = db();
         $existingCount = $db->fetchValue("SELECT COUNT(*) FROM listing_images WHERE listing_id = ?", [$listingId]);
-        if ($existingCount + $fileCount > 4) {
-            $errors[] = 'Total images cannot exceed 4. You can upload ' . (4 - $existingCount) . ' more image(s).';
+        if ($existingCount + $fileCount > 8) {
+            $errors[] = 'Total images cannot exceed 8. You can upload ' . (8 - $existingCount) . ' more image(s).';
         }
         
         for ($i = 0; $i < $fileCount; $i++) {
@@ -861,7 +861,7 @@ $flashMessage = getFlashMessage();
         <div class="admin-card-header">
             <h5 class="admin-card-title">
                 <i class="bi bi-images me-2"></i>Images Management
-                <span class="badge bg-secondary ms-2"><?= count($allImageUrls) ?> / 4 images</span>
+                <span class="badge bg-secondary ms-2"><?= count($allImageUrls) ?> / 8 images</span>
             </h5>
         </div>
         <div class="admin-card-body">
@@ -918,7 +918,7 @@ $flashMessage = getFlashMessage();
             <?php endif; ?>
             
             <!-- Upload New Images -->
-            <?php if (count($allImageUrls) < 4): ?>
+            <?php if (count($allImageUrls) < 8): ?>
                 <div class="mt-4">
                     <label class="form-label">Upload New Images</label>
                     <input type="file" 
@@ -928,13 +928,13 @@ $flashMessage = getFlashMessage();
                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                            multiple>
                     <small class="text-muted">
-                        You can upload up to <?= 4 - count($allImageUrls) ?> more image(s). 
+                        You can upload up to <?= 8 - count($allImageUrls) ?> more image(s). 
                         JPEG, PNG, GIF, or WebP (max 5MB each).
                     </small>
                 </div>
             <?php else: ?>
                 <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle me-2"></i>Maximum 4 images allowed. Delete an image to upload a new one.
+                    <i class="bi bi-exclamation-triangle me-2"></i>Maximum 8 images allowed. Delete an image to upload a new one.
                 </div>
             <?php endif; ?>
         </div>

@@ -679,38 +679,72 @@ try {
     <!-- FAQ Section (Right Column) -->
     <div class="col-lg-6">
       <div class="kicker mb-2">FAQ</div>
-  <div class="accordion" id="faq">
-    <div class="accordion-item">
-      <h2 class="accordion-header" id="q1">
-        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#a1" aria-expanded="true" aria-controls="a1">
-          Is there any booking fee?
-        </button>
-      </h2>
-      <div id="a1" class="accordion-collapse collapse show" aria-labelledby="q1" data-bs-parent="#faq">
-        <div class="accordion-body small text-muted">No hidden charges. You only pay what you see on the listing during booking.</div>
+      <div class="accordion" id="faq">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q1">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#a1" aria-expanded="true" aria-controls="a1">
+              Is there any booking fee?
+            </button>
+          </h2>
+          <div id="a1" class="accordion-collapse collapse show" aria-labelledby="q1" data-bs-parent="#faq">
+            <div class="accordion-body small text-muted">
+              No hidden charges from Livonto for browsing or booking — the price shown on a listing is the base rent and any host-specified fees (security deposit, one-time move-in charges, etc.). During checkout you will see a clear breakdown of rent, refundable deposit (if applicable), taxes and any optional services. Payment processing fees imposed by the gateway will also be shown before you confirm.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q2">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a2" aria-expanded="false" aria-controls="a2">
+              Can I schedule a visit before booking?
+            </button>
+          </h2>
+          <div id="a2" class="accordion-collapse collapse" aria-labelledby="q2" data-bs-parent="#faq">
+            <div class="accordion-body small text-muted">
+              Yes — most hosts accept visit requests. Open a listing and click "Book a Visit" to message the host and propose a time. We recommend sharing a few time slots and confirming via the chat so both parties have clear expectations. Visits are arranged directly with the host; Livonto only facilitates communication and provides reminders.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q3">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a3" aria-expanded="false" aria-controls="a3">
+              What documents are needed for move-in?
+            </button>
+          </h2>
+          <div id="a3" class="accordion-collapse collapse" aria-labelledby="q3" data-bs-parent="#faq">
+            <div class="accordion-body small text-muted">
+              Hosts typically ask for basic KYC at check-in such as a government ID (Aadhaar, Passport, Voter ID) and a recent passport-size photo. Some properties may require proof of employment or a reference letter. Any specific document requirements will be listed on the property page — if in doubt, message the host before you confirm the booking.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q4">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a4" aria-expanded="false" aria-controls="a4">
+              What is the cancellation and refund policy?
+            </button>
+          </h2>
+          <div id="a4" class="accordion-collapse collapse" aria-labelledby="q4" data-bs-parent="#faq">
+            <div class="accordion-body small text-muted">
+              Cancellation and refund rules depend on the individual listing and host policy. Before confirming, you'll see the cancellation window and whether the security deposit is refundable. For most bookings, early cancellations may incur a partial fee; emergency cancellations are handled case-by-case. To request a refund, contact support via the Contact page and include your booking details and reason — we'll review it and coordinate with the host.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="q5">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a5" aria-expanded="false" aria-controls="a5">
+              How does Livonto verify listings and host credibility?
+            </button>
+          </h2>
+          <div id="a5" class="accordion-collapse collapse" aria-labelledby="q5" data-bs-parent="#faq">
+            <div class="accordion-body small text-muted">
+              We show host-provided details, photos, and reviews from previous guests to help you decide. Where available, listings display verification badges and verified contact numbers. We encourage guests to read reviews, check photos, and ask hosts specific questions before booking. If you encounter suspicious listings or receive misleading information, report it to support so we can investigate and take action.
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="accordion-item">
-      <h2 class="accordion-header" id="q2">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a2" aria-expanded="false" aria-controls="a2">
-          Can I schedule a visit before booking?
-        </button>
-      </h2>
-      <div id="a2" class="accordion-collapse collapse" aria-labelledby="q2" data-bs-parent="#faq">
-        <div class="accordion-body small text-muted">Yes, use the message option on a listing to request a quick visit from the host.</div>
-      </div>
-    </div>
-    <div class="accordion-item">
-      <h2 class="accordion-header" id="q3">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#a3" aria-expanded="false" aria-controls="a3">
-          What documents are needed?
-        </button>
-      </h2>
-      <div id="a3" class="accordion-collapse collapse" aria-labelledby="q3" data-bs-parent="#faq">
-        <div class="accordion-body small text-muted">Basic KYC like ID proof may be requested by hosts at check-in as per city norms.</div>
-      </div>
-    </div>
-  </div>
     </div>
   </div>
 </div>

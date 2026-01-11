@@ -381,7 +381,6 @@ try {
                                             <img src="<?= htmlspecialchars($image) ?>" 
                                                  alt="<?= htmlspecialchars($listing['title']) ?>" 
                                                  class="card-img-top listing-image"
-                                                 style="height: 200px; object-fit: cover; width: 100%;"
                                                  onerror="this.src='<?= app_url('public/assets/images/livonto-image.jpg') ?>'">
                                         </div>
                                     <?php endforeach; ?>

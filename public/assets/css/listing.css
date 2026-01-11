@@ -213,6 +213,34 @@
     margin-top: 1rem;
 }
 
+/* force 16:9 listing card images (with fallback) */
+.listing-carousel {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 16/9;
+}
+
+/* fallback for older browsers */
+.listing-carousel::before {
+  content: "";
+  display: block;
+  padding-top: 56.25%; /* 9/16 = 56.25% */
+}
+
+.listing-carousel .carousel-slide,
+.listing-carousel .carousel-slide img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.listing-carousel .carousel-slide img {
+  object-fit: cover;
+  display: block;
+}
+
 @media (max-width: 768px) {
     .listings-header {
         padding: 1.5rem 0;

@@ -6,8 +6,10 @@ Thumbs.db
 .vscode/
 .idea/
 
-# PHP / Composer
-vendor/
+# User uploads (DO NOT COMMIT)
+storage/uploads/*
+!storage/uploads/.gitkeep
+
 
 # Node
 node_modules/

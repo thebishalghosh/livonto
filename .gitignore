@@ -6,10 +6,13 @@ Thumbs.db
 .vscode/
 .idea/
 
-# User uploads (DO NOT COMMIT)
+# User uploads (Ignore contents, keep folder structure)
 storage/uploads/*
 !storage/uploads/.gitkeep
 
+# Logs (Ignore contents, keep folder structure)
+storage/logs/*
+!storage/logs/.gitkeep
 
 # Node
 node_modules/
@@ -20,5 +23,3 @@ node_modules/
 # Cache / logs
 *.log
 *.cache
-storage/logs/*.log
-!storage/logs/.gitkeep

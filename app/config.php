@@ -137,7 +137,8 @@ if (!function_exists('app_url')) {
 			$storagePath = '/' . ltrim($path, '/');
 			return (empty($base) ? '' : $base) . $storagePath . $queryString;
 		}
-		
+
+
 		// Remove .php extension and /public/ prefix for clean URLs
 		$path = str_replace('public/', '', $path);
 		$path = preg_replace('/\.php$/', '', $path);

@@ -57,92 +57,49 @@ require_once __DIR__ . '/database.php';
 
 // Determine base URL
 $baseUrl = getenv('LIVONTO_BASE_URL');
-if (!$baseUrl) {
-	// Auto-detect base URL from document root
-	$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-	$requestUri = $_SERVER['REQUEST_URI'] ?? '';
-	$documentRoot = $_SERVER['DOCUMENT_ROOT'] ?? '';
-	$projectRoot = dirname(__DIR__);
-	
-	// Get the directory of index.php relative to document root
-	$scriptDir = dirname($scriptName);
-	
-	// Method 1: Calculate from project root vs document root (PRIMARY METHOD)
-	// This is the most reliable - it finds where the project actually is
-	// Normalize paths for comparison (handle Windows backslashes and case sensitivity)
-	$normalizedDocRoot = str_replace('\\', '/', rtrim($documentRoot, '/\\'));
-	$normalizedProjectRoot = str_replace('\\', '/', rtrim($projectRoot, '/\\'));
-	
-	// On Windows, paths might have different case, so compare case-insensitively
-	// But preserve the actual directory name for the baseUrl
-	if (stripos($normalizedProjectRoot, $normalizedDocRoot) === 0) {
-		// Project root is inside document root
-		$relativePath = substr($normalizedProjectRoot, strlen($normalizedDocRoot));
-		$relativePath = trim($relativePath, '/');
-		
-		if (!empty($relativePath)) {
-			// Get the actual directory name from project root (preserve case)
-			$projectDirName = basename($normalizedProjectRoot);
-			// Check if the relative path ends with this directory name
-			if (basename($relativePath) === $projectDirName) {
-				$baseUrl = '/' . $relativePath;
-			} else {
-				// Extract just the directory name
-				$baseUrl = '/' . $projectDirName;
-			}
-		} else {
-			$baseUrl = '';
-		}
-	} else {
-		// Project root is not inside document root (shouldn't happen, but handle it)
-		$baseUrl = '';
-	}
-	
-	// Method 2: Extract from SCRIPT_NAME if it contains subdirectory
-	// Extract the first directory component if it exists
-	// IMPORTANT: Exclude route directories like /admin, /public, /app, /storage, /vendor, /sql
-	$excludedDirs = ['admin', 'public', 'app', 'storage', 'vendor', 'sql'];
-	if (empty($baseUrl) || $baseUrl === '/') {
-		if ($scriptDir !== '/' && $scriptDir !== '\\' && $scriptDir !== '.') {
-			// Extract first directory from scriptDir
-			$scriptDirParts = explode('/', trim($scriptDir, '/'));
-			if (!empty($scriptDirParts[0]) && !in_array(strtolower($scriptDirParts[0]), $excludedDirs)) {
-				$potentialBase = '/' . $scriptDirParts[0];
-				// Verify this directory exists and contains index.php (it's the project root)
-				if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
-					$baseUrl = $potentialBase;
-				}
-			}
-		}
-	}
-	
-	// Method 3: Check REQUEST_URI for project subdirectory
-	// Only use this as a fallback - extract from REQUEST_URI if it contains a valid project directory
-	// Don't match route paths like /admin/, /public/, etc.
-	if (empty($baseUrl)) {
-		$excludedDirs = ['admin', 'public', 'app', 'storage', 'vendor', 'sql'];
-		// Extract first directory from REQUEST_URI if it exists
-		if (preg_match('#^/([^/]+)/#', $requestUri, $matches)) {
-			$potentialSubdir = $matches[1];
-			// Only consider if it's not an excluded directory
-			if (!in_array(strtolower($potentialSubdir), array_map('strtolower', $excludedDirs))) {
-				$potentialBase = '/' . $potentialSubdir;
-				// Verify this directory exists and contains index.php
-				if (is_dir($documentRoot . $potentialBase) && file_exists($documentRoot . $potentialBase . '/index.php')) {
-					$baseUrl = $potentialBase;
-				}
-			}
-		}
-	}
-}
 
-// Final safeguard: Never allow route directories to be baseUrl
-$excludedRouteDirs = ['/admin', '/public', '/app', '/storage', '/vendor', '/sql'];
-if (in_array($baseUrl, $excludedRouteDirs)) {
-	$baseUrl = '';
-}
+if ($baseUrl === false || $baseUrl === null) {
+    // Auto-detect base URL
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    $requestUri = $_SERVER['REQUEST_URI'] ?? '';
 
-$baseUrl = rtrim($baseUrl, '/');
+    // Method 1: Use dirname of SCRIPT_NAME (Most reliable for standard setups)
+    // SCRIPT_NAME is usually /index.php or /subdir/index.php
+    $detectedBase = dirname($scriptName);
+
+    // Normalize backslashes to slashes (Windows fix)
+    $detectedBase = str_replace('\\', '/', $detectedBase);
+
+    // Remove trailing slash if it's not just root
+    if ($detectedBase !== '/') {
+        $detectedBase = rtrim($detectedBase, '/');
+    }
+
+    // Handle root case
+    if ($detectedBase === '.') {
+        $detectedBase = '';
+    }
+
+    // Special handling: If the script is running from a subdirectory that matches a route
+    // (e.g. /admin/index.php), we need to go up one level to find the app root.
+    // However, our structure routes everything through root index.php, so SCRIPT_NAME
+    // should be /index.php or /subdir/index.php.
+
+    // If we are in a sub-file (like direct access to something in public/), adjust
+    // But we generally route via index.php.
+
+    $baseUrl = $detectedBase;
+
+    // Final cleanup: ensure it doesn't end in / unless it is just /
+    if ($baseUrl !== '/' && substr($baseUrl, -1) === '/') {
+        $baseUrl = rtrim($baseUrl, '/');
+    }
+
+    // If baseUrl is just /, make it empty string for cleaner appending
+    if ($baseUrl === '/') {
+        $baseUrl = '';
+    }
+}
 
 // Expose a helper to build absolute URLs relative to base
 if (!function_exists('app_url')) {

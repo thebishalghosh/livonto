@@ -745,7 +745,7 @@ footer .d-flex.gap-3 a:hover { transform: translateY(-4px); opacity: 1; }
 /* Listing detail image gallery */
 .listing-detail-gallery {
   height: 500px;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 /* Property Gallery Grid */

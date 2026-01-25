@@ -10,8 +10,8 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $pageTitle = "Browse Listings";
-require __DIR__ . '/../app/config.php';
-require __DIR__ . '/../app/functions.php';
+require_once __DIR__ . '/../app/config.php';
+require_once __DIR__ . '/../app/functions.php';
 
 // Add listings CSS - use same path pattern as header
 $baseUrl = app_url('');

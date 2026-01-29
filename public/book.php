@@ -635,19 +635,36 @@ function previewFile(input, previewId) {
 const gstEnabled = <?= (function_exists('getSetting') && getSetting('gst_enabled', '0') == '1') ? 'true' : 'false' ?>;
 const gstPercentage = <?= (function_exists('getSetting') ? floatval(getSetting('gst_percentage', '18')) : 18) ?>;
 
-// Get security deposit amount from listing
+// Determine security deposit configuration from listing
 <?php
-$securityDepositAmount = 0;
-if ($listing && !empty($listing['security_deposit_amount'])) {
-    $depositStr = trim($listing['security_deposit_amount']);
-    if (strtolower($depositStr) !== 'no deposit') {
-        $depositStr = preg_replace('/[₹,\s]/', '', $depositStr);
-        $securityDepositAmount = floatval($depositStr);
+$securityDepositMonths = 0;
+$securityDepositFixed = 0.00;
+if ($listing) {
+    // Prefer explicit months column if available (added via migration)
+    if (!empty($listing['security_deposit_months'])) {
+        $securityDepositMonths = intval($listing['security_deposit_months']);
+    }
+
+    if (!empty($listing['security_deposit_amount'])) {
+        $depositStr = trim($listing['security_deposit_amount']);
+        if (strtolower($depositStr) !== 'no deposit') {
+            // If stored value is a number between 1 and 6, treat as months
+            if (is_numeric($depositStr) && intval($depositStr) >= 1 && intval($depositStr) <= 6) {
+                if ($securityDepositMonths <= 0) {
+                    $securityDepositMonths = intval($depositStr);
+                }
+            } else {
+                // Otherwise parse as fixed currency amount (e.g., '₹5000')
+                $depositStrClean = preg_replace('/[₹,\s]/', '', $depositStr);
+                $securityDepositFixed = floatval($depositStrClean);
+            }
+        }
     }
 }
-// If no security deposit specified, default to 1 month rent (will be calculated per room)
+// Export to JS: prefer fixed amount if provided, otherwise months * rent will be used
 ?>
-const defaultSecurityDeposit = <?= $securityDepositAmount ?>;
+const defaultSecurityDepositMonths = <?= $securityDepositMonths ?>;
+const defaultSecurityDepositFixed = <?= number_format($securityDepositFixed, 2, '.', '') ?>;
 
 // Calculate price based on room selection and start date (1 month booking)
 document.addEventListener('DOMContentLoaded', function() {
@@ -683,8 +700,20 @@ document.addEventListener('DOMContentLoaded', function() {
             // Calculate total rent for the duration (for information only, not charged upfront)
             const totalRent = monthlyRent * duration;
             
-            // Calculate security deposit (use default from listing, or fallback to 1 month rent)
-            const securityDeposit = defaultSecurityDeposit > 0 ? defaultSecurityDeposit : monthlyRent;
+            // Calculate security deposit: prefer fixed amount, then months * monthlyRent, else fallback to 1 month rent
+            let securityDeposit = 0;
+            const fixedDepositVal = parseFloat(defaultSecurityDepositFixed) || 0;
+            const monthsDepositVal = parseInt(defaultSecurityDepositMonths) || 0;
+
+            // Logic change: If months value is present, prioritize it over fixed value if fixed value looks like a small integer (1-6)
+            // This handles the case where "2" was parsed as 2.00 fixed amount
+            if (monthsDepositVal > 0) {
+                securityDeposit = monthlyRent * monthsDepositVal;
+            } else if (fixedDepositVal > 0) {
+                securityDeposit = fixedDepositVal;
+            } else {
+                securityDeposit = monthlyRent;
+            }
             
             // Calculate GST if enabled (GST is calculated on security deposit, not rent)
             let gstAmount = 0;
@@ -989,4 +1018,3 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php require __DIR__ . '/../app/includes/footer.php'; ?>
-

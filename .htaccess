@@ -2,8 +2,8 @@
 RewriteEngine On
 
 # Force HTTPS
-RewriteCond %{HTTPS} off
-RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Don't rewrite files and directories that exist (this handles CSS, JS, images, etc.)
 # This must come FIRST to allow direct access to assets

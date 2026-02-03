@@ -1,0 +1,1 @@
+ALTER TABLE room_configurations ADD COLUMN is_manual_availability BOOLEAN DEFAULT FALSE;

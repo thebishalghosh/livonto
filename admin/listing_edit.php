@@ -268,21 +268,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             // Delete existing room configurations and insert new ones
             $db->execute("DELETE FROM room_configurations WHERE listing_id = ?", [$listingId]);
             foreach ($roomConfigs as $config) {
+                $isManual = isset($config['is_manual_availability']) ? 1 : 0;
                 $db->execute(
-                    "INSERT INTO room_configurations (listing_id, room_type, rent_per_month, total_rooms, available_rooms)
-                     VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO room_configurations (listing_id, room_type, rent_per_month, total_rooms, available_rooms, is_manual_availability)
+                     VALUES (?, ?, ?, ?, ?, ?)",
                     [
                         $listingId,
                         $config['room_type'],
                         floatval($config['rent_per_month']),
                         intval($config['total_rooms']),
-                        intval($config['available_rooms']) // Will be recalculated below
+                        intval($config['available_rooms']),
+                        $isManual
                     ]
                 );
                 
                 // Recalculate available beds based on actual bookings (in case there are existing bookings)
+                // Only if manual mode is NOT enabled
                 $newRoomConfigId = $db->lastInsertId();
-                if ($newRoomConfigId) {
+                if ($newRoomConfigId && !$isManual) {
                     recalculateAvailableBeds($newRoomConfigId);
                 }
             }
@@ -483,18 +486,21 @@ try {
     
     // Recalculate available_rooms for each configuration using unified calculation
     foreach ($existingRoomConfigs as &$config) {
-        // Count booked beds (confirmed and pending bookings)
-        $bookedBeds = (int)$db->fetchValue(
-            "SELECT COUNT(*) FROM bookings 
-             WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
-            [$config['id']]
-        );
-        
-        // Use unified calculation: total_beds - booked_beds (ensures consistency)
-        $availableBeds = calculateAvailableBeds($config['total_rooms'], $config['room_type'], $bookedBeds);
-        
-        // Update the config array with recalculated value
-        $config['available_rooms'] = $availableBeds;
+        // Only recalculate if manual override is NOT enabled
+        if (empty($config['is_manual_availability'])) {
+            // Count booked beds (confirmed and pending bookings)
+            $bookedBeds = (int)$db->fetchValue(
+                "SELECT COUNT(*) FROM bookings
+                 WHERE room_config_id = ? AND status IN ('pending', 'confirmed')",
+                [$config['id']]
+            );
+
+            // Use unified calculation: total_beds - booked_beds (ensures consistency)
+            $availableBeds = calculateAvailableBeds($config['total_rooms'], $config['room_type'], $bookedBeds);
+
+            // Update the config array with recalculated value
+            $config['available_rooms'] = $availableBeds;
+        }
     }
     unset($config);
     
@@ -728,6 +734,16 @@ $flashMessage = getFlashMessage();
                                 <label class="form-label">Available Beds <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="room_configs[<?= $index ?>][available_rooms]" 
                                        required min="0" value="<?= intval($config['available_rooms']) ?>">
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="room_configs[<?= $index ?>][is_manual_availability]"
+                                           value="1"
+                                           id="manual_<?= $index ?>"
+                                           <?= !empty($config['is_manual_availability']) ? 'checked' : '' ?>>
+                                    <label class="form-check-label small text-muted" for="manual_<?= $index ?>">
+                                        Manual Override
+                                    </label>
+                                </div>
                             </div>
                             <div class="col-md-2 d-flex align-items-end">
                                 <button type="button" class="btn btn-outline-danger w-100" onclick="removeRoomConfig(this)">
@@ -984,6 +1000,15 @@ function addRoomConfig() {
         <div class="col-md-2">
             <label class="form-label">Available Beds <span class="text-danger">*</span></label>
             <input type="number" class="form-control" name="room_configs[${roomConfigCount}][available_rooms]" required min="0" value="1">
+            <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox"
+                       name="room_configs[${roomConfigCount}][is_manual_availability]"
+                       value="1"
+                       id="manual_${roomConfigCount}">
+                <label class="form-check-label small text-muted" for="manual_${roomConfigCount}">
+                    Manual Override
+                </label>
+            </div>
         </div>
         <div class="col-md-2 d-flex align-items-end">
             <button type="button" class="btn btn-outline-danger w-100" onclick="removeRoomConfig(this)">

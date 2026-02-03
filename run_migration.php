@@ -5,7 +5,7 @@ require_once __DIR__ . '/app/database.php';
 
 try {
     $db = db();
-    $sql = file_get_contents(__DIR__ . '/sql/migration_room_type_enum.sql');
+    $sql = file_get_contents(__DIR__ . '/sql/migration_manual_override.sql');
 
     // Split by semicolon to run multiple statements if needed
     $statements = array_filter(array_map('trim', explode(';', $sql)));

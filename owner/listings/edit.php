@@ -30,7 +30,7 @@ try {
         exit;
     }
     
-    // Get room configurations - bed-based availability (available_rooms = available beds)
+    // Get room configurations
     $rooms = $db->fetchAll(
         "SELECT rc.*, 
                 (SELECT COUNT(*) FROM bookings b 
@@ -42,14 +42,14 @@ try {
         [$listingId]
     );
     
-    // Calculate bed information for each room using unified calculation
+    // Calculate bed information for each room
     foreach ($rooms as &$room) {
         $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
         $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
         $room['booked_beds'] = (int)($room['booked_beds'] ?? 0);
         
-        // Use unified calculation: total_beds - booked_beds (ensures consistency)
-        $room['available_beds'] = calculateAvailableBeds($room['total_rooms'], $room['room_type'], $room['booked_beds']);
+        // Use the helper function which respects the manual override flag
+        $room['available_beds'] = getAvailableBedsForRoomConfig($room['id']);
     }
     unset($room);
     
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     $updates = [];
     
-    // Process room availability updates (bed-based)
+    // Process room availability updates
     foreach ($rooms as $room) {
         $roomId = $room['id'];
         $currentAvailableBeds = (int)($room['available_beds'] ?? 0);
@@ -81,31 +81,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($newAvailableBeds == $currentAvailableBeds) {
             continue;
         }
-        
-        // Calculate bed-based validation
-        $bedsPerRoom = getBedsPerRoom($room['room_type']);
-        $bookedBeds = (int)($room['booked_beds'] ?? 0);
-        
+
         // Validate: available beds cannot be negative
         if ($newAvailableBeds < 0) {
             $errors[] = "Room type '{$room['room_type']}' cannot have negative available beds";
             continue;
         }
-        
-        // Calculate total beds needed (available + booked)
-        $newTotalBeds = $newAvailableBeds + $bookedBeds;
-        $newTotalRooms = ceil($newTotalBeds / $bedsPerRoom);
-        
-        // Validate: new total beds cannot be less than booked beds (shouldn't happen, but double-check)
-        if ($newTotalBeds < $bookedBeds) {
-            $errors[] = "Room type '{$room['room_type']}' cannot have fewer beds than booked ({$bookedBeds} beds booked)";
-        } else {
-            $updates[$roomId] = [
-                'total_rooms' => $newTotalRooms,
-                'available_beds' => $newAvailableBeds,
-                'total_beds' => $newTotalBeds
-            ];
-        }
+
+        $updates[$roomId] = [
+            'available_beds' => $newAvailableBeds
+        ];
     }
     
     if (empty($errors)) {
@@ -121,15 +106,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
             
             foreach ($updates as $roomId => $updateData) {
-                $newTotalRooms = (int)$updateData['total_rooms'];
                 $newAvailableBeds = (int)$updateData['available_beds'];
                 
-                // Update both total_rooms and available_rooms (beds) to keep them in sync
+                // Update available_rooms and set is_manual_availability to 1 (TRUE)
+                // We do NOT change total_rooms anymore, preserving the physical capacity
                 $db->execute(
                     "UPDATE room_configurations 
-                     SET total_rooms = ?, available_rooms = ? 
+                     SET available_rooms = ?, is_manual_availability = 1
                      WHERE id = ? AND listing_id = ?",
-                    [$newTotalRooms, $newAvailableBeds, $roomId, $listingId]
+                    [$newAvailableBeds, $roomId, $listingId]
                 );
             }
             
@@ -195,10 +180,10 @@ require __DIR__ . '/../../app/includes/owner_header.php';
                                 <tr>
                                     <th>Room Type</th>
                                     <th>Rent/Month</th>
-                                    <th>Current Rooms</th>
+                                    <th>Total Capacity</th>
                                     <th>Booked Beds</th>
                                     <th>Available Beds</th>
-                                    <th>New Available Beds</th>
+                                    <th>Update Availability</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -209,9 +194,7 @@ require __DIR__ . '/../../app/includes/owner_header.php';
                                     $availableBeds = (int)($room['available_beds'] ?? 0);
                                     $totalBeds = (int)($room['total_beds'] ?? 0);
                                     $bedsPerRoom = (int)($room['beds_per_room'] ?? 1);
-                                    
-                                    // Calculate minimum rooms needed (based on booked beds)
-                                    $minRooms = ceil($bookedBeds / $bedsPerRoom);
+                                    $isManual = !empty($room['is_manual_availability']);
                                     ?>
                                     <tr>
                                         <td>
@@ -221,7 +204,7 @@ require __DIR__ . '/../../app/includes/owner_header.php';
                                         <td>₹<?= number_format($room['rent_per_month'] ?? 0) ?></td>
                                         <td>
                                             <?= $currentTotalRooms ?> room<?= $currentTotalRooms != 1 ? 's' : '' ?>
-                                            <br><small class="text-muted"><?= $totalBeds ?> beds</small>
+                                            <br><small class="text-muted"><?= $totalBeds ?> beds total</small>
                                         </td>
                                         <td>
                                             <span class="badge bg-warning"><?= $bookedBeds ?> bed<?= $bookedBeds != 1 ? 's' : '' ?></span>
@@ -230,6 +213,9 @@ require __DIR__ . '/../../app/includes/owner_header.php';
                                             <span class="badge bg-<?= $availableBeds > 0 ? 'success' : 'danger' ?>">
                                                 <?= $availableBeds ?> bed<?= $availableBeds != 1 ? 's' : '' ?>
                                             </span>
+                                            <?php if ($isManual): ?>
+                                                <br><span class="badge bg-info text-dark" style="font-size: 0.7em;">Manual Override</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <input type="number" 
@@ -237,17 +223,8 @@ require __DIR__ . '/../../app/includes/owner_header.php';
                                                    name="available_beds[<?= $room['id'] ?>]" 
                                                    value="<?= $availableBeds ?>" 
                                                    min="0"
-                                                   id="available_beds_<?= $room['id'] ?>"
-                                                   data-room-id="<?= $room['id'] ?>"
-                                                   data-beds-per-room="<?= $bedsPerRoom ?>"
-                                                   data-booked-beds="<?= $bookedBeds ?>"
                                                    required>
-                                            <small class="text-muted">Min: 0 beds</small>
-                                            <div class="mt-1">
-                                                <small class="text-muted" id="calculated_rooms_<?= $room['id'] ?>">
-                                                    Will result in: <?= ceil(($availableBeds + $bookedBeds) / $bedsPerRoom) ?> room<?= ceil(($availableBeds + $bookedBeds) / $bedsPerRoom) > 1 ? 's' : '' ?>
-                                                </small>
-                                            </div>
+                                            <small class="text-muted">Set actual available beds</small>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -257,8 +234,7 @@ require __DIR__ . '/../../app/includes/owner_header.php';
                     
                     <div class="alert alert-info mt-3">
                         <i class="bi bi-info-circle"></i> 
-                        <strong>Note:</strong> You can directly update available beds. Total rooms will be automatically calculated based on available beds + booked beds. 
-                        Each booking reserves 1 bed. Available beds cannot be negative.
+                        <strong>Note:</strong> Updating the availability here will set a "Manual Override". The system will stop automatically calculating availability based on bookings for these rooms, and will use your number instead.
                     </div>
                     
                     <div class="mt-4">
@@ -274,33 +250,3 @@ require __DIR__ . '/../../app/includes/owner_header.php';
 </div>
 
 <?php require __DIR__ . '/../../app/includes/owner_footer.php'; ?>
-
-<script>
-// Auto-calculate total rooms when available beds change
-document.addEventListener('DOMContentLoaded', function() {
-    const availableBedInputs = document.querySelectorAll('input[name^="available_beds"]');
-    
-    availableBedInputs.forEach(function(input) {
-        input.addEventListener('input', function() {
-            const roomId = this.dataset.roomId;
-            const bedsPerRoom = parseInt(this.dataset.bedsPerRoom);
-            const bookedBeds = parseInt(this.dataset.bookedBeds);
-            const availableBeds = parseInt(this.value) || 0;
-            
-            // Calculate total beds and rooms
-            const totalBeds = availableBeds + bookedBeds;
-            const totalRooms = Math.ceil(totalBeds / bedsPerRoom);
-            
-            // Update the calculated rooms display
-            const calculatedRoomsEl = document.getElementById('calculated_rooms_' + roomId);
-            if (calculatedRoomsEl) {
-                calculatedRoomsEl.textContent = 'Will result in: ' + totalRooms + ' room' + (totalRooms > 1 ? 's' : '');
-            }
-        });
-        
-        // Trigger on page load to show initial calculation
-        input.dispatchEvent(new Event('input'));
-    });
-});
-</script>
-

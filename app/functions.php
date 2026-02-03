@@ -161,12 +161,17 @@ function getAvailableBedsForRoomConfig($roomConfigId) {
         
         // Get room configuration
         $roomConfig = $db->fetchOne(
-            "SELECT total_rooms, room_type FROM room_configurations WHERE id = ?",
+            "SELECT total_rooms, room_type, is_manual_availability, available_rooms FROM room_configurations WHERE id = ?",
             [$roomConfigId]
         );
         
         if (!$roomConfig) {
             return 0;
+        }
+
+        // If manual availability is enabled, return the stored value
+        if (!empty($roomConfig['is_manual_availability'])) {
+            return (int)$roomConfig['available_rooms'];
         }
         
         // Count actual booked beds (only confirmed bookings affect availability)
@@ -194,10 +199,23 @@ function getAvailableBedsForRoomConfig($roomConfigId) {
  */
 function recalculateAvailableBeds($roomConfigId) {
     try {
+        $db = db();
+
+        // Check if manual availability is enabled
+        $roomConfig = $db->fetchOne(
+            "SELECT is_manual_availability FROM room_configurations WHERE id = ?",
+            [$roomConfigId]
+        );
+
+        // If manual availability is enabled, do not recalculate
+        if ($roomConfig && !empty($roomConfig['is_manual_availability'])) {
+            return true;
+        }
+
         $availableBeds = getAvailableBedsForRoomConfig($roomConfigId);
         
         // Update available_rooms (which represents available beds)
-        db()->execute(
+        $db->execute(
             "UPDATE room_configurations SET available_rooms = ? WHERE id = ?",
             [$availableBeds, $roomConfigId]
         );

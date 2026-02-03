@@ -297,7 +297,7 @@ if ($action === 'submit_booking') {
         
         // Get room configuration to check availability (bed-based) and rent
         $roomConfig = $db->fetchOne(
-            "SELECT rent_per_month, total_rooms, room_type FROM room_configurations WHERE id = ? AND listing_id = ?",
+            "SELECT rent_per_month, total_rooms, room_type, is_manual_availability, available_rooms FROM room_configurations WHERE id = ? AND listing_id = ?",
             [$roomConfigId, $listingId]
         );
         
@@ -305,37 +305,45 @@ if ($action === 'submit_booking') {
             jsonError('Invalid room configuration', [], 400);
             exit;
         }
-        
-        // Calculate total beds for this room configuration
-        $bedsPerRoom = getBedsPerRoom($roomConfig['room_type']);
-        $totalBeds = calculateTotalBeds($roomConfig['total_rooms'], $roomConfig['room_type']);
-        
-        // Check bed availability for all months in the duration
-        $startDate = new DateTime($bookingStartDate);
-        for ($i = 0; $i < $durationMonths; $i++) {
-            $checkDate = clone $startDate;
-            $checkDate->modify("+{$i} months");
-            $checkMonth = $checkDate->format('Y-m'); // Format to match DATE_FORMAT output
-            
-            // Count booked beds for this room config for this month (each booking = 1 bed)
-            // Only confirmed bookings affect availability
-            $bookedBeds = $db->fetchOne(
-                "SELECT COUNT(*) as count 
-                 FROM bookings 
-                 WHERE room_config_id = ? 
-                 AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
-                 AND status = 'confirmed'",
-                [$roomConfigId, $checkMonth]
-            );
-            
-            $bookedBeds = (int)($bookedBeds['count'] ?? 0);
-            $availableBedsForMonth = max(0, $totalBeds - $bookedBeds);
-            
-            // Check if beds are available for this month
-            if ($bookedBeds >= $totalBeds) {
-                $monthName = $checkDate->format('F Y');
-                jsonError("No beds available for this configuration in {$monthName}. All beds are already booked.", [], 400);
+
+        // Check availability
+        // If manual override is ON, check the stored available_rooms
+        if (!empty($roomConfig['is_manual_availability'])) {
+            if ($roomConfig['available_rooms'] <= 0) {
+                jsonError("No beds available for this configuration (Manual Override).", [], 400);
                 exit;
+            }
+        } else {
+            // Standard calculation logic
+            $bedsPerRoom = getBedsPerRoom($roomConfig['room_type']);
+            $totalBeds = calculateTotalBeds($roomConfig['total_rooms'], $roomConfig['room_type']);
+
+            // Check bed availability for all months in the duration
+            $startDate = new DateTime($bookingStartDate);
+            for ($i = 0; $i < $durationMonths; $i++) {
+                $checkDate = clone $startDate;
+                $checkDate->modify("+{$i} months");
+                $checkMonth = $checkDate->format('Y-m'); // Format to match DATE_FORMAT output
+
+                // Count booked beds for this room config for this month (each booking = 1 bed)
+                // Only confirmed bookings affect availability
+                $bookedBeds = $db->fetchOne(
+                    "SELECT COUNT(*) as count
+                     FROM bookings
+                     WHERE room_config_id = ?
+                     AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
+                     AND status = 'confirmed'",
+                    [$roomConfigId, $checkMonth]
+                );
+
+                $bookedBeds = (int)($bookedBeds['count'] ?? 0);
+
+                // Check if beds are available for this month
+                if ($bookedBeds >= $totalBeds) {
+                    $monthName = $checkDate->format('F Y');
+                    jsonError("No beds available for this configuration in {$monthName}. All beds are already booked.", [], 400);
+                    exit;
+                }
             }
         }
         
@@ -508,7 +516,7 @@ if ($action === 'check_availability') {
         
         // Get all room configurations for this listing
         $roomConfigs = $db->fetchAll(
-            "SELECT id, room_type, rent_per_month, total_rooms, available_rooms 
+            "SELECT id, room_type, rent_per_month, total_rooms, available_rooms, is_manual_availability
              FROM room_configurations 
              WHERE listing_id = ?",
             [$listingId]
@@ -517,57 +525,76 @@ if ($action === 'check_availability') {
         $availability = [];
         
         foreach ($roomConfigs as $room) {
-            // Calculate bed-based availability using unified calculation
-            $bedsPerRoom = getBedsPerRoom($room['room_type']);
-            $totalBeds = calculateTotalBeds($room['total_rooms'], $room['room_type']);
-            
-            // Check bed availability for all months in the duration
-            // Calculate real-time available beds for each month
-            $minAvailableBeds = null;
-            $maxBookedBeds = 0;
-            
-            $startDate = new DateTime($bookingStartDate);
-            for ($i = 0; $i < $durationMonths; $i++) {
-                $checkDate = clone $startDate;
-                $checkDate->modify("+{$i} months");
-                $checkMonth = $checkDate->format('Y-m'); // Format to match DATE_FORMAT output
+            // Check if manual override is enabled
+            if (!empty($room['is_manual_availability'])) {
+                // Use the stored manual value directly
+                $availableBeds = (int)$room['available_rooms'];
                 
-                // Count booked beds for this room config for this month (each booking = 1 bed)
-                // IMPORTANT: Only confirmed bookings should block availability.
-                // Pending/unpaid bookings must NOT reduce availability to avoid
-                // locking beds when payment fails or is abandoned.
-                $bookedBedsForMonth = $db->fetchOne(
-                    "SELECT COUNT(*) as count 
-                     FROM bookings 
-                     WHERE room_config_id = ? 
-                     AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
-                     AND status = 'confirmed'",
-                    [$room['id'], $checkMonth]
-                );
+                // For manual override, we assume this availability applies to all requested months
+                // We don't calculate based on bookings because the admin has overridden it
+                $isAvailable = $availableBeds > 0;
                 
-                $bookedBedsForMonth = (int)($bookedBedsForMonth['count'] ?? 0);
-                $maxBookedBeds = max($maxBookedBeds, $bookedBedsForMonth);
+                // Calculate total beds just for display purposes
+                $bedsPerRoom = getBedsPerRoom($room['room_type']);
+                $totalBeds = calculateTotalBeds($room['total_rooms'], $room['room_type']);
                 
-                // Use unified calculation: total_beds - booked_beds (ensures consistency)
-                $availableBedsForMonth = calculateAvailableBeds($room['total_rooms'], $room['room_type'], $bookedBedsForMonth);
+                // We don't really know "booked beds" in manual mode without calculation,
+                // but we can approximate it as Total - Available
+                $maxBookedBeds = max(0, $totalBeds - $availableBeds);
                 
-                // Track minimum available beds across all months
-                if ($minAvailableBeds === null || $availableBedsForMonth < $minAvailableBeds) {
-                    $minAvailableBeds = $availableBedsForMonth;
+            } else {
+                // Standard calculation logic (Auto mode)
+
+                // Calculate bed-based availability using unified calculation
+                $bedsPerRoom = getBedsPerRoom($room['room_type']);
+                $totalBeds = calculateTotalBeds($room['total_rooms'], $room['room_type']);
+
+                // Check bed availability for all months in the duration
+                // Calculate real-time available beds for each month
+                $minAvailableBeds = null;
+                $maxBookedBeds = 0;
+
+                $startDate = new DateTime($bookingStartDate);
+                for ($i = 0; $i < $durationMonths; $i++) {
+                    $checkDate = clone $startDate;
+                    $checkDate->modify("+{$i} months");
+                    $checkMonth = $checkDate->format('Y-m'); // Format to match DATE_FORMAT output
+
+                    // Count booked beds for this room config for this month (each booking = 1 bed)
+                    // IMPORTANT: Only confirmed bookings should block availability.
+                    $bookedBedsForMonth = $db->fetchOne(
+                        "SELECT COUNT(*) as count
+                         FROM bookings
+                         WHERE room_config_id = ?
+                         AND DATE_FORMAT(booking_start_date, '%Y-%m') = ?
+                         AND status = 'confirmed'",
+                        [$room['id'], $checkMonth]
+                    );
+
+                    $bookedBedsForMonth = (int)($bookedBedsForMonth['count'] ?? 0);
+                    $maxBookedBeds = max($maxBookedBeds, $bookedBedsForMonth);
+
+                    // Use unified calculation: total_beds - booked_beds (ensures consistency)
+                    $availableBedsForMonth = calculateAvailableBeds($room['total_rooms'], $room['room_type'], $bookedBedsForMonth);
+
+                    // Track minimum available beds across all months
+                    if ($minAvailableBeds === null || $availableBedsForMonth < $minAvailableBeds) {
+                        $minAvailableBeds = $availableBedsForMonth;
+                    }
                 }
+
+                // Final available beds is the minimum across all months
+                $availableBeds = $minAvailableBeds !== null ? max(0, $minAvailableBeds) : 0;
+                $isAvailable = $availableBeds > 0;
             }
-            
-            // Final available beds is the minimum across all months
-            $availableBeds = $minAvailableBeds !== null ? max(0, $minAvailableBeds) : 0;
-            $isAvailable = $availableBeds > 0;
-            
+
             $availability[] = [
                 'id' => $room['id'],
                 'room_type' => $room['room_type'],
                 'rent_per_month' => $room['rent_per_month'],
                 'total_rooms' => $room['total_rooms'],
-                'total_beds' => $totalBeds,
-                'beds_per_room' => $bedsPerRoom,
+                'total_beds' => isset($totalBeds) ? $totalBeds : 0,
+                'beds_per_room' => isset($bedsPerRoom) ? $bedsPerRoom : 1,
                 'booked_beds' => $maxBookedBeds,
                 'available_beds' => $availableBeds,
                 'available_count' => $availableBeds, // Keep for backward compatibility
@@ -587,4 +614,3 @@ if ($action === 'check_availability') {
 }
 
 jsonError('Invalid action', [], 400);
-

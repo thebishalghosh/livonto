@@ -52,7 +52,7 @@ if ($listingId > 0) {
         // Get room configurations and calculate real-time availability
         try {
             $roomConfigs = db()->fetchAll(
-                "SELECT id, room_type, rent_per_month, total_rooms, available_rooms 
+                "SELECT id, room_type, rent_per_month, total_rooms, available_rooms, is_manual_availability
                  FROM room_configurations 
                  WHERE listing_id = ?
                  ORDER BY rent_per_month ASC",
@@ -61,19 +61,22 @@ if ($listingId > 0) {
             
             // Calculate bed availability for each room config using unified calculation
             foreach ($roomConfigs as &$room) {
-                $room['beds_per_room'] = getBedsPerRoom($room['room_type']);
-                $room['total_beds'] = calculateTotalBeds($room['total_rooms'], $room['room_type']);
+                // Use the helper function which respects the manual override flag
+                $room['available_beds'] = getAvailableBedsForRoomConfig($room['id']);
                 
-                // Count actual booked beds (only confirmed bookings affect availability)
-                $bookedBeds = (int)db()->fetchValue(
-                    "SELECT COUNT(*) FROM bookings 
-                     WHERE room_config_id = ? AND status = 'confirmed'",
-                    [$room['id']]
-                );
-                
-                // Use unified calculation: total_beds - booked_beds (ensures consistency)
-                $room['available_beds'] = calculateAvailableBeds($room['total_rooms'], $room['room_type'], $bookedBeds);
-                $room['booked_beds'] = $bookedBeds;
+                // For display purposes, we might want to know booked beds too, but it's less critical
+                // if we are in manual mode.
+                if (empty($room['is_manual_availability'])) {
+                    $bookedBeds = (int)db()->fetchValue(
+                        "SELECT COUNT(*) FROM bookings
+                         WHERE room_config_id = ? AND status = 'confirmed'",
+                        [$room['id']]
+                    );
+                    $room['booked_beds'] = $bookedBeds;
+                } else {
+                    // In manual mode, booked beds is just an estimate or 0
+                    $room['booked_beds'] = 0;
+                }
             }
             unset($room);
             
@@ -177,4 +180,3 @@ try {
     error_log("Error fetching KYC status: " . $e->getMessage());
     $step = 'kyc';
 }
-

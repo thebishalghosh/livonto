@@ -226,8 +226,8 @@ try {
             [$config['id']]
         );
         
-        // Use unified calculation: total_beds - booked_beds (ensures consistency)
-        $availableBeds = calculateAvailableBeds($config['total_rooms'], $config['room_type'], $bookedBeds);
+        // Use helper function to get available beds (respects manual override)
+        $availableBeds = getAvailableBedsForRoomConfig($config['id']);
         $totalAvailableBeds += $availableBeds;
         
         $config['beds_per_room'] = $bedsPerRoom;
@@ -739,6 +739,9 @@ $baseUrl = app_url('');
                                             </td>
                                             <td>
                                                 <?= $config['available_beds'] ?> bed<?= $config['available_beds'] != 1 ? 's' : '' ?>
+                                                <?php if (!empty($config['is_manual_availability'])): ?>
+                                                    <br><span class="badge bg-info text-dark" style="font-size: 0.7em;">Manual Override</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <?php 

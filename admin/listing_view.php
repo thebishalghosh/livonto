@@ -510,10 +510,6 @@ $baseUrl = app_url('');
                             <div><?= $totalAvailableBeds > 0 ? $totalAvailableBeds : 'N/A' ?></div>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label text-muted small mb-1">Total Beds</label>
-                            <div><?= $listing['total_beds'] ? $listing['total_beds'] : 'N/A' ?></div>
-                        </div>
-                        <div class="col-md-6">
                             <label class="form-label text-muted small mb-1">Created At</label>
                             <div><?= formatDate($listing['created_at'], 'd M Y, h:i A') ?></div>
                         </div>

@@ -67,8 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     
     $gateClosingTime = !empty($_POST['gate_closing_time']) ? $_POST['gate_closing_time'] : null;
-    $totalBeds = intval($_POST['total_beds'] ?? 0);
-    
+
     // Room configurations
     $roomConfigs = $_POST['room_configs'] ?? [];
     
@@ -243,30 +242,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 );
             }
             
-            // Update additional info
-            $existingAdditionalInfo = $db->fetchOne(
-                "SELECT id FROM listing_additional_info WHERE listing_id = ?",
-                [$listingId]
-            );
-            
-            if ($existingAdditionalInfo) {
-                $db->execute(
-                    "UPDATE listing_additional_info SET electricity_charges = ?, food_availability = ?, 
-                     gate_closing_time = ?, total_beds = ?
-                     WHERE listing_id = ?",
-                    [$electricityCharges, $foodAvailability, $gateClosingTime, $totalBeds, $listingId]
-                );
-            } else {
-                $db->execute(
-                    "INSERT INTO listing_additional_info (listing_id, electricity_charges, food_availability, 
-                     gate_closing_time, total_beds)
-                     VALUES (?, ?, ?, ?, ?)",
-                    [$listingId, $electricityCharges, $foodAvailability, $gateClosingTime, $totalBeds]
-                );
-            }
-            
             // Delete existing room configurations and insert new ones
             $db->execute("DELETE FROM room_configurations WHERE listing_id = ?", [$listingId]);
+            $calculatedTotalBeds = 0;
+
             foreach ($roomConfigs as $config) {
                 $isManual = isset($config['is_manual_availability']) ? 1 : 0;
                 $db->execute(
@@ -281,13 +260,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $isManual
                     ]
                 );
-                
+
+                // Calculate total beds for this room type
+                $bedsPerRoom = 1;
+                if ($config['room_type'] === 'double sharing') $bedsPerRoom = 2;
+                elseif ($config['room_type'] === 'triple sharing') $bedsPerRoom = 3;
+                elseif ($config['room_type'] === '4 sharing') $bedsPerRoom = 4;
+
+                $calculatedTotalBeds += (intval($config['total_rooms']) * $bedsPerRoom);
+
                 // Recalculate available beds based on actual bookings (in case there are existing bookings)
                 // Only if manual mode is NOT enabled
                 $newRoomConfigId = $db->lastInsertId();
                 if ($newRoomConfigId && !$isManual) {
                     recalculateAvailableBeds($newRoomConfigId);
                 }
+            }
+
+            // Update additional info with calculated total beds
+            $existingAdditionalInfo = $db->fetchOne(
+                "SELECT id FROM listing_additional_info WHERE listing_id = ?",
+                [$listingId]
+            );
+
+            if ($existingAdditionalInfo) {
+                $db->execute(
+                    "UPDATE listing_additional_info SET electricity_charges = ?, food_availability = ?,
+                     gate_closing_time = ?, total_beds = ?
+                     WHERE listing_id = ?",
+                    [$electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds, $listingId]
+                );
+            } else {
+                $db->execute(
+                    "INSERT INTO listing_additional_info (listing_id, electricity_charges, food_availability,
+                     gate_closing_time, total_beds)
+                     VALUES (?, ?, ?, ?, ?)",
+                    [$listingId, $electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds]
+                );
             }
             
             // Update amenities (delete existing and insert new)
@@ -801,11 +810,7 @@ $flashMessage = getFlashMessage();
                     <input type="time" class="form-control" name="gate_closing_time" 
                            value="<?= htmlspecialchars($listing['gate_closing_time'] ?? '') ?>">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Total Beds</label>
-                    <input type="number" class="form-control" name="total_beds" 
-                           min="0" value="<?= intval($listing['total_beds'] ?? 0) ?>">
-                </div>
+                <!-- Total Beds field removed (auto-calculated) -->
             </div>
         </div>
     </div>

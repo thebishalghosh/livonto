@@ -137,8 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     $gateClosingTime = !empty($_POST['gate_closing_time']) ? $_POST['gate_closing_time'] : null;
-    $totalBeds = intval($_POST['total_beds'] ?? 0);
-    
+
     // Room configurations
     $roomConfigs = $_POST['room_configs'] ?? [];
     
@@ -290,27 +289,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             
             // 3. Insert room configurations
+            $calculatedTotalBeds = 0;
             foreach ($roomConfigs as $config) {
+                $isManual = isset($config['is_manual_availability']) ? 1 : 0;
                 $db->execute(
-                    "INSERT INTO room_configurations (listing_id, room_type, rent_per_month, total_rooms, available_rooms)
-                     VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO room_configurations (listing_id, room_type, rent_per_month, total_rooms, available_rooms, is_manual_availability)
+                     VALUES (?, ?, ?, ?, ?, ?)",
                     [
                         $listingId,
                         $config['room_type'],
                         floatval($config['rent_per_month']),
                         intval($config['total_rooms']),
-                        intval($config['available_rooms'])
+                        intval($config['available_rooms']),
+                        $isManual
                     ]
                 );
+
+                // Calculate total beds for this room type
+                $bedsPerRoom = 1;
+                if ($config['room_type'] === 'double sharing') $bedsPerRoom = 2;
+                elseif ($config['room_type'] === 'triple sharing') $bedsPerRoom = 3;
+                elseif ($config['room_type'] === '4 sharing') $bedsPerRoom = 4;
+
+                $calculatedTotalBeds += (intval($config['total_rooms']) * $bedsPerRoom);
+
+                // Recalculate available beds based on actual bookings (in case there are existing bookings)
+                // Only if manual mode is NOT enabled
+                $newRoomConfigId = $db->lastInsertId();
+                if ($newRoomConfigId && !$isManual) {
+                    recalculateAvailableBeds($newRoomConfigId);
+                }
             }
             
             // 4. Insert additional info
-            if ($electricityCharges || $foodAvailability || $gateClosingTime || $totalBeds > 0) {
+            if ($electricityCharges || $foodAvailability || $gateClosingTime || $calculatedTotalBeds > 0) {
                 $db->execute(
                     "INSERT INTO listing_additional_info (listing_id, electricity_charges, food_availability, 
                      gate_closing_time, total_beds)
                      VALUES (?, ?, ?, ?, ?)",
-                    [$listingId, $electricityCharges, $foodAvailability, $gateClosingTime, $totalBeds]
+                    [$listingId, $electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds]
                 );
             }
             
@@ -680,10 +697,7 @@ $flashMessage = getFlashMessage();
                     <label class="form-label">Gate Closing Time</label>
                     <input type="time" class="form-control" name="gate_closing_time">
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label">Total Beds</label>
-                    <input type="number" class="form-control" name="total_beds" min="0" value="0">
-                </div>
+                <!-- Total Beds field removed (auto-calculated) -->
             </div>
         </div>
     </div>
@@ -793,6 +807,15 @@ function addRoomConfig() {
         <div class="col-md-2">
             <label class="form-label">Available Beds <span class="text-danger">*</span></label>
             <input type="number" class="form-control" name="room_configs[${roomConfigCount}][available_rooms]" required min="0" value="1">
+            <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox"
+                       name="room_configs[${roomConfigCount}][is_manual_availability]"
+                       value="1"
+                       id="manual_${roomConfigCount}">
+                <label class="form-check-label small text-muted" for="manual_${roomConfigCount}">
+                    Manual Override
+                </label>
+            </div>
         </div>
         <div class="col-md-2 d-flex align-items-end">
             <button type="button" class="btn btn-outline-danger w-100" onclick="removeRoomConfig(this)">

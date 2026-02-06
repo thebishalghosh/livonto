@@ -167,58 +167,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
         }
     }
+
+    // Validate Owner Password Logic (MOVED OUTSIDE TRANSACTION)
+    $ownerPasswordHash = null;
+    if (empty($errors)) {
+        $db = db();
+        if (!empty($ownerEmail) && !empty($ownerPassword)) {
+            // New password provided - hash it
+            $ownerPasswordHash = password_hash($ownerPassword, PASSWORD_DEFAULT);
+            error_log("DEBUG: New password provided and hashed.");
+        } elseif (!empty($ownerEmail) && empty($ownerPassword)) {
+            // Email provided but no password - check if listing already has a password
+            $existingListing = $db->fetchOne("SELECT owner_password_hash FROM listings WHERE id = ?", [$listingId]);
+            if (empty($existingListing['owner_password_hash'])) {
+                $errors[] = 'Password is required when setting owner email for the first time';
+                error_log("DEBUG: Error - Password required for new email.");
+            } else {
+                // Keep existing password hash
+                $ownerPasswordHash = $existingListing['owner_password_hash'];
+                error_log("DEBUG: Keeping existing password hash.");
+            }
+        }
+    }
     
     if (empty($errors)) {
         try {
             $db = db();
             $db->beginTransaction();
             
-            // Handle owner password update
-            $ownerPasswordHash = null;
-            if (!empty($ownerEmail) && !empty($ownerPassword)) {
-                // New password provided - hash it
-                $ownerPasswordHash = password_hash($ownerPassword, PASSWORD_DEFAULT);
-                error_log("DEBUG: New password provided and hashed.");
-            } elseif (!empty($ownerEmail) && empty($ownerPassword)) {
-                // Email provided but no password - check if listing already has a password
-                $existingListing = $db->fetchOne("SELECT owner_password_hash FROM listings WHERE id = ?", [$listingId]);
-                if (empty($existingListing['owner_password_hash'])) {
-                    $errors[] = 'Password is required when setting owner email for the first time';
-                    error_log("DEBUG: Error - Password required for new email.");
-                } else {
-                    // Keep existing password hash
-                    $ownerPasswordHash = $existingListing['owner_password_hash'];
-                    error_log("DEBUG: Keeping existing password hash.");
-                }
+            // Update main listing
+            if ($ownerPasswordHash !== null) {
+                // Update with password
+                error_log("DEBUG: Updating listing WITH password.");
+                $db->execute(
+                    "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?, owner_password_hash = ?,
+                     available_for = ?, gender_allowed = ?, preferred_tenants = ?,
+                     security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?",
+                    [$title, $description, $ownerName, $ownerEmail, $ownerPasswordHash, $availableFor, $genderAllowed, $preferredTenants,
+                     $securityDeposit, $noticePeriod, $status, $listingId]
+                );
+            } else {
+                // Update without password (only email if provided, or remove email)
+                error_log("DEBUG: Updating listing WITHOUT password.");
+                $db->execute(
+                    "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?,
+                     available_for = ?, gender_allowed = ?, preferred_tenants = ?,
+                     security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?",
+                    [$title, $description, $ownerName, !empty($ownerEmail) ? $ownerEmail : null, $availableFor, $genderAllowed, $preferredTenants,
+                     $securityDeposit, $noticePeriod, $status, $listingId]
+                );
             }
             
-            if (empty($errors)) {
-                // Update main listing
-                if ($ownerPasswordHash !== null) {
-                    // Update with password
-                    error_log("DEBUG: Updating listing WITH password.");
-                    $db->execute(
-                        "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?, owner_password_hash = ?,
-                         available_for = ?, gender_allowed = ?, preferred_tenants = ?,
-                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP
-                         WHERE id = ?",
-                        [$title, $description, $ownerName, $ownerEmail, $ownerPasswordHash, $availableFor, $genderAllowed, $preferredTenants,
-                         $securityDeposit, $noticePeriod, $status, $listingId]
-                    );
-                } else {
-                    // Update without password (only email if provided, or remove email)
-                    error_log("DEBUG: Updating listing WITHOUT password.");
-                    $db->execute(
-                        "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?,
-                         available_for = ?, gender_allowed = ?, preferred_tenants = ?,
-                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP
-                         WHERE id = ?",
-                        [$title, $description, $ownerName, !empty($ownerEmail) ? $ownerEmail : null, $availableFor, $genderAllowed, $preferredTenants,
-                         $securityDeposit, $noticePeriod, $status, $listingId]
-                    );
-                }
-            }
-
             // Update location
             $landmarksJson = null;
             if (!empty($nearbyLandmarks)) {

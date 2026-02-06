@@ -181,6 +181,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    // Validate Owner Password Logic
+    $ownerPasswordHash = null;
+    if (empty($errors)) {
+        $db = db();
+        if (!empty($ownerEmail) && !empty($ownerPassword)) {
+            // New password provided - hash it
+            $ownerPasswordHash = password_hash($ownerPassword, PASSWORD_DEFAULT);
+        } elseif (!empty($ownerEmail) && empty($ownerPassword)) {
+            // Email provided but no password
+
+            // Check if ANY listing has this email and a password
+            // This handles the "One Owner, Multiple PGs" scenario
+            $otherListing = $db->fetchOne(
+                "SELECT owner_password_hash FROM listings WHERE owner_email = ? AND owner_password_hash IS NOT NULL LIMIT 1",
+                [$ownerEmail]
+            );
+
+            if (!empty($otherListing['owner_password_hash'])) {
+                // Found existing owner password from another listing - reuse it
+                $ownerPasswordHash = $otherListing['owner_password_hash'];
+            } else {
+                // Brand new owner email, no password anywhere
+                $errors[] = 'Password is required when setting owner email for the first time';
+            }
+        }
+    }
     
     // If no errors, save listing
     if (empty($errors)) {
@@ -252,14 +279,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (move_uploaded_file($coverImage['tmp_name'], $uploadPath)) {
                     $coverImagePath = 'storage/uploads/listings/' . $filename;
                 }
-            }
-            
-            // Hash owner password if provided
-            $ownerPasswordHash = null;
-            if (!empty($ownerEmail) && !empty($ownerPassword)) {
-                $ownerPasswordHash = password_hash($ownerPassword, PASSWORD_DEFAULT);
-            } elseif (!empty($ownerEmail) && empty($ownerPassword)) {
-                $errors[] = 'Password is required when owner email is provided';
             }
             
             // 1. Insert main listing

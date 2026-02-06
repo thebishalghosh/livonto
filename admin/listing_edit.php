@@ -187,6 +187,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
             
             if (empty($errors)) {
+                // DEBUG LOGGING
+                error_log("Updating listing ID: $listingId");
+                error_log("Title: $title");
+                error_log("Owner Email: $ownerEmail");
+                error_log("Has Password Hash: " . ($ownerPasswordHash ? 'Yes' : 'No'));
+
                 // Update main listing
                 if ($ownerPasswordHash !== null) {
                     // Update with password
@@ -241,47 +247,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                      $googleMapsLink ?: null, $latitude, $longitude, $landmarksJson]
                 );
             }
-            
-            // Delete existing room configurations and insert new ones
-            $db->execute("DELETE FROM room_configurations WHERE listing_id = ?", [$listingId]);
+
+            // Update additional info
+            $existingAdditionalInfo = $db->fetchOne(
+                "SELECT id FROM listing_additional_info WHERE listing_id = ?",
+                [$listingId]
+            );
+
+            // Calculate total beds automatically
             $calculatedTotalBeds = 0;
-
             foreach ($roomConfigs as $config) {
-                $isManual = isset($config['is_manual_availability']) ? 1 : 0;
-                $db->execute(
-                    "INSERT INTO room_configurations (listing_id, room_type, rent_per_month, total_rooms, available_rooms, is_manual_availability)
-                     VALUES (?, ?, ?, ?, ?, ?)",
-                    [
-                        $listingId,
-                        $config['room_type'],
-                        floatval($config['rent_per_month']),
-                        intval($config['total_rooms']),
-                        intval($config['available_rooms']),
-                        $isManual
-                    ]
-                );
-
-                // Calculate total beds for this room type
                 $bedsPerRoom = 1;
                 if ($config['room_type'] === 'double sharing') $bedsPerRoom = 2;
                 elseif ($config['room_type'] === 'triple sharing') $bedsPerRoom = 3;
                 elseif ($config['room_type'] === '4 sharing') $bedsPerRoom = 4;
 
                 $calculatedTotalBeds += (intval($config['total_rooms']) * $bedsPerRoom);
-
-                // Recalculate available beds based on actual bookings (in case there are existing bookings)
-                // Only if manual mode is NOT enabled
-                $newRoomConfigId = $db->lastInsertId();
-                if ($newRoomConfigId && !$isManual) {
-                    recalculateAvailableBeds($newRoomConfigId);
-                }
             }
-
-            // Update additional info with calculated total beds
-            $existingAdditionalInfo = $db->fetchOne(
-                "SELECT id FROM listing_additional_info WHERE listing_id = ?",
-                [$listingId]
-            );
 
             if ($existingAdditionalInfo) {
                 $db->execute(
@@ -297,6 +279,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                      VALUES (?, ?, ?, ?, ?)",
                     [$listingId, $electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds]
                 );
+            }
+            
+            // Delete existing room configurations and insert new ones
+            $db->execute("DELETE FROM room_configurations WHERE listing_id = ?", [$listingId]);
+            foreach ($roomConfigs as $config) {
+                $isManual = isset($config['is_manual_availability']) ? 1 : 0;
+                $db->execute(
+                    "INSERT INTO room_configurations (listing_id, room_type, rent_per_month, total_rooms, available_rooms, is_manual_availability)
+                     VALUES (?, ?, ?, ?, ?, ?)",
+                    [
+                        $listingId,
+                        $config['room_type'],
+                        floatval($config['rent_per_month']),
+                        intval($config['total_rooms']),
+                        intval($config['available_rooms']),
+                        $isManual
+                    ]
+                );
+
+                // Recalculate available beds based on actual bookings (in case there are existing bookings)
+                // Only if manual mode is NOT enabled
+                $newRoomConfigId = $db->lastInsertId();
+                if ($newRoomConfigId && !$isManual) {
+                    recalculateAvailableBeds($newRoomConfigId);
+                }
             }
             
             // Update amenities (delete existing and insert new)

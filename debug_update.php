@@ -78,8 +78,8 @@ try {
     echo "<h3>Executing Query...</h3>";
 
     try {
-        // We use the raw PDO object to get rowCount()
-        $pdo = $db->getPdo();
+        // Use the global helper to get the raw PDO connection
+        $pdo = db_connection();
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute($params);
 

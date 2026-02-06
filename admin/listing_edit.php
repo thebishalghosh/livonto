@@ -187,102 +187,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
             
             if (empty($errors)) {
-                // DEBUG LOGGING
-                error_log("Updating listing ID: $listingId");
-                error_log("Title: $title");
-                error_log("Owner Email: $ownerEmail");
-                error_log("Has Password Hash: " . ($ownerPasswordHash ? 'Yes' : 'No'));
-
                 // Update main listing
                 if ($ownerPasswordHash !== null) {
                     // Update with password
                     $db->execute(
                         "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?, owner_password_hash = ?,
-                         available_for = ?, gender_allowed = ?, preferred_tenants = ?, 
-                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
+                         available_for = ?, gender_allowed = ?, preferred_tenants = ?,
+                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP
                          WHERE id = ?",
-                        [$title, $description, $ownerName, $ownerEmail, $ownerPasswordHash, $availableFor, $genderAllowed, $preferredTenants, 
+                        [$title, $description, $ownerName, $ownerEmail, $ownerPasswordHash, $availableFor, $genderAllowed, $preferredTenants,
                          $securityDeposit, $noticePeriod, $status, $listingId]
                     );
                 } else {
                     // Update without password (only email if provided, or remove email)
                     $db->execute(
                         "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?,
-                         available_for = ?, gender_allowed = ?, preferred_tenants = ?, 
-                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP 
+                         available_for = ?, gender_allowed = ?, preferred_tenants = ?,
+                         security_deposit_amount = ?, notice_period = ?, status = ?, updated_at = CURRENT_TIMESTAMP
                          WHERE id = ?",
-                        [$title, $description, $ownerName, !empty($ownerEmail) ? $ownerEmail : null, $availableFor, $genderAllowed, $preferredTenants, 
+                        [$title, $description, $ownerName, !empty($ownerEmail) ? $ownerEmail : null, $availableFor, $genderAllowed, $preferredTenants,
                          $securityDeposit, $noticePeriod, $status, $listingId]
                     );
                 }
             }
-            
+
             // Update location
             $landmarksJson = null;
             if (!empty($nearbyLandmarks)) {
                 $landmarksArray = array_map('trim', explode(',', $nearbyLandmarks));
                 $landmarksJson = json_encode($landmarksArray);
             }
-            
+
             // Check if location exists, update or insert
             $existingLocation = $db->fetchOne(
                 "SELECT id FROM listing_locations WHERE listing_id = ?",
                 [$listingId]
             );
-            
+
             if ($existingLocation) {
                 $db->execute(
-                    "UPDATE listing_locations SET complete_address = ?, city = ?, pin_code = ?, 
+                    "UPDATE listing_locations SET complete_address = ?, city = ?, pin_code = ?,
                      google_maps_link = ?, latitude = ?, longitude = ?, nearby_landmarks = ?
                      WHERE listing_id = ?",
-                    [$completeAddress, $city, $pinCode ?: null, $googleMapsLink ?: null, 
+                    [$completeAddress, $city, $pinCode ?: null, $googleMapsLink ?: null,
                      $latitude, $longitude, $landmarksJson, $listingId]
                 );
             } else {
                 $db->execute(
-                    "INSERT INTO listing_locations (listing_id, complete_address, city, pin_code, 
+                    "INSERT INTO listing_locations (listing_id, complete_address, city, pin_code,
                      google_maps_link, latitude, longitude, nearby_landmarks)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$listingId, $completeAddress, $city, $pinCode ?: null, 
+                    [$listingId, $completeAddress, $city, $pinCode ?: null,
                      $googleMapsLink ?: null, $latitude, $longitude, $landmarksJson]
                 );
             }
 
-            // Update additional info
-            $existingAdditionalInfo = $db->fetchOne(
-                "SELECT id FROM listing_additional_info WHERE listing_id = ?",
-                [$listingId]
-            );
-
-            // Calculate total beds automatically
-            $calculatedTotalBeds = 0;
-            foreach ($roomConfigs as $config) {
-                $bedsPerRoom = 1;
-                if ($config['room_type'] === 'double sharing') $bedsPerRoom = 2;
-                elseif ($config['room_type'] === 'triple sharing') $bedsPerRoom = 3;
-                elseif ($config['room_type'] === '4 sharing') $bedsPerRoom = 4;
-
-                $calculatedTotalBeds += (intval($config['total_rooms']) * $bedsPerRoom);
-            }
-
-            if ($existingAdditionalInfo) {
-                $db->execute(
-                    "UPDATE listing_additional_info SET electricity_charges = ?, food_availability = ?,
-                     gate_closing_time = ?, total_beds = ?
-                     WHERE listing_id = ?",
-                    [$electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds, $listingId]
-                );
-            } else {
-                $db->execute(
-                    "INSERT INTO listing_additional_info (listing_id, electricity_charges, food_availability,
-                     gate_closing_time, total_beds)
-                     VALUES (?, ?, ?, ?, ?)",
-                    [$listingId, $electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds]
-                );
-            }
-            
             // Delete existing room configurations and insert new ones
             $db->execute("DELETE FROM room_configurations WHERE listing_id = ?", [$listingId]);
+            $calculatedTotalBeds = 0;
+
             foreach ($roomConfigs as $config) {
                 $isManual = isset($config['is_manual_availability']) ? 1 : 0;
                 $db->execute(
@@ -298,12 +261,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     ]
                 );
 
+                // Calculate total beds for this room type
+                $bedsPerRoom = 1;
+                if ($config['room_type'] === 'double sharing') $bedsPerRoom = 2;
+                elseif ($config['room_type'] === 'triple sharing') $bedsPerRoom = 3;
+                elseif ($config['room_type'] === '4 sharing') $bedsPerRoom = 4;
+
+                $calculatedTotalBeds += (intval($config['total_rooms']) * $bedsPerRoom);
+
                 // Recalculate available beds based on actual bookings (in case there are existing bookings)
                 // Only if manual mode is NOT enabled
                 $newRoomConfigId = $db->lastInsertId();
                 if ($newRoomConfigId && !$isManual) {
                     recalculateAvailableBeds($newRoomConfigId);
                 }
+            }
+
+            // Update additional info with calculated total beds
+            $existingAdditionalInfo = $db->fetchOne(
+                "SELECT id FROM listing_additional_info WHERE listing_id = ?",
+                [$listingId]
+            );
+
+            if ($existingAdditionalInfo) {
+                $db->execute(
+                    "UPDATE listing_additional_info SET electricity_charges = ?, food_availability = ?,
+                     gate_closing_time = ?, total_beds = ?
+                     WHERE listing_id = ?",
+                    [$electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds, $listingId]
+                );
+            } else {
+                $db->execute(
+                    "INSERT INTO listing_additional_info (listing_id, electricity_charges, food_availability,
+                     gate_closing_time, total_beds)
+                     VALUES (?, ?, ?, ?, ?)",
+                    [$listingId, $electricityCharges, $foodAvailability, $gateClosingTime, $calculatedTotalBeds]
+                );
             }
             
             // Update amenities (delete existing and insert new)

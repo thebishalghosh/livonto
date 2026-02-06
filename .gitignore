@@ -23,3 +23,5 @@ node_modules/
 # Cache / logs
 *.log
 *.cache
+
+.htaccess

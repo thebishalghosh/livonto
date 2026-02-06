@@ -65,7 +65,7 @@ printLine("----------------------------------------", 'white');
 // ---------------------------------------------------------
 // 1. Migration: Room Type Enum (migration_room_type_enum.sql)
 // ---------------------------------------------------------
-printLine("\n[1/3] Checking Room Type ENUM...", 'blue');
+printLine("\n[1/4] Checking Room Type ENUM...", 'blue');
 try {
     // Check if '4 sharing' is already in the ENUM
     $columnInfo = $db->fetchOne("SHOW COLUMNS FROM room_configurations LIKE 'room_type'");
@@ -83,7 +83,7 @@ try {
 // ---------------------------------------------------------
 // 2. Migration: Security Deposit (migration_security_deposit.sql)
 // ---------------------------------------------------------
-printLine("\n[2/3] Checking Security Deposit Column...", 'blue');
+printLine("\n[2/4] Checking Security Deposit Column...", 'blue');
 try {
     $columnExists = $db->fetchValue("SHOW COLUMNS FROM listings LIKE 'security_deposit_months'");
     if (!$columnExists) {
@@ -100,7 +100,7 @@ try {
 // ---------------------------------------------------------
 // 3. Migration: Manual Override (migration_manual_override.sql)
 // ---------------------------------------------------------
-printLine("\n[3/3] Checking Manual Override Column...", 'blue');
+printLine("\n[3/4] Checking Manual Override Column...", 'blue');
 try {
     $columnExists = $db->fetchValue("SHOW COLUMNS FROM room_configurations LIKE 'is_manual_availability'");
     if (!$columnExists) {
@@ -109,6 +109,24 @@ try {
         printLine("  ✓ Done.", 'green');
     } else {
         printLine("  ✓ Already exists.", 'green');
+    }
+} catch (Exception $e) {
+    printLine("  ✗ Error: " . $e->getMessage(), 'red');
+}
+
+// ---------------------------------------------------------
+// 4. Migration: Remove Unique Owner Email (migration_remove_unique_owner_email.sql)
+// ---------------------------------------------------------
+printLine("\n[4/4] Checking Owner Email Unique Constraint...", 'blue');
+try {
+    // Check if the index exists
+    $indexExists = $db->fetchValue("SHOW INDEX FROM listings WHERE Key_name = 'unique_owner_email'");
+    if ($indexExists) {
+        printLine("  ➜ Removing UNIQUE constraint from owner_email...", 'yellow');
+        $db->execute("ALTER TABLE listings DROP INDEX unique_owner_email");
+        printLine("  ✓ Done.", 'green');
+    } else {
+        printLine("  ✓ Constraint already removed.", 'green');
     }
 } catch (Exception $e) {
     printLine("  ✗ Error: " . $e->getMessage(), 'red');

@@ -27,6 +27,7 @@ if (!$listingId) {
 
 // Handle form submission for updating listing
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_listing') {
+    error_log("DEBUG: Starting update for listing ID $listingId");
     $errors = [];
     
     // Get form data
@@ -41,7 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $securityDeposit = trim($_POST['security_deposit_amount'] ?? 'No Deposit');
     $noticePeriod = intval($_POST['notice_period'] ?? 0);
     $status = $_POST['status'] ?? 'draft';
-    
+
+    error_log("DEBUG: Form data - Title: $title, Owner: $ownerName, Email: $ownerEmail");
+
     // Location data
     $completeAddress = trim($_POST['complete_address'] ?? '');
     $city = trim($_POST['city'] ?? '');
@@ -175,14 +178,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (!empty($ownerEmail) && !empty($ownerPassword)) {
                 // New password provided - hash it
                 $ownerPasswordHash = password_hash($ownerPassword, PASSWORD_DEFAULT);
+                error_log("DEBUG: New password provided and hashed.");
             } elseif (!empty($ownerEmail) && empty($ownerPassword)) {
                 // Email provided but no password - check if listing already has a password
                 $existingListing = $db->fetchOne("SELECT owner_password_hash FROM listings WHERE id = ?", [$listingId]);
                 if (empty($existingListing['owner_password_hash'])) {
                     $errors[] = 'Password is required when setting owner email for the first time';
+                    error_log("DEBUG: Error - Password required for new email.");
                 } else {
                     // Keep existing password hash
                     $ownerPasswordHash = $existingListing['owner_password_hash'];
+                    error_log("DEBUG: Keeping existing password hash.");
                 }
             }
             
@@ -190,6 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 // Update main listing
                 if ($ownerPasswordHash !== null) {
                     // Update with password
+                    error_log("DEBUG: Updating listing WITH password.");
                     $db->execute(
                         "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?, owner_password_hash = ?,
                          available_for = ?, gender_allowed = ?, preferred_tenants = ?,
@@ -200,6 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     );
                 } else {
                     // Update without password (only email if provided, or remove email)
+                    error_log("DEBUG: Updating listing WITHOUT password.");
                     $db->execute(
                         "UPDATE listings SET title = ?, description = ?, owner_name = ?, owner_email = ?,
                          available_for = ?, gender_allowed = ?, preferred_tenants = ?,
@@ -375,7 +383,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             }
             
             $db->commit();
-            
+            error_log("DEBUG: Transaction committed successfully.");
+
             $_SESSION['flash_message'] = 'Listing updated successfully!';
             $_SESSION['flash_type'] = 'success';
             header('Location: ' . app_url('admin/listings/view?id=' . $listingId));
@@ -397,12 +406,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     
     if (!empty($errors)) {
+        error_log("DEBUG: Errors encountered: " . print_r($errors, true));
         $_SESSION['flash_message'] = implode('<br>', $errors);
         $_SESSION['flash_type'] = 'danger';
         // Don't redirect - stay on edit page to show errors
     } else {
         // If no errors but didn't redirect, something went wrong
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            error_log("DEBUG: No errors but no redirect happened.");
             $_SESSION['flash_message'] = 'Update completed but no redirect occurred. Please check the listing.';
             $_SESSION['flash_type'] = 'warning';
         }

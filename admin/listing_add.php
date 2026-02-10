@@ -36,13 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $maxSize = 5 * 1024 * 1024; // 5MB
     $allowedExts = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     
-    // Validate multiple images if uploaded (max 8 images)
+    // Validate multiple images if uploaded (max 16 images)
     if (isset($_FILES['listing_images']) && is_array($_FILES['listing_images']['name'])) {
         $fileCount = count($_FILES['listing_images']['name']);
         
-        // Check if more than 8 images are uploaded
-        if ($fileCount > 8) {
-            $errors[] = 'You can upload a maximum of 8 images';
+        // Check if more than 16 images are uploaded
+        if ($fileCount > 16) {
+            $errors[] = 'You can upload a maximum of 16 images';
         }
         
         // Check if at least 1 image is uploaded
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'At least 1 image is required';
         }
         
-        for ($i = 0; $i < $fileCount && $i < 8; $i++) {
+        for ($i = 0; $i < $fileCount && $i < 16; $i++) {
             if ($_FILES['listing_images']['error'][$i] === UPLOAD_ERR_OK) {
                 $file = [
                     'name' => $_FILES['listing_images']['name'][$i],
@@ -589,9 +589,9 @@ $flashMessage = getFlashMessage();
                     <input type="file" class="form-control" name="listing_images[]" 
                            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
                            id="listingImagesInput" multiple required>
-                    <small class="text-muted">You can upload up to 8 images. JPEG, PNG, GIF, or WebP (max 5MB each). First image will be used as cover image.</small>
+                    <small class="text-muted">You can upload up to 16 images. JPEG, PNG, GIF, or WebP (max 5MB each). First image will be used as cover image.</small>
                     <div class="mt-2">
-                        <span id="imageCount" class="badge bg-info">0 / 8 images selected</span>
+                        <span id="imageCount" class="badge bg-info">0 / 16 images selected</span>
                     </div>
                     <div id="imagesPreview" class="mt-3 row g-2"></div>
                 </div>
@@ -853,11 +853,11 @@ function removeRoomConfig(btn) {
 document.addEventListener('DOMContentLoaded', function() {
     addRoomConfig();
     
-    // Multiple images preview (max 8 images)
+    // Multiple images preview (max 16 images)
     const listingImagesInput = document.getElementById('listingImagesInput');
     const imagesPreview = document.getElementById('imagesPreview');
     const imageCount = document.getElementById('imageCount');
-    const MAX_IMAGES = 8;
+    const MAX_IMAGES = 16;
     
     if (listingImagesInput && imagesPreview && imageCount) {
         listingImagesInput.addEventListener('change', function(e) {
@@ -865,19 +865,19 @@ document.addEventListener('DOMContentLoaded', function() {
             imagesPreview.innerHTML = '';
             
             if (files.length === 0) {
-                imageCount.textContent = '0 / 8 images selected';
+                imageCount.textContent = '0 / 16 images selected';
                 imageCount.className = 'badge bg-info';
                 return;
             }
             
-            // Limit to 8 images
+            // Limit to 16 images
             if (files.length > MAX_IMAGES) {
                 alert(`You can only upload a maximum of ${MAX_IMAGES} images. Only the first ${MAX_IMAGES} images will be selected.`);
-                // Create a new FileList with only first 8 files
+                // Create a new FileList with only first 16 files
                 const dt = new DataTransfer();
                 files.slice(0, MAX_IMAGES).forEach(file => dt.items.add(file));
                 listingImagesInput.files = dt.files;
-                files.splice(MAX_IMAGES); // Keep only first 8
+                files.splice(MAX_IMAGES); // Keep only first 16
             }
             
             // Update count badge

@@ -117,24 +117,33 @@ document.addEventListener('DOMContentLoaded', function() {
         return; // Don't do anything if search is empty
       }
       
-      // First, geocode the search term to get its coordinates
-      // This ensures the map centers on the searched location
+      // Check for hidden lat/lng fields populated by autocomplete
+      const latInput = document.getElementById('searchLat');
+      const lngInput = document.getElementById('searchLng');
+
       let searchLat = null;
       let searchLng = null;
       
-      try {
-        // Try to get coordinates for the search term
-        let cityCoords = getDefaultCityCoords(searchValue);
-        if (!cityCoords) {
-          cityCoords = await geocodeCity(searchValue);
-        }
-        
-        if (cityCoords) {
-          searchLat = cityCoords.lat;
-          searchLng = cityCoords.lng;
-        }
-      } catch (error) {
-        // Geocoding failed, will use search term as text query
+      if (latInput && lngInput && latInput.value && lngInput.value) {
+          searchLat = parseFloat(latInput.value);
+          searchLng = parseFloat(lngInput.value);
+          console.log('Using coordinates from autocomplete:', searchLat, searchLng);
+      } else {
+          // Fallback: geocode the search term if no coordinates provided
+          try {
+            // Try to get coordinates for the search term
+            let cityCoords = getDefaultCityCoords(searchValue);
+            if (!cityCoords) {
+              cityCoords = await geocodeCity(searchValue);
+            }
+
+            if (cityCoords) {
+              searchLat = cityCoords.lat;
+              searchLng = cityCoords.lng;
+            }
+          } catch (error) {
+            // Geocoding failed, will use search term as text query
+          }
       }
       
       // Try to get user location if available (for distance calculation)
@@ -152,9 +161,13 @@ document.addEventListener('DOMContentLoaded', function() {
       // Use geocoded search coordinates if available, otherwise use user location
       const mapLat = searchLat || userLat;
       const mapLng = searchLng || userLng;
-      
+
+      // Get radius if available (from listings page filter)
+      const radiusInput = document.getElementById('radiusFilter');
+      const radius = radiusInput ? radiusInput.value : 50;
+
       // Load listings on map - pass geocoded coordinates to find nearby listings
-      await loadListingsOnMap(searchValue, searchValue, mapLat, mapLng);
+      await loadListingsOnMap(searchValue, searchValue, mapLat, mapLng, radius);
       
       // Load search results in listings section (right column)
       await loadSearchResults(searchValue, searchValue);
@@ -162,6 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Scroll to map section
       const mapSection = document.getElementById('mapSection');
       if (mapSection) {
+        mapSection.style.display = 'block'; // Ensure map is visible
         mapSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });

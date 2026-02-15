@@ -35,6 +35,7 @@ $minPrice = (isset($_GET['min_price']) && $_GET['min_price'] !== '' && $_GET['mi
 $maxPrice = (isset($_GET['max_price']) && $_GET['max_price'] !== '' && $_GET['max_price'] !== null)
     ? floatval($_GET['max_price'])
     : null;
+$radius = (isset($_GET['radius']) && $_GET['radius'] !== '') ? intval($_GET['radius']) : 50; // Default 50km
 $sortBy = $_GET['sort'] ?? 'newest'; // newest, oldest, price_low, price_high, rating
 
 // Pagination
@@ -226,16 +227,21 @@ try {
         <!-- Filters -->
         <div class="filters-card">
             <form method="GET" action="<?= app_url('listings') ?>" id="filtersForm">
+                <!-- Hidden inputs for coordinates -->
+                <input type="hidden" id="searchLat" name="lat" value="<?= htmlspecialchars($_GET['lat'] ?? '') ?>">
+                <input type="hidden" id="searchLng" name="lng" value="<?= htmlspecialchars($_GET['lng'] ?? '') ?>">
+
                 <!-- First Row -->
                 <div class="filter-row">
                     <div class="filter-group">
-                        <label for="searchQuery">Search</label>
+                        <label for="searchInput">Search</label>
                         <input type="text" 
                                class="form-control" 
-                               id="searchQuery" 
+                               id="searchInput"
                                name="q" 
                                value="<?= htmlspecialchars($searchQuery) ?>" 
                                placeholder="Search by name or description...">
+                        <div id="searchSuggestions" class="search-suggestions" style="display: none;"></div>
                     </div>
                     
                     <div class="filter-group">
@@ -530,6 +536,12 @@ function getPaginationUrl($pageNum) {
 }
 ?>
 
+<!-- Pass Google Maps API Key to JS -->
+<script>
+    window.GOOGLE_MAPS_API_KEY = "<?= GOOGLE_MAPS_API_KEY ?>";
+</script>
+<script src="<?= app_url('public/assets/js/map.js') ?>"></script>
+
 <script>
 function updateSort(sortValue) {
     const url = new URL(window.location.href);
@@ -537,7 +549,41 @@ function updateSort(sortValue) {
     url.searchParams.set('page', '1'); // Reset to first page when sorting changes
     window.location.href = url.toString();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleMapBtn = document.getElementById('toggleMapBtn');
+    const mapSection = document.getElementById('mapSection');
+
+    if (toggleMapBtn && mapSection) {
+        toggleMapBtn.addEventListener('click', function() {
+            if (mapSection.style.display === 'none') {
+                mapSection.style.display = 'block';
+                toggleMapBtn.innerHTML = '<i class="bi bi-map-fill me-2"></i>Hide Map';
+
+                // Load listings on map
+                const city = "<?= htmlspecialchars($city) ?>";
+                const query = "<?= htmlspecialchars($searchQuery) ?>";
+                const radius = document.getElementById('radiusFilter') ? document.getElementById('radiusFilter').value : 50;
+
+                // Get coordinates from hidden fields
+                const latInput = document.getElementById('searchLat');
+                const lngInput = document.getElementById('searchLng');
+                let lat = null;
+                let lng = null;
+
+                if (latInput && lngInput && latInput.value && lngInput.value) {
+                    lat = parseFloat(latInput.value);
+                    lng = parseFloat(lngInput.value);
+                }
+
+                loadListingsOnMap(city, query, lat, lng, radius);
+            } else {
+                mapSection.style.display = 'none';
+                toggleMapBtn.innerHTML = '<i class="bi bi-map me-2"></i>Show Map';
+            }
+        });
+    }
+});
 </script>
 
 <?php require __DIR__ . '/../app/includes/footer.php'; ?>
-

@@ -177,11 +177,26 @@ try {
     <p class="text-muted">Find trusted PGs, compare amenities, and book with confidence.</p>
 
     <form id="searchForm" class="row g-2 search-bar">
-      <div class="col-md-10 position-relative">
+      <div class="col-md-12 position-relative mb-2">
         <input id="searchInput" class="form-control search-input" placeholder="Search city or location (e.g. Mumbai, near IIT, Kolkata)" autocomplete="off">
         <div id="searchSuggestions" class="search-suggestions" style="display: none;"></div>
+        <!-- Hidden inputs for coordinates -->
+        <input type="hidden" id="searchLat" name="lat">
+        <input type="hidden" id="searchLng" name="lng">
       </div>
-      <div class="col-md-2 d-grid">
+
+      <div class="col-md-8">
+        <select class="form-select" id="radiusFilter" name="radius">
+            <option value="1">1 KM Radius</option>
+            <option value="3">3 KM Radius</option>
+            <option value="5">5 KM Radius</option>
+            <option value="10">10 KM Radius</option>
+            <option value="20">20 KM Radius</option>
+            <option value="50" selected>50 KM Radius</option>
+        </select>
+      </div>
+
+      <div class="col-md-4 d-grid">
         <button class="btn btn-primary">Search</button>
       </div>
     </form>
@@ -200,7 +215,7 @@ try {
 </div>
 
 
-<!-- Map Section (shown separately, full width) -->
+<!-- Map Section (shown separately, full width, hidden initially) -->
 <div id="mapSection" class="mt-4" style="display: none;">
   <div class="card pg">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -765,5 +780,10 @@ try {
     </div>
   </div>
 </div>
+
+<!-- Pass Google Maps API Key to JS -->
+<script>
+    window.GOOGLE_MAPS_API_KEY = "<?= GOOGLE_MAPS_API_KEY ?>";
+</script>
 
 <?php require __DIR__ . '/../app/includes/footer.php'; ?>

@@ -46,38 +46,44 @@ try {
     $db = db();
     
     // Build WHERE clause - require active status
-    // Note: We'll validate coordinates in PHP to handle edge cases (0, empty strings, etc.)
     $where = [
         'l.status = ?'
     ];
     $params = ['active'];
-    
-    // Note: We'll validate coordinates in PHP instead of SQL to avoid issues with DECIMAL comparisons
-    
-    if (!empty($city)) {
-        // Make city search case-insensitive and more flexible
-        // Try exact match first, then partial match
-        $where[] = '(LOWER(TRIM(loc.city)) = LOWER(TRIM(?)) OR LOWER(loc.city) LIKE LOWER(?) OR loc.city LIKE ?)';
-        $cityTrimmed = trim($city);
-        $cityParam = "%{$cityTrimmed}%";
-        $params[] = $cityTrimmed;
-        $params[] = $cityParam;
-        $params[] = $cityParam;
-    }
-    
-    if (!empty($query)) {
-        $where[] = '(l.title LIKE ? OR l.description LIKE ?)';
-        $params[] = "%{$query}%";
-        $params[] = "%{$query}%";
+
+    // If coordinates are provided, we prioritize distance search
+    // We DON'T filter by city/query text strictly if we have coordinates,
+    // because the user selected a specific location (which might not match listing text)
+    if ($lat !== null && $lng !== null) {
+        // We rely on the HAVING distance clause for spatial filtering
+        // We can optionally keep keyword filtering if it's a specific feature search (e.g. "AC"),
+        // but for location search ("Dum Dum"), the coordinates are the truth.
+
+        // However, if the user typed "AC PG" and selected a location, we might want to keep "AC" filter.
+        // But usually the autocomplete input is purely location.
+        // So we skip text filtering here to ensure we show everything nearby.
+    } else {
+        // Text-based filtering only if no coordinates
+        if (!empty($city)) {
+            // Make city search case-insensitive and more flexible
+            $where[] = '(LOWER(TRIM(loc.city)) = LOWER(TRIM(?)) OR LOWER(loc.city) LIKE LOWER(?) OR loc.city LIKE ?)';
+            $cityTrimmed = trim($city);
+            $cityParam = "%{$cityTrimmed}%";
+            $params[] = $cityTrimmed;
+            $params[] = $cityParam;
+            $params[] = $cityParam;
+        }
+
+        if (!empty($query)) {
+            $where[] = '(l.title LIKE ? OR l.description LIKE ?)';
+            $params[] = "%{$query}%";
+            $params[] = "%{$query}%";
+        }
     }
     
     $whereClause = 'WHERE ' . implode(' AND ', $where);
-    
-    // Ensure we have at least one listing location to avoid empty results
-    // Use INNER JOIN to only get listings with valid locations
-    
+
     // Build query with distance calculation if coordinates provided
-    // Ensure coordinates are properly cast to DECIMAL for consistent numeric handling
     if ($lat !== null && $lng !== null) {
         $sql = "SELECT l.id, l.title, l.description, l.cover_image,
                        loc.city, loc.complete_address, 
@@ -99,6 +105,7 @@ try {
                 ORDER BY distance ASC
                 LIMIT 50";
         
+        // Params: [lat, lng, lat, ...where_params..., radius]
         $params = array_merge([$lat, $lng, $lat], $params, [$radius]);
     } else {
         $sql = "SELECT l.id, l.title, l.description, l.cover_image,
@@ -211,24 +218,23 @@ try {
     // Calculate center point
     $centerLat = null;
     $centerLng = null;
-    if (!empty($mapListings)) {
-        if ($lat !== null && $lng !== null) {
-            // Use search location as center
-            $centerLat = $lat;
-            $centerLng = $lng;
-        } else {
-            // Calculate center from listings
-            $sumLat = 0;
-            $sumLng = 0;
-            foreach ($mapListings as $listing) {
-                $sumLat += $listing['lat'];
-                $sumLng += $listing['lng'];
-            }
-            $centerLat = $sumLat / count($mapListings);
-            $centerLng = $sumLng / count($mapListings);
+
+    // If search coordinates are provided, ALWAYS use them as center
+    if ($lat !== null && $lng !== null) {
+        $centerLat = $lat;
+        $centerLng = $lng;
+    } elseif (!empty($mapListings)) {
+        // Calculate center from listings if no search coordinates
+        $sumLat = 0;
+        $sumLng = 0;
+        foreach ($mapListings as $listing) {
+            $sumLat += $listing['lat'];
+            $sumLng += $listing['lng'];
         }
+        $centerLat = $sumLat / count($mapListings);
+        $centerLng = $sumLng / count($mapListings);
     } else {
-        // Default to India center if no listings
+        // Default to India center if no listings and no search coordinates
         $centerLat = 20.5937;
         $centerLng = 78.9629;
     }

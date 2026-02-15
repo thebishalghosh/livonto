@@ -211,6 +211,11 @@ $smtpUsername = getenv('SMTP_USERNAME') ?: '';
 $smtpPassword = getenv('SMTP_PASSWORD') ?: '';
 $smtpEncryption = getenv('SMTP_ENCRYPTION') ?: 'tls';
 
+// Google Maps Configuration
+if (!defined('GOOGLE_MAPS_API_KEY')) {
+    define('GOOGLE_MAPS_API_KEY', getenv('GOOGLE_MAPS_API_KEY') ?: '');
+}
+
 return [
 	'base_url' => $baseUrl,
 	'google_client_id' => $googleClientId,
@@ -224,4 +229,5 @@ return [
 	'smtp_username' => $smtpUsername,
 	'smtp_password' => $smtpPassword,
 	'smtp_encryption' => $smtpEncryption,
+    'google_maps_api_key' => GOOGLE_MAPS_API_KEY
 ];

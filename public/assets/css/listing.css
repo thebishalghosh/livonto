@@ -241,6 +241,40 @@
   display: block;
 }
 
+/* Map Styles */
+#mapSection .card {
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    overflow: hidden;
+}
+
+#mapSection .card-header {
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+}
+
+#mapSection .card-header h5 {
+    color: var(--text);
+}
+
+.map-popup {
+    font-family: var(--font-family);
+}
+
+.map-popup h6 {
+    color: var(--primary);
+}
+
+.map-popup .btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.map-popup .btn-primary:hover {
+    background-color: var(--primary-dark);
+    border-color: var(--primary-dark);
+}
+
 @media (max-width: 768px) {
     .listings-header {
         padding: 1.5rem 0;
@@ -274,4 +308,3 @@
         align-items: flex-start;
     }
 }
-

@@ -232,10 +232,13 @@ $bookingPhones = array_map('trim', explode('|', $bookingEnquiryPhone));
 <!-- Bootstrap JS bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Leaflet JS (for maps) -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
-        crossorigin=""></script>
+<!-- Google Maps API (Loaded globally with ID for detection) -->
+<?php if (defined('GOOGLE_MAPS_API_KEY') && GOOGLE_MAPS_API_KEY): ?>
+<script id="google-maps-script"
+        src="https://maps.googleapis.com/maps/api/js?key=<?= GOOGLE_MAPS_API_KEY ?>&libraries=places,marker&loading=async&v=weekly"
+        async defer>
+</script>
+<?php endif; ?>
 
 <!-- Main JS -->
 <?php 
